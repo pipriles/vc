@@ -346,6 +346,7 @@ tank_tick :: proc() {
 	for &o in game.objects do if o.active && !o.in_box do object_tick(&o)
 	update_render_list()
 	creature_tick(&game.spider)
+	if !game.life.dead do spider_unstick(&game.spider)
 	for &c in game.crickets do creature_tick(&c)
 	spider_hide_crawl(&game.spider)
 	sound_loops()

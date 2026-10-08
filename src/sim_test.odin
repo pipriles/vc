@@ -138,3 +138,28 @@ sim_with_all_objects :: proc(t: ^testing.T) {
 	log.infof("longest queue %d", sim_max_queue)
 	testing.expect(t, variety >= 5, "varied behaviour with objects in the way")
 }
+
+@(test)
+spider_gets_out_of_a_ring_of_objects :: proc(t: ^testing.T) {
+	if !sim_setup(t, 77) do return
+	s := &game.spider
+	s.x, s.y = 600, 320
+	s.prev_x, s.prev_y = s.x, s.y
+	clear_queue(s)
+	creature_update_position(s)
+	// rocks and cacti close round it on four sides
+	ring := [?]struct {id, x, y: int}{{2, 470, 320}, {3, 730, 320}, {6, 600, 230}, {5, 600, 420}, {4, 480, 230}}
+	for r in ring {
+		o := &game.objects[r.id]
+		o.active, o.in_box = true, false
+		o.x, o.y = r.x, r.y
+		object_update_position(o)
+	}
+	max_d := 0
+	for _ in 0 ..< 6000 { // ten minutes
+		tank_step(TICK)
+		max_d = max(max_d, abs(s.x - 600) + abs(s.y - 320))
+	}
+	log.infof("got %d px from the start", max_d)
+	testing.expectf(t, max_d > 150, "still boxed in (%d px at most)", max_d)
+}

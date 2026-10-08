@@ -131,7 +131,25 @@ spider_can_play :: proc(c: ^Creature, seq: int) -> bool {
 	if d.needs_check do return spider_precondition(c, seq)
 	if seq != game.seq.walk do return len(d.frames) > 0
 	b := c.blocks[c.dir]
+	if b.active && b.kind == int(Kind.Object) && now_ms < c.squeeze_until do return true
 	return !b.active && b.kind != BLOCK_WALL
+}
+
+// Port: a spider that hasn't got anywhere for 45 s while objects block at
+// least half of its directions may walk through objects for 10 s. Lurking
+// in the open never triggers it; no random numbers are drawn.
+spider_unstick :: proc(c: ^Creature) {
+	if abs(c.x - c.anchor_x) > 20 || abs(c.y - c.anchor_y) > 20 || c.hide != 0 || c.carried != 0 {
+		c.anchor_x, c.anchor_y, c.anchor_ms = c.x, c.y, now_ms
+		return
+	}
+	if now_ms < c.anchor_ms + 45_000 || now_ms < c.squeeze_until do return
+	n := 0
+	for b in c.blocks[:8] do if b.active && b.kind == int(Kind.Object) do n += 1
+	if n < 4 do return
+	c.squeeze_until = now_ms + 10_000
+	c.anchor_ms = now_ms
+	debug_logf("boxed in (%d directions blocked): squeezing through for 10 s", n)
 }
 
 ROCK_X      :: 0x1a6 // 422: hiding spot behind the rock (minus a size margin)

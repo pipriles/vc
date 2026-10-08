@@ -203,6 +203,13 @@ Table built on the stack at startup (recovered by tracing the stores):
   clamped); the bowl starts half full (frame 2).
 - Objects block creatures: a creature whose facing cell overlaps one is
   put back where it was and its walk ends; the goal steering detours.
+- Port changes, so the spider fits through gaps between objects: object
+  boxes leave out the shadow (colour 49); against objects only the
+  spider's body counts (the middle 60 % of its frame box) and a cell needs
+  a third of its size overlapped (the original: an eighth, a third only
+  while walking to a goal); and a spider that hasn't moved 20 px in 45 s
+  with objects blocking at least 4 of its 8 directions may walk through
+  objects for 10 s.
 - New spider: random facing, then the free-spot search (`place_free`:
   random point, step 50 px right / down until the position update leaves
   it unchanged), then faces the first free direction.

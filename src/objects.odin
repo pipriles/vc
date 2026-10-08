@@ -81,11 +81,14 @@ objects_init :: proc() {
 	}
 }
 
-// Bounds of the non-key pixels of frame 0, in frame coordinates.
+// Bounds of the non-key pixels of frame 0, in frame coordinates. Port:
+// the shadow (colour 49) is left out, so objects block where they're seen
+// (the original counts it).
 content_bounds :: proc(o: ^Object) -> Rect {
 	r := Rect{o.fw, o.fh, -1, -1}
 	for y in 0 ..< o.fh do for x in 0 ..< o.fw {
-		if o.bmp.pixels[y * o.fw + x] == o.key do continue
+		p := o.bmp.pixels[y * o.fw + x]
+		if p == o.key || p == 49 do continue
 		r.left, r.top = min(r.left, x), min(r.top, y)
 		r.right, r.bottom = max(r.right, x), max(r.bottom, y)
 	}

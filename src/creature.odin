@@ -100,6 +100,10 @@ Creature :: struct {
 	goal:               Goal,
 	hide:               int, // hiding state (+0x48): 0 out, 1 hidden, 2..3 coming out
 	web_stuck:          bool, // cricket caught in a web (+0x166)
+	// port: escaping when boxed in by objects (see spider_unstick)
+	anchor_x, anchor_y: int,
+	anchor_ms:          u32,
+	squeeze_until:      u32,
 	pause:              int,         // ticks frozen (+0xf8)
 	tool:               Interaction, // pending player interaction (+0x4c)
 	prev_tool:          Interaction, // (+0x4e)
@@ -503,7 +507,7 @@ creature_update_position :: proc(c: ^Creature) {
 			if !rects_intersect(c.hit, o.hit) do continue
 			if collide_mark(c, o) && collide_respond(c, o) do break
 			// only obstacles stop movement; spiders and crickets react instead
-			passable := o.kind == .Cricket || o.kind == .Spider
+			passable := o.kind == .Cricket || o.kind == .Spider || (o.kind == .Object && now_ms < c.squeeze_until)
 			if !passable && c.carried == 0 && c.blocks[c.dir].active do may_move = false
 		}
 	}
@@ -541,10 +545,20 @@ rects_intersect :: proc "contextless" (a, b: Rect) -> bool {
 // directions 7 0 1 / 6 8 2 / 5 4 3. Returns whether anything was marked.
 collide_mark :: proc(a, b: ^Creature) -> bool {
 	CELL_DIR := [9]int{7, 0, 1, 6, 8, 2, 5, 4, 3}
-	cw, ch := (a.hit.right - a.hit.left) / 3, (a.hit.bottom - a.hit.top) / 3
+	box := a.hit
+	if a.kind == .Spider && b.kind == .Object {
+		// port: against objects only the body counts (the middle 60 % of the
+		// frame box), so the legs may reach over a rock
+		w, h := box.right - box.left, box.bottom - box.top
+		box = {box.left + w / 5, box.top + h / 5, box.right - w / 5, box.bottom - h / 5}
+		if !rects_intersect(box, b.hit) do return false
+	}
+	cw, ch := (box.right - box.left) / 3, (box.bottom - box.top) / 3
 	minw, minh: int
 	switch {
-	case a.kind == .Spider && a.goal.active && b.kind == .Object:
+	case a.kind == .Spider && b.kind == .Object:
+		// a third of a cell, as the original only allows while walking to a
+		// goal (port: always, so narrow gaps are passable)
 		minw, minh = cw / 3, ch / 3
 	case b.kind == .Cricket:
 		minw, minh = cw / 20, ch / 20
@@ -554,7 +568,7 @@ collide_mark :: proc(a, b: ^Creature) -> bool {
 	hit := false
 	for row in 0 ..< 3 {
 		for col in 0 ..< 3 {
-			cell := Rect{a.hit.left + col * cw, a.hit.top + row * ch, 0, 0}
+			cell := Rect{box.left + col * cw, box.top + row * ch, 0, 0}
 			cell.right, cell.bottom = cell.left + cw, cell.top + ch
 			ix := min(cell.right, b.hit.right) - max(cell.left, b.hit.left)
 			iy := min(cell.bottom, b.hit.bottom) - max(cell.top, b.hit.top)
