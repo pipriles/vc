@@ -24,4 +24,5 @@ foreign host {
 	debug_text ::  proc(x, y: i32, text: string, color: u32) ---
 	debug_panel :: proc(text: string) ---
 	debug_log ::   proc(text: string) ---
+	host_sound ::  proc(id: int) --- // WAVE resource id
 }

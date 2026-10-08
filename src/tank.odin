@@ -21,6 +21,16 @@ Game :: struct {
 	rock:     Bitmap, // vcg_4005: cutout of the big rock, drawn over a hiding spider
 	spider_a: Anim,
 	spider:   Creature,
+	cricket_a: Anim,
+	crickets: [CRICKET_COUNT]Creature,
+	cseq:     Cricket_Seq_Ids,
+	render_list: [dynamic]^Creature, // creatures in the tank, drawn back to front
+	remains:  [REMAINS_COUNT]Remains,
+	remains_next: int,
+	remains_bmp: Bitmap, // vcg_4004: 6 cricket remains sprites stacked
+	storage:  int, // crickets in storage, refill the box
+	eaten:    int,
+	pending_drops: int,
 	stats:    Spider_Stats,
 	seq:      Seq_Ids,
 	scroll_x: int,
@@ -48,6 +58,7 @@ tank_init :: proc() -> bool {
 	game.tank = tank
 	state.palette = tank.palette
 	game.rock, _ = bmp_load(load_file("bitmaps/vcg_4005.bmp"))
+	game.remains_bmp, _ = bmp_load(load_file("bitmaps/vcg_4004.bmp"))
 
 	base, ok1 := anim_parse(load_file("spider.idx"), load_file("spider.pix"))
 	if !ok1 do return false
@@ -89,15 +100,32 @@ tank_init :: proc() -> bool {
 	game.stats = {food = 30, water = 30}
 	spider_stats_tick(&game.stats)
 
+	cricket_a, ok3 := anim_parse(load_file("cricket.idx"), load_file("cricket.pix"))
+	if !ok3 do return false
+	game.cricket_a = cricket_a
+	crickets_init()
+	update_render_list()
+
 	game.follow = true
 	game.speed = 1
 	game.scroll_x = clamp(game.spider.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
 	return true
 }
 
+// Creatures in the tank, back to front.
+update_render_list :: proc() {
+	clear(&game.render_list)
+	append(&game.render_list, &game.spider)
+	for &c in game.crickets do if c.active && !c.in_box do append(&game.render_list, &c)
+	slice.sort_by(game.render_list[:], proc(a, b: ^Creature) -> bool {return a.y < b.y})
+}
+
 tank_tick :: proc() {
 	now_ms += 100
+	handle_pending_drops()
+	update_render_list()
 	creature_tick(&game.spider)
+	for &c in game.crickets do creature_tick(&c)
 	if now_ms >= game.sec_ms + 1000 {
 		game.sec_ms = now_ms
 		spider_stats_tick(&game.stats)
@@ -145,12 +173,16 @@ tank_render :: proc() {
 		copy(view[y * VIEW_W:][:VIEW_W], t.pixels[y * t.w + game.scroll_x:][:VIEW_W])
 	}
 
-	// draw creatures back to front
-	list := [?]^Creature{&game.spider}
-	slice.sort_by(list[:], proc(a, b: ^Creature) -> bool {return a.y < b.y})
+	// cricket remains on the sand (0x40ca70)
+	rb := &game.remains_bmp
+	for r in game.remains do if r.used && rb.w > 0 {
+		draw_keyed_part(rb, r.x - game.scroll_x - rb.w / 2, r.y, r.kind * rb.h / 6, rb.h / 6)
+	}
+
 	// shadows of every creature first, then bodies (0x417390, 0x417180)
-	for c in list do draw_creature(c, .Shadow)
-	for c in list do draw_creature(c, .Body)
+	update_render_list()
+	for c in game.render_list do draw_creature(c, .Shadow)
+	for c in game.render_list do draw_creature(c, .Body)
 	if game.spider.y < FLOOR_TOP && game.rock.w > 0 {
 		draw_keyed(&game.rock, ROCK_DRAW_X - game.scroll_x, ROCK_DRAW_Y)
 	}
@@ -208,14 +240,19 @@ draw_creature :: proc(c: ^Creature, pass: Draw_Pass) {
 
 // Blits a bitmap, skipping its top-left colour (0x412600).
 draw_keyed :: proc(b: ^Bitmap, x0, y0: int) {
+	draw_keyed_part(b, x0, y0, 0, b.h)
+}
+
+// Blits rows [sy, sy+h) of a bitmap, skipping its top-left colour.
+draw_keyed_part :: proc(b: ^Bitmap, x0, y0, sy, h: int) {
 	key := b.pixels[0]
-	for y in 0 ..< b.h {
+	for y in 0 ..< h {
 		vy := y0 + y
 		if vy < 0 || vy >= VIEW_H do continue
 		for x in 0 ..< b.w {
 			vx := x0 + x
 			if vx < 0 || vx >= VIEW_W do continue
-			if p := b.pixels[y * b.w + x]; p != key do view[vy * VIEW_W + vx] = p
+			if p := b.pixels[(sy + y) * b.w + x]; p != key do view[vy * VIEW_W + vx] = p
 		}
 	}
 }
@@ -246,6 +283,15 @@ draw_debug :: proc() {
 		debug_line(i32(cx + DIR_DX[d] * 20), i32(cy + DIR_DY[d] * 20),
 			i32(cx + DIR_DX[d] * 40), i32(cy + DIR_DY[d] * 40), 0xff3030)
 	}
+
+	for o in game.render_list {
+		if o == c do continue
+		debug_rect(i32(o.hit.left + sx), i32(o.hit.top), i32(o.hit.right - o.hit.left),
+			i32(o.hit.bottom - o.hit.top), 0x80c0ff)
+		debug_text(i32(o.x + sx - 10), i32(o.hit.top - 3), fmt.tprintf("c%d %s", o.id, seq_name(o, o.seq)), 0x80c0ff)
+	}
+	debug_rect(i32(c.hit.left + sx), i32(c.hit.top), i32(c.hit.right - c.hit.left),
+		i32(c.hit.bottom - c.hit.top), 0xffa040)
 
 	// goal: target, arrival tolerance, path
 	g := &c.goal
@@ -284,6 +330,11 @@ draw_debug :: proc() {
 		fmt.sbprint(&sb, "goal       -\n")
 	}
 	fmt.sbprintf(&sb, "hiding     %d%s\n", c.hide, c.no_clamp ? "  (floor clamp off)" : "")
+	in_box := 0
+	for &cr in game.crickets do if cr.active && cr.in_box do in_box += 1
+	fmt.sbprintf(&sb, "crickets   tank %d  box %d  storage %d  eaten %d%s%s\n",
+		crickets_in_tank(), in_box, game.storage, game.eaten,
+		c.target_id >= 0 ? fmt.tprintf("  target c%d", c.target_id) : "", c.eating ? "  eating" : "")
 	fmt.sbprintf(&sb, "needs      food %d  water %d  health %d  mood %d  temperament %d%s\n",
 		st.food, st.water, st.health, st.mood, st.temperament, st.interacted ? "  touched" : "")
 	fmt.sbprint(&sb, "cooldowns  ")

@@ -38,3 +38,4 @@ debug_line :: proc "contextless" (x0, y0, x1, y1: i32, color: u32) {}
 debug_text :: proc "contextless" (x, y: i32, text: string, color: u32) {}
 debug_panel :: proc "contextless" (text: string) {}
 debug_log :: proc "contextless" (text: string) {}
+host_sound :: proc "contextless" (id: int) {}

@@ -118,6 +118,44 @@ it comes off the queue and needs size > 49, so a young spider walks to the
 front and lurks instead; since GLASS never finishes, its cooldown never
 starts and it keeps going back (faithful to the original logic).
 
+## Crickets and hunting **confirmed**
+- 12 crickets (kind 2) start in the cricket box at x 50–490, y 290–420
+  (box coordinates), base speed 8×6. In the tank: wall margin 80, floor
+  y ≥ 180. Their depth scale uses the *spider's* size.
+- Feeding: in the box view click a cricket (only while < 8 are in the
+  tank), it is carried (PICKUP) and released into the tank (DROP). On
+  release the spider decides (`spider_sees_cricket`): within 350×175 px,
+  if hiding 20% chance it comes out instead; ignores it if
+  food ≥ 65 + rand_n(25); else chases it (goal type 2, CATCH, timeout
+  min(160 − food, 20) s). Web-stuck crickets within 200×140 are always
+  chased (45 s).
+- Cricket idle: turn with probability (rand_n(3)+4)/10, else a random
+  sequence with frames (WEB_STUCK only when stuck). Web-stuck crickets
+  lurk/chirp/struggle and keep calling `spider_sees_cricket`.
+- Collision (`collide_mark`): each creature's hit rect is the frame box,
+  scaled, at the drawn position, split into 3×3 cells mapped to directions
+  `7 0 1 / 6 8 2 / 5 4 3`. Cells overlapping another creature (≥ 1/20 of a
+  cell for crickets) mark that direction slot {active, kind, id}; the
+  creature being chased is marked inactive (never blocks). Spiders and
+  crickets don't block each other; other kinds do (move undone). Walking
+  into anything marked in the facing direction ends the walk after this
+  play.
+- Response (`collide_respond`): spider touching a cricket (not hiding, not
+  eating) drops its goal and queues CATCH towards it (flush, run) — again
+  on every tick of contact. Cricket touching the spider: 50% if idle, flee
+  with JUMP or WALK ×6–8, facing the same way or 2–4 steps round (wraps
+  by 7, sic; the walk uses the spider's WALK id, sic).
+- Chase arrival: when the target shows up in a direction slot → CATCH that
+  way (run). Target gone back to the box → goal ends.
+- CATCH: each frame the cricket is pulled 1/(frames left) of the way to
+  (spider x, spider y + hit height/3). Last frame: cricket in the facing
+  slot, or in the centre slot with the spider on the floor and 80% →
+  eaten: +25 food, crickets-eaten +1, cricket removed (refilled into the
+  box from storage), KILL queued, eating flag, crunch sound 450–452.
+  Otherwise CATCH_RESET and the cricket jumps away (×1–3).
+- KILL finished: eating cleared, cricket remains (vcg_4004, 1 of 6) left at
+  the hit-rect centre (ring of 12), KILL_RESET then CLEAN ×2–3.
+
 ## Rendering **confirmed**
 - Scene is composed into an 8-bit 1200×480 surface; the 640×480 view is a
   window at `scroll_x` (panning moves 20 px per tick).
@@ -202,4 +240,5 @@ Crickets: random sequence with frames in the current direction.
 - Remaining tool cases, idle behaviour loop, hunting (CATCH/KILL/cricket AI).
 - Growth and moulting; death and resurrection; footprints and footstep
   sound (`creature_post_frame`).
-- Tank objects, crickets and hunting (CATCH/KILL), player tools and UI.
+- Tank objects (kind 1), webs, player tools and UI, the cricket box view.
+- Per-minute hunger stalk targets a tank object (`DAT_00454a38`), TBD.

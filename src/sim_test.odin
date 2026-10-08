@@ -30,8 +30,21 @@ sim_run :: proc(t: ^testing.T, ticks: int, check: bool) -> (trace: u64, variety:
 	prev_seq := -1
 	for i in 0 ..< ticks {
 		px, py := c.x, c.y // position when this tick's sequence choice is made
+		if i % 600 == 300 do game.pending_drops += 1 // feed once a simulated minute
 		tank_tick()
-		state := [6]int{c.x, c.y, c.dir, c.seq, c.frame, game.stats.mood}
+		if check {
+			for &cr in game.crickets {
+				if !cr.active || cr.in_box do continue
+				frames := len(cr.anim.seqs[cr.seq].dirs[cr.dir].frames)
+				ok := cr.x >= 80 && cr.x <= TANK_W - 80 && cr.y >= 180 && cr.y < VIEW_H &&
+					frames > 0 && cr.frame >= 0 && cr.frame < frames
+				if !testing.expectf(t, ok, "tick %d: cricket %d bad state x=%d y=%d seq=%s frame=%d/%d",
+					i, cr.id, cr.x, cr.y, seq_name(&cr, cr.seq), cr.frame, frames) {
+					return h, len(seen)
+				}
+			}
+		}
+		state := [7]int{c.x, c.y, c.dir, c.seq, c.frame, game.stats.mood, game.eaten}
 		h = hash.fnv64a(transmute([]u8)state[:], h)
 		seen[c.seq] = true
 		if c.hide == 1 && prev_hide == 0 do sim_hid += 1
@@ -58,7 +71,7 @@ sim_run :: proc(t: ^testing.T, ticks: int, check: bool) -> (trace: u64, variety:
 			case ids.glass:      pre = c.size > 49
 			case ids.log_hide:   pre = px > 629 && px < 651 && py < 174
 			case ids.web_laying: pre = game.stats.food <= 30
-			case ids.catch_:     pre = false // needs a cricket: none in the tank yet
+			case ids.catch_:     pre = c.target_id >= 0
 			}
 			testing.expectf(t, pre, "tick %d: %s started without its precondition (x %d y %d size %d food %d moving %v)",
 				i, c.anim.seqs[c.seq].name, c.x, c.y, c.size, game.stats.food, c.moving_x || c.moving_y)
@@ -77,6 +90,8 @@ sim_invariants_hold :: proc(t: ^testing.T) {
 	log.infof("hid under the rock %d times, came out %d times", sim_hid, sim_came_out)
 	testing.expect(t, sim_hid > 0, "spider hides under the rock")
 	testing.expect(t, sim_came_out > 0, "spider comes back out")
+	log.infof("ate %d crickets, %d in the tank at the end, food %d", game.eaten, crickets_in_tank(), game.stats.food)
+	testing.expect(t, game.eaten > 0, "spider catches and eats crickets")
 }
 
 @(test)

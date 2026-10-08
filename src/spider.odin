@@ -99,8 +99,18 @@ spider_precondition :: proc(c: ^Creature, seq: int) -> bool {
 		return game.stats.food <= rand_n(10) + 20 && rand_n(10) < 7
 	case ids.hair, ids.threat, ids.kill:
 		return true
+	case ids.kill_reset:
+		return c.prev_seq == ids.kill
+	case ids.catch_reset:
+		return c.prev_seq == ids.catch_
+	case ids.catch_:
+		// the target cricket must be within half the spider's hit rect
+		if c.target_id < 0 do return false
+		cr := &game.crickets[c.target_id]
+		return abs(c.x - cr.x) <= (c.hit.right - c.hit.left) / 2 &&
+			abs(c.y - cr.y) <= (c.hit.bottom - c.hit.top) / 2
 	}
-	return false // CATCH etc. need a cricket target
+	return false
 }
 
 // Sequence validity for the idle pick (0x402f40).
@@ -215,6 +225,15 @@ spider_idle_hidden :: proc(c: ^Creature) {
 spider_finished :: proc(c: ^Creature) {
 	ids := &game.seq
 	switch c.seq {
+	case ids.kill:
+		// finished eating: remains, then reset and groom (0x403520)
+		c.eating = false
+		add_remains(c)
+		c.prev_seq = ids.kill
+		enqueue_anim(c, ids.kill_reset, -1, 1, flush = true)
+		plays := rand_n(2) + 2
+		enqueue_anim(c, ids.clean, rand_n(5) + 3, plays)
+		c.target_id = -1
 	case ids.log_hide:
 		// crawled under the rock: teleport behind it
 		clear_goal(c)

@@ -81,6 +81,7 @@ const imports = {
 			log.textContent = debugLines.join("\n");
 			log.scrollTop = log.scrollHeight;
 		},
+		host_sound: (id) => {}, // sound comes later
 		tank_status: (food, water, health, mood, temper, p, n, dir) => {
 			$("status").textContent =
 				`food ${food}  water ${water}  health ${health}  mood ${mood}  temperament ${temper}` +
@@ -132,8 +133,11 @@ function setupTank() {
 		try { localStorage.setItem("vc-debug", on ? "1" : ""); } catch {}
 	};
 	$("debug").onchange = () => setDebug($("debug").checked);
+	$("drop").onclick = () => mem.exports.tank_drop_cricket();
 	addEventListener("keydown", (e) => {
+		if (e.target.tagName === "INPUT" && e.target.type !== "checkbox") return;
 		if (e.key === "d" || e.key === "D") setDebug(!$("debug").checked);
+		if (e.key === "c" || e.key === "C") mem.exports.tank_drop_cricket();
 	});
 	let saved = false;
 	try { saved = localStorage.getItem("vc-debug") === "1"; } catch {}

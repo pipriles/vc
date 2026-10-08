@@ -42,6 +42,7 @@ Goal :: struct {
 	type:                 Goal_Type,
 	x, y:                 int, // target (+0x66, +0x68)
 	seq, dir:             int, // played on arrival (+0x6c, +0x6a)
+	target:               int, // creature id for chase goals (+0x64)
 	timeout_s:            int, // abandon after this many seconds (+0x60), 0 = never
 	start_ms:             u32,
 	detouring:            bool, // walking round an obstacle (+0x6e)
@@ -50,9 +51,28 @@ Goal :: struct {
 	resume_dir, walk_dir: int, // (+0x72, +0x70)
 }
 
+Kind :: enum {
+	Spider  = 0,
+	Object  = 1, // tank objects (TBD)
+	Cricket = 2,
+}
+
+Rect :: struct {
+	left, top, right, bottom: int,
+}
+
 Creature :: struct {
 	anim:               ^Anim,
 	name:               string,
+	kind:               Kind, // (+0xf4)
+	id:                 int,  // index within its kind (+0xf2)
+	active:             bool, // exists (+0x92)
+	in_box:             bool, // cricket still in the cricket box (+0x96)
+	carried:            int,  // 0, 1 = being carried, 2 = just dropped (+0xc8)
+	eating:             bool, // spider eating a cricket (+0x164)
+	target_id:          int,  // cricket being caught (+0x144)
+	hit:                Rect, // current frame box in tank coordinates (+0xd0)
+	prev_x, prev_y:     int,  // position before this tick's move (+0xaa, +0xac)
 	x, y:               int,  // centre in tank coordinates (+0xa6, +0xa8)
 	dir:                int,  // facing 0..7: 0 = up, clockwise (+0x9a)
 	seq, prev_seq:      int,  // (+0x98, +0xbc)
@@ -73,6 +93,7 @@ Creature :: struct {
 	queue_len:          int,
 	goal:               Goal,
 	hide:               int, // hiding state (+0x48): 0 out, 1 hidden, 2..3 coming out
+	web_stuck:          bool, // cricket caught in a web (+0x166)
 	last_played:        []u32, // now_ms when each seq last finished (+0x174 + seq*4)
 	idle:               proc(c: ^Creature), // picks a sequence when the queue is empty
 	finished:           proc(c: ^Creature), // sequence-finished hook (0x403520 for the spider)
@@ -83,7 +104,10 @@ Creature :: struct {
 creature_init :: proc(c: ^Creature, a: ^Anim, x, y, base_sx, base_sy, size: int) {
 	c^ = {}
 	c.anim = a
+	c.active = true
+	c.target_id = -1
 	c.x, c.y = x, y
+	c.prev_x, c.prev_y = x, y
 	c.base_sx, c.base_sy = base_sx, base_sy
 	c.size = size
 	c.dir = 4
@@ -106,7 +130,8 @@ seq_name :: proc "contextless" (c: ^Creature, seq: int) -> string {
 }
 
 seq_has_frames :: proc "contextless" (c: ^Creature, seq, dir: int) -> bool {
-	return seq >= 0 && len(c.anim.seqs[seq].dirs[dir].frames) > 0
+	if seq < 0 || seq >= len(c.anim.seqs) || dir < 0 || dir > 7 do return false
+	return len(c.anim.seqs[seq].dirs[dir].frames) > 0
 }
 
 // Walking that way is refused right after hitting something there.
@@ -121,7 +146,7 @@ dir_blocked :: proc "contextless" (c: ^Creature, d: int) -> bool {
 enqueue_anim :: proc(c: ^Creature, seq, dir, plays: int, flush := false, run := false) {
 	if seq < 0 || seq >= len(c.anim.seqs) || seq == game.seq.circle do return
 	if c.y < FLOOR_TOP && c.hide != 2 do return
-	if flush && c.turn_target < 0 {
+	if flush && c.turn_target < 0 && !c.eating {
 		clear_queue(c)
 		stop_current(c)
 	}
@@ -230,6 +255,7 @@ next_sequence :: proc(c: ^Creature) {
 
 // Per-tick creature step (0x406780): frame advance, then movement.
 creature_tick :: proc(c: ^Creature) {
+	if !c.active || c.in_box do return
 	d := creature_dir(c)
 	if len(d.frames) == 0 {
 		next_sequence(c)
@@ -282,6 +308,7 @@ creature_tick :: proc(c: ^Creature) {
 // Tail of 0x404b20: hiding behind the rock lifts the floor clamp until the
 // creature is back on the floor.
 creature_post_frame :: proc(c: ^Creature) {
+	if c.kind == .Spider do spider_catch_frame(c)
 	if c.hide == 0 {
 		if c.y < FLOOR_TOP do return
 	} else if c.y < FLOOR_TOP {
@@ -293,27 +320,30 @@ creature_post_frame :: proc(c: ^Creature) {
 	c.hide = 0
 }
 
-// Clamps to the tank and derives depth scale and speeds (0x406df0).
+// Clamps to the tank, derives depth scale and speeds, then checks
+// collisions with the other creatures (0x406df0).
 creature_update_position :: proc(c: ^Creature) {
 	for &b in c.blocks {
 		b.ticks -= 1
 		if b.ticks < 1 do b = {}
 	}
 
+	margin, floor := WALL_MARGIN, FLOOR_TOP
+	if c.kind == .Cricket do margin, floor = 80, 180
 	if c.no_clamp {
 		c.y = max(c.y, HIDE_Y)
-		c.x = clamp(c.x, WALL_MARGIN, TANK_W - WALL_MARGIN)
+		c.x = clamp(c.x, margin, TANK_W - margin)
 	} else {
-		if c.x < WALL_MARGIN {
-			c.x = WALL_MARGIN
+		if c.x < margin {
+			c.x = margin
 			for d in ([?]int{5, 6, 7}) do c.blocks[d].kind = BLOCK_WALL
 		}
-		if c.x > TANK_W - WALL_MARGIN {
-			c.x = TANK_W - WALL_MARGIN
+		if c.x > TANK_W - margin {
+			c.x = TANK_W - margin
 			for d in ([?]int{1, 2, 3}) do c.blocks[d].kind = BLOCK_WALL
 		}
-		if c.y < FLOOR_TOP {
-			c.y = FLOOR_TOP
+		if c.y < floor {
+			c.y = floor
 			for d in ([?]int{7, 0, 1}) do c.blocks[d].kind = BLOCK_WALL
 		}
 		// bottom: a third of the drawn height may hang below the view
@@ -323,18 +353,135 @@ creature_update_position :: proc(c: ^Creature) {
 		}
 	}
 
-	// scale% = min(100, y/480 * size + 35), truncated (x87 + _ftol)
-	v := f64(c.y) / f64(VIEW_H) * f64(c.size) + 35
+	// scale% = min(100, y/480 * size + 35), truncated (x87 + _ftol); spiders
+	// and crickets both use the spider's size
+	size := c.kind == .Cricket ? game.spider.size : c.size
+	v := f64(c.y) / f64(VIEW_H) * f64(size) + 35
 	c.scale = int(min(v, 100))
 	// speeds shrink with distance: base / (100 / scale), truncated
 	c.sx = x87_scale_trunc(c.base_sx, c.scale)
 	c.sy = x87_scale_trunc(c.base_sy, c.scale)
+
+	// hit rect: the frame's stored box, scaled, at the drawn position
+	dw, dh := x87_scale_trunc(c.anim.w, c.scale), x87_scale_trunc(c.anim.h, c.scale)
+	d := creature_dir(c)
+	if len(d.frames) > 0 {
+		b := d.frames[clamp(c.frame, 0, len(d.frames) - 1)].box
+		ox, oy := c.x - dw / 2, c.y - dh / 2
+		c.hit = {
+			x87_scale_trunc(int(b[0]), c.scale) + ox, x87_scale_trunc(int(b[1]), c.scale) + oy,
+			x87_scale_trunc(int(b[2]), c.scale) + ox, x87_scale_trunc(int(b[3]), c.scale) + oy,
+		}
+	}
+
+	if c.in_box do return
+	may_move := true
+	if c.kind != .Cricket || !c.web_stuck {
+		for o in game.render_list {
+			if o == c || !o.active || o.in_box do continue
+			if c.kind == .Spider && c.hide != 0 do continue
+			if !rects_intersect(c.hit, o.hit) do continue
+			if collide_mark(c, o) && collide_respond(c, o) do break
+			// only obstacles stop movement; spiders and crickets react instead
+			passable := o.kind == .Cricket || o.kind == .Spider
+			if !passable && c.carried == 0 && c.blocks[c.dir].active do may_move = false
+		}
+	}
+	if !may_move {
+		c.x, c.y = c.prev_x, c.prev_y
+	} else {
+		c.prev_x, c.prev_y = c.x, c.y
+	}
+
+	// walking into something ends the walk after this play
+	fb := c.blocks[c.dir]
+	if (fb.active || (fb.kind != 0 && fb.kind != int(Kind.Cricket))) && (c.moving_x || c.moving_y) {
+		c.plays = min(c.plays, 1)
+	}
+}
+
+rects_intersect :: proc "contextless" (a, b: Rect) -> bool {
+	return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+}
+
+// Marks which of a's 3x3 hit-rect cells overlap b (0x407d00). Cells map to
+// directions 7 0 1 / 6 8 2 / 5 4 3. Returns whether anything was marked.
+collide_mark :: proc(a, b: ^Creature) -> bool {
+	CELL_DIR := [9]int{7, 0, 1, 6, 8, 2, 5, 4, 3}
+	cw, ch := (a.hit.right - a.hit.left) / 3, (a.hit.bottom - a.hit.top) / 3
+	minw, minh: int
+	switch {
+	case a.kind == .Spider && a.goal.active && b.kind == .Object:
+		minw, minh = cw / 3, ch / 3
+	case b.kind == .Cricket:
+		minw, minh = cw / 20, ch / 20
+	case:
+		minw, minh = cw / 8, ch / 8
+	}
+	hit := false
+	for row in 0 ..< 3 {
+		for col in 0 ..< 3 {
+			cell := Rect{a.hit.left + col * cw, a.hit.top + row * ch, 0, 0}
+			cell.right, cell.bottom = cell.left + cw, cell.top + ch
+			ix := min(cell.right, b.hit.right) - max(cell.left, b.hit.left)
+			iy := min(cell.bottom, b.hit.bottom) - max(cell.top, b.hit.top)
+			if ix <= 0 || iy <= 0 || ix < minw || iy < minh do continue
+			d := CELL_DIR[row * 3 + col]
+			is_target := a.goal.active && int(a.goal.type) == int(b.kind) && a.goal.target == b.id
+			if is_target {
+				// the creature being chased never blocks the chaser
+				a.blocks[d] = {active = false, kind = int(b.kind), id = b.id}
+			} else {
+				a.blocks[d] = {active = true, kind = int(b.kind), id = b.id}
+				hit = true
+			}
+			if b.kind == .Cricket && a.kind == .Spider do return hit
+		}
+	}
+	return hit
+}
+
+// What happens when two creatures touch (0x403770): the spider lunges at
+// crickets, crickets may flee from the spider.
+collide_respond :: proc(a, b: ^Creature) -> bool {
+	if a.carried != 0 || b.carried != 0 do return false
+	s := -1
+	for blk, d in a.blocks do if blk.active && blk.id == b.id && blk.kind == int(b.kind) {s = d; break}
+	if s < 0 do return false
+
+	if a.kind == .Spider {
+		if a.hide != 0 do return false
+		if b.kind == .Cricket && !a.eating {
+			if a.goal.active do clear_goal(a)
+			if s == 8 do s = a.dir
+			// re-queued on every tick of contact, as in the original
+			already := a.queue_len > 0 && a.queue[0].seq == game.seq.catch_ && a.queue[0].dir == s
+			enqueue_anim(a, game.seq.catch_, s, 1, flush = true, run = true)
+			a.target_id = b.id
+			if !already do debug_logf("%s touched cricket %d: catch facing %d", a.name, b.id, s)
+			return true
+		}
+	} else if a.kind == .Cricket && b.kind == .Spider && rand_n(10) < 5 && a.queue_len == 0 {
+		dir := a.dir
+		if rand_n(10) >= 5 do dir = a.dir - rand_n(3) - 2
+		if dir < 0 do dir += 7 // sic: the original wraps by 7
+		ids := &game.cseq
+		if rand_n(10) < 5 {
+			enqueue_anim(a, ids.jump, dir, rand_n(3) + 6, flush = true, run = true)
+		} else {
+			// sic: the original queues the spider's WALK id (1), which is also
+			// the cricket's WALK
+			enqueue_anim(a, game.seq.walk, dir, rand_n(3) + 6, flush = true, run = true)
+		}
+	}
+	return false
 }
 
 // --- goals: walk to a target, then play a sequence ---------------------
 
-// move_to_then_anim (0x40bdd0). x/y < 0 keep the current draw position.
-move_to :: proc(c: ^Creature, type: Goal_Type, x, y, dir, seq, timeout_s: int) {
+// move_to_then_anim (0x40bdd0). x/y < 0 keep the current draw position;
+// target is a creature id for chase goals.
+move_to :: proc(c: ^Creature, type: Goal_Type, x, y, dir, seq, timeout_s: int, target := -1) {
 	if c.hide != 0 || c.y < FLOOR_TOP do return
 	if c.goal.active && c.goal.seq == game.seq.log_hide do return
 	w, h := x87_scale_trunc(c.anim.w, c.scale), x87_scale_trunc(c.anim.h, c.scale)
@@ -347,6 +494,7 @@ move_to :: proc(c: ^Creature, type: Goal_Type, x, y, dir, seq, timeout_s: int) {
 		dir       = dir,
 		timeout_s = timeout_s,
 		start_ms  = now_ms,
+		target    = target,
 	}
 	if seq != game.seq.kill do stop_current(c)
 	debug_logf("%s goal: %v to (%d, %d) then %s", c.name, type, c.goal.x, c.goal.y, seq_name(c, seq))
@@ -360,7 +508,13 @@ clear_goal :: proc(c: ^Creature) {
 goal_check :: proc(c: ^Creature) -> bool {
 	g := &c.goal
 	if g.detouring do return false
-	g.x = clamp(g.x, WALL_MARGIN, TANK_W - WALL_MARGIN) // (0x40bf10)
+	run := false
+	// follow the target (0x40bf10)
+	if g.type == .Creature_B && g.target >= 0 {
+		cr := &game.crickets[g.target]
+		g.x, g.y = cr.x, cr.y
+	}
+	g.x = clamp(g.x, WALL_MARGIN, TANK_W - WALL_MARGIN)
 	if g.timeout_s != 0 && now_ms > g.start_ms + u32(g.timeout_s) * 1000 {
 		debug_logf("%s goal timed out", c.name)
 		clear_goal(c)
@@ -372,6 +526,22 @@ goal_check :: proc(c: ^Creature) -> bool {
 	gy := g.type == .X_Band ? c.y : g.y
 	arrived := false
 	#partial switch g.type {
+	case .Creature_B:
+		// arrives when collision marks the chased cricket in a direction slot
+		cr := &game.crickets[g.target]
+		if !cr.active || cr.in_box {
+			arrived = true
+			g.seq = -1
+		} else {
+			for b, d in c.blocks[:8] {
+				if b.kind == int(Kind.Cricket) && b.id == g.target {
+					g.dir = d
+					run = true
+					arrived = true
+					break
+				}
+			}
+		}
 	case .Point, .Cursor:
 		arrived = abs(c.x - gx) <= tx / 2 && abs(c.y - gy) <= ty / 2
 	case .Y_Band:
@@ -386,7 +556,7 @@ goal_check :: proc(c: ^Creature) -> bool {
 		return false
 	}
 	debug_logf("%s arrived at goal", c.name)
-	if g.seq >= 0 do enqueue_anim(c, g.seq, g.dir, 1, flush = true)
+	if g.seq >= 0 do enqueue_anim(c, g.seq, g.dir, 1, flush = true, run = run)
 	clear_goal(c)
 	return true
 }
