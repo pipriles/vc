@@ -70,7 +70,7 @@ UI :: struct {
 	cell_corners: Bitmap, // vcg_2009: object panel cell corners
 	// The logo cycles all shown -> indicators only (buttons slide down) ->
 	// nothing (indicators slide up) -> all (indicators slide down, buttons
-	// appear) (0x418e..; slide in main update 0x40ca70).
+	// slide up) (0x418e..; slide in main update 0x40ca70).
 	shown:        bool, // buttons on (0x44d9c0)
 	icons_only:   bool, // indicators stay while the buttons are off (0x44d9c2)
 	cycle:        int,  // (0x44cb4c)
@@ -242,7 +242,8 @@ ui_draw :: proc() {
 			draw_button(&b, BUTTON_Y, i == u.pressed ? PRESSED_SCALE : 100)
 			if i == u.hover do ui_text(b.x, BUTTON_Y - 16, button_tip(b.cmd))
 		}
-	} else if u.slide != 0 && u.icons_only {
+	} else if (u.slide == 1 && u.icons_only) || u.slide == 2 {
+		// (the original pops the buttons in at the end; they slide in here)
 		for &b in u.buttons do draw_button(&b, u.btn_y, 100)
 	}
 }

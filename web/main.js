@@ -47,9 +47,14 @@ const sound = {
 	ch: [null, null, null, null], // {id, src, end, loop}
 	loops: new Map(), // id -> wanted on
 	on: true,
+	volume: 1,
+	gain: null,
 	unlock() {
 		if (this.ctx) return;
 		this.ctx = new AudioContext();
+		this.gain = this.ctx.createGain();
+		this.gain.gain.value = this.volume;
+		this.gain.connect(this.ctx.destination);
 		for (const id of manifest.sounds ?? []) {
 			fetch(`${base}sounds/${id}.wav`).then((r) => r.arrayBuffer())
 				.then((b) => this.ctx.decodeAudioData(b))
@@ -65,7 +70,7 @@ const sound = {
 		const src = this.ctx.createBufferSource();
 		src.buffer = buf;
 		src.loop = loop;
-		src.connect(this.ctx.destination);
+		src.connect(this.gain);
 		src.start();
 		this.ch[chan] = { id, src, end: this.ctx.currentTime + buf.duration, loop };
 	},
@@ -88,6 +93,10 @@ const sound = {
 		const chan = id === 465 ? 1 : 2;
 		if (on && this.on) this.start(chan, id, true);
 		else if (this.ch[chan]?.id === id) this.stop(chan);
+	},
+	setVolume(v) {
+		this.volume = v;
+		if (this.gain) this.gain.gain.value = v;
 	},
 	setOn(on) {
 		this.on = on;
@@ -358,6 +367,18 @@ function setupTank() {
 		sound.play(400);
 		try { localStorage.setItem("vc-sound", $("sound").checked ? "on" : "off"); } catch {}
 	};
+
+	// volume, 0-100 %
+	let volume = 100;
+	try { volume = +(localStorage.getItem("vc-volume") ?? 100); } catch {}
+	if (!Number.isFinite(volume)) volume = 100;
+	$("volume").value = volume;
+	sound.setVolume(volume / 100);
+	$("volume").oninput = () => {
+		sound.setVolume($("volume").value / 100);
+		try { localStorage.setItem("vc-volume", $("volume").value); } catch {}
+	};
+	$("volume").onchange = () => { sound.unlock(); sound.play(400); };
 
 	// pet name (kept in this browser until saving exists)
 	const setName = (name) => {

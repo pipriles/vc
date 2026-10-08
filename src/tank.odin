@@ -284,6 +284,12 @@ tank_tick :: proc() {
 	if now_ms >= game.sec_ms + 1000 {
 		game.sec_ms = now_ms
 		spider_stats_tick(&game.stats)
+		// The original only checks this in the start-up catch-up, so a
+		// spider starving while the program runs lingered at health 0 until
+		// the next start; here it dies when it happens.
+		if game.stats.health < 1 && !game.life.dead {
+			spider_dies(&game.spider, host_time()) // (the yucca wilts at the next minute)
+		}
 	}
 	// edge scrolling, 20 px a tick (wnd_proc_main timer)
 	if game.scroll_left > 0 {

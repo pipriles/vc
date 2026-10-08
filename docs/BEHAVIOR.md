@@ -274,7 +274,8 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   (white glyphs on black, A–Z 0–9, offsets at 0x431248). The logo (bottom
   right) cycles three states: all shown → indicators only (the buttons
   slide down 10 px a tick) → nothing (the indicators slide up 14 px a
-  tick) → all (the indicators slide down, the buttons appear at the end).
+  tick) → all (the indicators slide down, the buttons appear at the end;
+  the port slides them up instead).
   Each slide lasts 7 ticks; buttons stay clickable until it ends.
 - Close-up (button 0): the spider's 320×200 canvas box, clamped to the
   tank, stretched to the view; any click returns.
@@ -344,7 +345,9 @@ comes back after ≥ 3 minutes):
 - Health is min(food, water) + 1 once either is below 41, and 0 below 2,
   so the spider dies when food or water reaches 0. From 30/30 untended:
   about 28–30 hours. The original only checks this in the catch-up, so a
-  spider starving while the program runs dies at the next start.
+  spider starving while the program runs dies at the next start. The port
+  checks every second as well, so the spider dies (and the notice shows)
+  when it happens.
 - Dead: lies on its DEAD frame (the first direction after 0 that has
   frames), no needs, no tools, no hunting; "YOUR CREATURE HAS DIED!" after
   a few seconds.

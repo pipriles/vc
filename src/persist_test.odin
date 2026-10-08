@@ -100,3 +100,15 @@ eats_tank_crickets_while_away :: proc(t: ^testing.T) {
 	log.infof("ate %d crickets while away, food %d", game.eaten - before, game.stats.food)
 	testing.expect(t, game.eaten > before, "hungry spider eats crickets in the tank")
 }
+
+@(test)
+starving_while_running_dies :: proc(t: ^testing.T) {
+	if !sim_setup(t, 5) do return
+	defer game.life = {} // later tests share the globals
+	game.stats.food, game.stats.water = 0, 0
+	for _ in 0 ..< 30 do tank_step(TICK)
+	testing.expect(t, game.life.dead, "dies when health reaches 0")
+	testing.expect(t, game.life.death_notice > 0, "the notice is pending")
+	for _ in 0 ..< 40 do tank_step(TICK)
+	testing.expect_value(t, last_message, "YOUR CREATURE HAS DIED!")
+}
