@@ -461,11 +461,10 @@ Crickets: random sequence with frames in the current direction.
   (`move_to_then_anim(…, 0x280, 0xaa, …, LOG_HIDE, 0x78)`).
 - Remaining cases (2..5) to be decoded.
 
-## Open questions
-- Remaining tool cases, idle behaviour loop, hunting (CATCH/KILL/cricket AI).
-- Growth and moulting; death and resurrection; footprints and footstep
-  sound (`creature_post_frame`).
-- Tank objects (kind 1), webs, player tools and UI, the cricket box view.
-- Bell ringing (what sets the swing count), yucca growth start state,
-  fountain as a water source.
-- The UI sliding in/out when toggled (the port toggles instantly).
+## Not yet ported
+- Options: Freeze Simulation (" - SIMULATION FROZEN - " overlay, needs and
+  time stop), Frame Rate (10 / 14 / 18 fps), Full Screen.
+- Help: the F1 help mode, help text pages, credits.
+- With the UI hidden, the tools command shows the tools button alone for
+  50 ticks (0x4514b8); the key path that sends it isn't decoded.
+- The screensaver (VC_SCR) and its preview window.
