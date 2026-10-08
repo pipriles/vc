@@ -9,6 +9,7 @@ BUTTON_X0     :: 20  // (640 - 0x208) / 2 - 40
 BUTTON_GAP    :: 4
 INDICATOR_X   :: 342 // 0x156
 INDICATOR_Y   :: 13  // 0x55 minus the mood gauge's frame height
+INDICATOR_B   :: 85  // 0x55: bottom of the indicators when shown
 RING_FRAMES   :: 14
 PRESSED_SCALE :: 70
 
@@ -67,7 +68,15 @@ UI :: struct {
 	ring:         Bitmap, // vc_320: spins round the hovered button
 	gauges:       [4]Bitmap, // mood (1000), health (1003), water (1002), food (1001)
 	cell_corners: Bitmap, // vcg_2009: object panel cell corners
-	hidden:       bool,   // buttons and indicators off (toggled by the logo)
+	// The logo cycles all shown -> indicators only (buttons slide down) ->
+	// nothing (indicators slide up) -> all (indicators slide down, buttons
+	// appear) (0x418e..; slide in main update 0x40ca70).
+	shown:        bool, // buttons on (0x44d9c0)
+	icons_only:   bool, // indicators stay while the buttons are off (0x44d9c2)
+	cycle:        int,  // (0x44cb4c)
+	slide:        int,  // 0 none, 1 out, 2 in (0x44df64)
+	slide_t:      int,  // ticks left (0x4560fe)
+	ind_y, btn_y: int,  // indicator bottom and button row while sliding (0x454710, 0x4525e6)
 	logo_hover:   bool,
 	font:         Bitmap, // vcg_2008: A-Z, 0-9
 	logo:         Anim,
@@ -104,11 +113,49 @@ ui_init :: proc() {
 	u.font = assets.font
 	u.logo = assets.logo
 	u.hover, u.pressed = -1, -1
+	u.shown, u.cycle = true, 1
+}
+
+// The logo was clicked.
+ui_toggle :: proc() {
+	u := &game.ui
+	u.cycle += 1
+	u.slide_t = 6
+	if u.cycle == 1 && u.icons_only {
+		u.icons_only, u.cycle = false, 0
+	} else if u.cycle > 1 {
+		u.icons_only, u.cycle = true, 0
+	}
+	if u.cycle == 0 {
+		u.slide, u.ind_y, u.btn_y = 1, INDICATOR_B, BUTTON_Y
+	} else {
+		u.slide, u.ind_y, u.btn_y = 2, 0, VIEW_H
+	}
+	// 14 px a tick for the indicators, (480 - 420) / 6 for the buttons
+	host_sound(400)
+}
+
+ui_slide_tick :: proc() {
+	u := &game.ui
+	if u.slide == 0 do return
+	u.slide_t -= 1
+	if u.slide_t < 0 {
+		u.shown = u.slide != 1
+		u.slide = 0
+	}
+	if u.slide == 1 {
+		u.ind_y -= 14
+		u.btn_y += 10
+	} else {
+		u.ind_y += 14
+		u.btn_y -= 10
+	}
 }
 
 ui_tick :: proc() {
 	u := &game.ui
 	u.blink = (u.blink + 1) % 11
+	ui_slide_tick()
 	u.ring_count += 1
 	if u.ring_count > 3 {
 		u.ring_count = 0
@@ -141,7 +188,7 @@ over_logo :: proc(vx, vy: int) -> bool {
 ui_pointer :: proc(ev: Pointer_Event, vx, vy: int) -> bool {
 	u := &game.ui
 	if game.input.carry != .None do return false
-	b := u.hidden ? -1 : button_at(vx, vy)
+	b := u.shown ? button_at(vx, vy) : -1
 	u.hover = b
 	u.logo_hover = over_logo(vx, vy)
 	#partial switch ev {
@@ -152,9 +199,7 @@ ui_pointer :: proc(ev: Pointer_Event, vx, vy: int) -> bool {
 			return true
 		}
 		if u.logo_hover {
-			// the logo toggles the buttons and icons
-			u.hidden = !u.hidden
-			host_sound(400)
+			ui_toggle()
 			return true
 		}
 	case .Up:
@@ -181,13 +226,44 @@ ui_draw :: proc() {
 
 	ui_draw_logo()
 	if u.logo_hover do ui_text(LOGO_X - 120, LOGO_Y - 16, "Toggle display of buttons and icons.")
-	if u.hidden do return
-
 	// needs: mood gauge (frame = temperament), then health, water, food
+	iy := u.slide != 0 ? u.ind_y : u.shown ? INDICATOR_B : 0
+	if u.icons_only do iy = INDICATOR_B
+	if iy >= 1 do draw_indicators(iy)
+
+	// button row with the ring round the hovered button
+	if u.slide == 0 && u.shown {
+		for &b, i in u.buttons {
+			if i == u.hover && u.ring.w > 0 {
+				rh := u.ring.h / RING_FRAMES
+				draw_keyed_part(&u.ring, b.x + (b.fw - u.ring.w) / 2, BUTTON_Y + (b.fh - rh) / 2,
+					u.ring_frame * rh, rh)
+			}
+			draw_button(&b, BUTTON_Y, i == u.pressed ? PRESSED_SCALE : 100)
+			if i == u.hover do ui_text(b.x, BUTTON_Y - 16, button_tip(b.cmd))
+		}
+	} else if u.slide != 0 && u.icons_only {
+		for &b in u.buttons do draw_button(&b, u.btn_y, 100)
+	}
+}
+
+draw_button :: proc(b: ^UI_Button, y, scale: int) {
+	frame := 0
+	switch b.cmd {
+	case 4: frame = int(game.input.tool)
+	case 2: frame = game.follow ? 0 : 1
+	}
+	draw_scaled_part(&b.bmp, b.x, y, b.fw, b.fh, frame * b.fh, scale)
+}
+
+// The four indicators with their bottom at y (0x40e990).
+draw_indicators :: proc(y: int) {
+	u := &game.ui
 	st := &game.stats
 	g := &u.gauges[0]
 	gh := g.h / 8
-	draw_keyed_part(g, INDICATOR_X, INDICATOR_Y, clamp(st.temperament, 0, 7) * gh, gh)
+	top := y - gh
+	draw_keyed_part(g, INDICATOR_X, top, clamp(st.temperament, 0, 7) * gh, gh)
 	tip_x := 0
 	x := INDICATOR_X + 4 + g.w
 	values := [3]int{st.health, st.water, st.food}
@@ -199,8 +275,8 @@ ui_draw :: proc() {
 	}
 	px, py := game.input.vx, game.input.vy
 	if game.input.inside && px > INDICATOR_X + 10 && px < INDICATOR_X + g.w - 10 &&
-	   py > INDICATOR_Y + 5 && py < INDICATOR_Y + gh - 5 {
-		ui_text(INDICATOR_X, INDICATOR_Y + gh + 2, tips[0])
+	   py > top + 5 && py < top + gh - 5 {
+		ui_text(INDICATOR_X, top + gh + 2, tips[0])
 	}
 	for v, i in values {
 		b := &u.gauges[i + 1]
@@ -208,32 +284,15 @@ ui_draw :: proc() {
 		frame := (v - 1) / 10
 		if v < 31 && u.blink < 5 do frame = 0 // low: blink
 		frame = clamp(frame, 0, 9)
-		if v > 9 || u.blink > 4 do draw_keyed_part(b, x, INDICATOR_Y, frame * fh, fh)
+		if v > 9 || u.blink > 4 do draw_keyed_part(b, x, top, frame * fh, fh)
 		if game.input.inside && px > x + 12 && px < x + b.w - 12 &&
-		   py > INDICATOR_Y + 5 && py < INDICATOR_Y + fh - 5 {
-			ui_text(x - 200, INDICATOR_Y + fh + 2, tips[i + 1])
+		   py > top + 5 && py < top + fh - 5 {
+			ui_text(x - 200, top + fh + 2, tips[i + 1])
 		}
 		x += b.w + 4
 		tip_x = x
 	}
 	_ = tip_x
-
-	// button row with the ring round the hovered button
-	for &b, i in u.buttons {
-		if i == u.hover && u.ring.w > 0 {
-			rh := u.ring.h / RING_FRAMES
-			draw_keyed_part(&u.ring, b.x + (b.fw - u.ring.w) / 2, BUTTON_Y + (b.fh - rh) / 2,
-				u.ring_frame * rh, rh)
-		}
-		frame := 0
-		switch b.cmd {
-		case 4: frame = int(game.input.tool)
-		case 2: frame = game.follow ? 0 : 1
-		}
-		scale := i == u.pressed ? PRESSED_SCALE : 100
-		draw_scaled_part(&b.bmp, b.x, BUTTON_Y, b.fw, b.fh, frame * b.fh, scale)
-		if i == u.hover do ui_text(b.x, BUTTON_Y - 16, button_tip(b.cmd))
-	}
 }
 
 // Animated VC logo, bottom right (logo creature 0x455ac0).

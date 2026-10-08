@@ -267,7 +267,10 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   ((value−1)/10); below 31 they blink on frame 0, below 10 they vanish on
   alternate blinks. Pet name at (10, 10) in the bitmap font vcg_2008
   (white glyphs on black, A–Z 0–9, offsets at 0x431248). The logo (bottom
-  right) toggles the buttons and icons.
+  right) cycles three states: all shown → indicators only (the buttons
+  slide down 10 px a tick) → nothing (the indicators slide up 14 px a
+  tick) → all (the indicators slide down, the buttons appear at the end).
+  Each slide lasts 7 ticks; buttons stay clickable until it ends.
 - Close-up (button 0): the spider's 320×200 canvas box, clamped to the
   tank, stretched to the view; any click returns.
 - Whole tank (button 1, switches to the pick-up tool): the tank scaled to

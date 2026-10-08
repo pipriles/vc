@@ -42,6 +42,7 @@ Save :: struct {
 	remains_next:       int,
 	born_at, died_at:   f64, // unix seconds, died_at 0 while alive
 	ui_hidden, follow:  bool,
+	ui_icons_only:      bool,
 	tool:               int,
 	footprints:         [FOOTPRINT_COUNT]Footprint,
 	footprint_next:     int,
@@ -87,7 +88,8 @@ make_save :: proc() -> Save {
 	sv.resurrections = game.life.resurrections
 	sv.remains, sv.remains_next = game.remains, game.remains_next
 	sv.born_at, sv.died_at = game.life.born_at, game.life.died_at
-	sv.ui_hidden, sv.follow = game.ui.hidden, game.follow
+	sv.ui_hidden, sv.follow = !game.ui.shown, game.follow
+	sv.ui_icons_only = game.ui.icons_only
 	sv.tool = int(game.input.tool)
 	sv.footprints, sv.footprint_next = game.footprints, game.footprint_next
 	sv.webs, sv.web_next = game.webs, game.web_next
@@ -130,7 +132,10 @@ apply_save :: proc(sv: ^Save) {
 	game.life.resurrections = sv.resurrections
 	game.remains, game.remains_next = sv.remains, sv.remains_next % REMAINS_COUNT
 	game.life.born_at, game.life.died_at = sv.born_at, sv.died_at
-	game.ui.hidden, game.follow = sv.ui_hidden, sv.follow
+	game.ui.shown, game.follow = !sv.ui_hidden, sv.follow
+	game.ui.icons_only = sv.ui_icons_only && sv.ui_hidden
+	game.ui.cycle = game.ui.shown ? 1 : 0
+	game.ui.slide = 0
 	game.input.tool = Tool(clamp(sv.tool, 0, TOOL_COUNT - 1))
 	game.footprints, game.footprint_next = sv.footprints, sv.footprint_next % FOOTPRINT_COUNT
 	game.webs, game.web_next = sv.webs, sv.web_next % WEB_PIECES
