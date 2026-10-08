@@ -10,7 +10,7 @@
 0x4201a0 rand                  # MSVC LCG: seed = seed*0x343FD + 0x269EC3; (seed>>16)&0x7FFF
 0x414700 enqueue_anim          # (creature, seq, dir (8 = keep facing), p4, p5 flush?, p6)
 0x401420 spider_react_tool     # reaction to player tool, mood +-3, 2.5 s cooldown
-0x40bdd0 move_to_then_anim     # tentative: (creature, ?, ?, x, y, ?, seq, ?)
+0x40bdd0 move_to_then_anim     # (c, target creature, goal type, x, y, arrival dir, seq, timeout s)
 0x420190 srand
 0x4205e0 time
 0x401000 adjust_stat           # (c, op 0 add/1 sub, stat 0 water/1 food, amount), clamp 0..100
@@ -31,6 +31,18 @@
 0x403000 seq_precondition
 0x408170 turn_towards
 0x4081c0 turn_step             # one CIRCLE play, 100 = ccw, 101 = cw
+0x40c6a0 goal_check            # arrival test, every frame while a goal is active
+0x40c120 goal_step             # next walking leg towards the goal, with detours
+0x40bf10 goal_update_target    # follow target creature, clamp x, timeout
+0x40ca40 clear_goal
+0x405900 stop_current          # let the current play finish
+0x414a30 clear_anim_queue
+0x404600 sequence_play_done    # repeats, ping-pong; returns 1 when all plays done
+0x404b20 creature_post_frame   # footprints, footstep sound, hiding clamp state
+0x403520 spider_seq_finished   # KILL, LOG_HIDE (teleport behind rock), CLEAN/WEB_LAYING repeats
+0x4057b0 spider_post_draw      # ..., rock overlay when y < 170
+0x417390 blit_shadow           # copies only key2 (shadow colour) pixels, before bodies
+0x412600 blit_keyed            # bitmap blit skipping its top-left colour
 
 # --- globals
 0x44dc80 spider                # creature struct (0x274 bytes)
@@ -40,6 +52,7 @@
 0x4514b4 view_h
 0x4514b6 view_w
 0x44f780 tank_surface          # 8-bit DIB the scene is composed into
+0x454a40 rock_overlay          # vcg_4005, drawn at (330, 84)
 0x432658 rand_seed
 0x44defc now_ms                # GetTickCount() sampled each tick
 

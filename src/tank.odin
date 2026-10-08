@@ -2,6 +2,7 @@ package vc
 
 import "core:fmt"
 import "core:slice"
+import "core:strings"
 
 // The terrarium: 1200x480 tank seen through a 640x480 viewfinder.
 
@@ -12,8 +13,12 @@ Seq_Ids :: struct {
 	pickup, drop, catch_, catch_reset, kill, kill_reset, log_hide, web_laying, dead: int,
 }
 
+ROCK_DRAW_X :: 0x14a // 330: rock overlay position in the tank (0x4057b0)
+ROCK_DRAW_Y :: 0x54  // 84
+
 Game :: struct {
 	tank:     Bitmap,
+	rock:     Bitmap, // vcg_4005: cutout of the big rock, drawn over a hiding spider
 	spider_a: Anim,
 	spider:   Creature,
 	stats:    Spider_Stats,
@@ -27,12 +32,14 @@ Game :: struct {
 
 game: Game
 now_ms: u32 // simulation clock, advanced 100 ms per tick
+debug_enabled: bool
 
 frame_buf: [MAX_W * MAX_H]u8
 view: [VIEW_W * VIEW_H]u8 // palette indices
 view_rgba: [VIEW_W * VIEW_H * 4]u8
 
 tank_init :: proc() -> bool {
+	game = {}
 	tank, ok := bmp_load(load_file("bitmaps/vcg_4500.bmp"))
 	if !ok {
 		fmt.eprintln("missing tank bitmap")
@@ -40,6 +47,7 @@ tank_init :: proc() -> bool {
 	}
 	game.tank = tank
 	state.palette = tank.palette
+	game.rock, _ = bmp_load(load_file("bitmaps/vcg_4005.bmp"))
 
 	base, ok1 := anim_parse(load_file("spider.idx"), load_file("spider.pix"))
 	if !ok1 do return false
@@ -73,6 +81,9 @@ tank_init :: proc() -> bool {
 	// new spider (0x406680 call in the setup path): x 100, y 300, speed 5x3, size 40
 	creature_init(&game.spider, a, 100, 300, 5, 3, 40)
 	game.spider.idle = spider_idle
+	game.spider.finished = spider_finished
+	game.spider.can_play = spider_can_play
+	game.spider.name = "spider"
 	game.spider.seq = game.seq.lurk
 	start_sequence(&game.spider)
 	game.stats = {food = 30, water = 30}
@@ -123,6 +134,11 @@ tank_set_speed :: proc "contextless" (speed: f64) {
 	game.speed = speed
 }
 
+@(export)
+tank_set_debug :: proc "contextless" (on: i32) {
+	debug_enabled = on != 0
+}
+
 tank_render :: proc() {
 	t := &game.tank
 	for y in 0 ..< VIEW_H {
@@ -132,7 +148,12 @@ tank_render :: proc() {
 	// draw creatures back to front
 	list := [?]^Creature{&game.spider}
 	slice.sort_by(list[:], proc(a, b: ^Creature) -> bool {return a.y < b.y})
-	for c in list do draw_creature(c)
+	// shadows of every creature first, then bodies (0x417390, 0x417180)
+	for c in list do draw_creature(c, .Shadow)
+	for c in list do draw_creature(c, .Body)
+	if game.spider.y < FLOOR_TOP && game.rock.w > 0 {
+		draw_keyed(&game.rock, ROCK_DRAW_X - game.scroll_x, ROCK_DRAW_Y)
+	}
 
 	for i in 0 ..< VIEW_W * VIEW_H {
 		col := state.palette[view[i]]
@@ -142,6 +163,7 @@ tank_render :: proc() {
 		view_rgba[4 * i + 3] = 255
 	}
 	present(&view_rgba[0], VIEW_W, VIEW_H)
+	if debug_enabled do draw_debug()
 	s := &game.stats
 	tank_status(
 		i32(s.food), i32(s.water), i32(s.health), i32(s.mood), i32(s.temperament),
@@ -149,11 +171,14 @@ tank_render :: proc() {
 	)
 }
 
-// Draws the frame scaled to scale% around the creature's centre (blit at
-// 0x417180: frame canvas centred on (x, y), keys skipped). The shadow
-// colour (key2) is skipped by that blit; the original draws shadows in a
-// separate pass not decoded yet, approximated here by darkening.
-draw_creature :: proc(c: ^Creature) {
+Draw_Pass :: enum {
+	Shadow, // only the shadow colour (key2), drawn solid
+	Body,   // everything except the key and the shadow colour
+}
+
+// Draws the frame scaled to scale% (StretchBlt, nearest) with its canvas
+// centred on the creature (0x417390 shadow pass, 0x417180 body pass).
+draw_creature :: proc(c: ^Creature, pass: Draw_Pass) {
 	a := c.anim
 	s := &a.seqs[c.seq]
 	d := &s.dirs[c.dir]
@@ -175,30 +200,96 @@ draw_creature :: proc(c: ^Creature) {
 			vx := x0 + i
 			if vx < 0 || vx >= VIEW_W do continue
 			p := frame_buf[sy * a.w + i * a.w / dw]
-			if p == a.key do continue
-			dst := &view[vy * VIEW_W + vx]
-			if p == d.key2 {
-				dst^ = shade[dst^]
-			} else {
-				dst^ = p
-			}
+			if p == a.key || (p == d.key2) != (pass == .Shadow) do continue
+			view[vy * VIEW_W + vx] = p
 		}
 	}
 }
 
-// Darkened palette lookup for the approximate shadow pass.
-shade: [256]u8
-
-build_shade_table :: proc() {
-	for c, i in state.palette {
-		want := [3]int{int(c[0]) * 55 / 100, int(c[1]) * 55 / 100, int(c[2]) * 55 / 100}
-		best, best_d := 0, max(int)
-		for p, j in state.palette {
-			d0, d1, d2 := int(p[0]) - want[0], int(p[1]) - want[1], int(p[2]) - want[2]
-			if dist := d0 * d0 + d1 * d1 + d2 * d2; dist < best_d {
-				best, best_d = j, dist
-			}
+// Blits a bitmap, skipping its top-left colour (0x412600).
+draw_keyed :: proc(b: ^Bitmap, x0, y0: int) {
+	key := b.pixels[0]
+	for y in 0 ..< b.h {
+		vy := y0 + y
+		if vy < 0 || vy >= VIEW_H do continue
+		for x in 0 ..< b.w {
+			vx := x0 + x
+			if vx < 0 || vx >= VIEW_W do continue
+			if p := b.pixels[y * b.w + x]; p != key do view[vy * VIEW_W + vx] = p
 		}
-		shade[i] = u8(best)
 	}
+}
+
+// Debug overlay: geometry on the view plus a text panel (drawn by JS).
+draw_debug :: proc() {
+	DIR_DX := [8]int{0, 1, 1, 1, 0, -1, -1, -1}
+	DIR_DY := [8]int{-1, -1, 0, 1, 1, 1, 0, -1}
+	sx := -game.scroll_x
+	c := &game.spider
+	debug_begin()
+
+	// tank limits: side walls, floor line, hiding line
+	debug_line(i32(WALL_MARGIN + sx), 0, i32(WALL_MARGIN + sx), VIEW_H, 0x4060ff)
+	debug_line(i32(TANK_W - WALL_MARGIN + sx), 0, i32(TANK_W - WALL_MARGIN + sx), VIEW_H, 0x4060ff)
+	debug_line(0, FLOOR_TOP, VIEW_W, FLOOR_TOP, 0x4060ff)
+	debug_line(0, HIDE_Y, VIEW_W, HIDE_Y, 0x305090)
+
+	// creature: drawn box, centre, facing, blocked directions
+	dw, dh := x87_scale_trunc(c.anim.w, c.scale), x87_scale_trunc(c.anim.h, c.scale)
+	cx, cy := c.x + sx, c.y
+	debug_rect(i32(cx - dw / 2), i32(cy - dh / 2), i32(dw), i32(dh), 0x808080)
+	debug_line(i32(cx - 6), i32(cy), i32(cx + 6), i32(cy), 0xffff00)
+	debug_line(i32(cx), i32(cy - 6), i32(cx), i32(cy + 6), 0xffff00)
+	debug_line(i32(cx), i32(cy), i32(cx + DIR_DX[c.dir] * 30), i32(cy + DIR_DY[c.dir] * 30), 0x00ff80)
+	for b, d in c.blocks[:8] {
+		if !(b.active || b.kind != 0) do continue
+		debug_line(i32(cx + DIR_DX[d] * 20), i32(cy + DIR_DY[d] * 20),
+			i32(cx + DIR_DX[d] * 40), i32(cy + DIR_DY[d] * 40), 0xff3030)
+	}
+
+	// goal: target, arrival tolerance, path
+	g := &c.goal
+	if g.active {
+		gx, gy := g.x + sx, g.y
+		tx, ty := c.sx * 9, c.sy * 7
+		#partial switch g.type {
+		case .Y_Band:
+			debug_rect(0, i32(gy), VIEW_W, i32(ty), 0xff60ff)
+		case:
+			debug_rect(i32(gx - tx / 2), i32(gy - ty / 2), i32(tx), i32(ty), 0xff60ff)
+		}
+		debug_line(i32(cx), i32(cy), i32(gx), i32(gy), 0xff60ff)
+		debug_text(i32(gx + 6), i32(gy - 6), seq_name(c, g.seq), 0xff60ff)
+	}
+
+	// text panel
+	st := &game.stats
+	sb := strings.builder_make(context.temp_allocator)
+	fmt.sbprintf(&sb, "sim time   %.1f s   seed %08x\n", f64(now_ms) / 1000, rng.seed)
+	fmt.sbprintf(&sb, "spider     pos (%d, %d)  scale %d%%  speed %dx%d  size %d\n",
+		c.x, c.y, c.scale, c.sx, c.sy, c.size)
+	fmt.sbprintf(&sb, "anim       %s  dir %d  frame %d/%d  step %d  plays %d%s%s\n",
+		seq_name(c, c.seq), c.dir, c.frame + 1, len(creature_dir(c).frames), c.step, c.plays,
+		c.moving_x || c.moving_y ? "  moving" : "", c.run ? "  running" : "")
+	fmt.sbprintf(&sb, "turning    %s\n",
+		c.turn_dir != 0 ? fmt.tprintf("%s to %d", c.turn_dir > 0 ? "cw" : "ccw", c.turn_target) : "-")
+	fmt.sbprint(&sb, "queue      ")
+	for q in c.queue[:c.queue_len] do fmt.sbprintf(&sb, "%s/d%d/x%d  ", seq_name(c, q.seq), q.dir, q.plays)
+	fmt.sbprint(&sb, c.queue_len == 0 ? "-\n" : "\n")
+	if g.active {
+		fmt.sbprintf(&sb, "goal       %v (%d, %d) then %s, %ds left%s\n", g.type, g.x, g.y,
+			seq_name(c, g.seq), g.timeout_s - int(now_ms - g.start_ms) / 1000,
+			g.detouring ? fmt.tprintf("  detour via %d", g.walk_dir) : "")
+	} else {
+		fmt.sbprint(&sb, "goal       -\n")
+	}
+	fmt.sbprintf(&sb, "hiding     %d%s\n", c.hide, c.no_clamp ? "  (floor clamp off)" : "")
+	fmt.sbprintf(&sb, "needs      food %d  water %d  health %d  mood %d  temperament %d%s\n",
+		st.food, st.water, st.health, st.mood, st.temperament, st.interacted ? "  touched" : "")
+	fmt.sbprint(&sb, "cooldowns  ")
+	ids := &game.seq
+	for id in ([?]int{ids.log_hide, ids.glass, ids.crush}) {
+		fmt.sbprintf(&sb, "%s %.0fs ago  ", seq_name(c, id), f64(now_ms - c.last_played[id]) / 1000)
+	}
+	debug_panel(strings.to_string(sb))
 }

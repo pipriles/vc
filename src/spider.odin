@@ -105,16 +105,27 @@ spider_precondition :: proc(c: ^Creature, seq: int) -> bool {
 
 // Sequence validity for the idle pick (0x402f40).
 spider_can_play :: proc(c: ^Creature, seq: int) -> bool {
+	if c.hide != 0 && seq != game.seq.walk do return false
 	d := &c.anim.seqs[seq].dirs[c.dir]
 	if d.needs_check do return spider_precondition(c, seq)
 	if seq != game.seq.walk do return len(d.frames) > 0
-	return c.bumped[c.dir] != BUMP_TICKS
+	b := c.blocks[c.dir]
+	return !b.active && b.kind != BLOCK_WALL
 }
+
+ROCK_X      :: 0x1a6 // 422: hiding spot behind the rock (minus a size margin)
+LOG_X       :: 640   // 0x280: where LOG_HIDE starts, in front of the rock
+GLASS_Y     :: 0x177 // 375: front glass line (plus a size margin)
 
 // Idle chooser (0x407830 for the spider, falling through to 0x402760).
 spider_idle :: proc(c: ^Creature) {
 	ids := &game.seq
 	s := &game.stats
+
+	if c.hide != 0 {
+		spider_idle_hidden(c)
+		return
+	}
 
 	// Usually turn on the spot first.
 	if p := rand_n(5) + 4; rand_n(10) < p && c.prev_seq != ids.circle {
@@ -124,19 +135,22 @@ spider_idle :: proc(c: ^Creature) {
 
 	if s.food <= rand_n(10) + 25 && rand_n(10) < 5 {
 		plays := rand_n(4) + 4
-		enqueue_anim(c, ids.walk, rand_n(8), plays)
+		enqueue_anim(c, ids.walk, rand_n(8), plays, flush = true)
 		c.seq = ids.walk
+		debug_logf("idle: peckish (food %d), wander", s.food)
 		return
 	}
 	if s.food <= rand_n(10) + 25 && rand_n(10) < 2 {
-		enqueue_anim(c, ids.lurk, -1, rand_n(2) + 2)
+		enqueue_anim(c, ids.lurk, -1, rand_n(2) + 2, flush = true)
 		c.seq = ids.lurk
+		debug_logf("idle: peckish (food %d), lurk", s.food)
 		return
 	}
 	if s.temperament < 4 && rand() * s.temperament * 10 / 0x7FFF < 2 {
 		dir := rand_n(10) < 4 ? 7 : rand_n(2)
-		enqueue_anim(c, ids.crush, dir, 1)
+		enqueue_anim(c, ids.crush, dir, 1, flush = true)
 		c.seq = ids.lurk
+		debug_logf("idle: grumpy (temperament %d), crush", s.temperament)
 		return
 	}
 
@@ -145,6 +159,7 @@ spider_idle :: proc(c: ^Creature) {
 		tries += 1
 		if tries > 8 {
 			c.seq = rand_n(10) < 6 ? ids.lurk : ids.walk
+			debug_logf("idle: nothing fits, %s", seq_name(c, c.seq))
 			break
 		}
 		if rand_n(10) < s.temperament / 2 {
@@ -154,9 +169,71 @@ spider_idle :: proc(c: ^Creature) {
 		}
 		if c.seq == c.prev_seq || c.seq == ids.circle do continue
 		if !seq_has_frames(c, c.seq, c.dir) do continue
-		if spider_wants(c, c.seq) && spider_can_play(c, c.seq) do break
+		if spider_wants(c, c.seq) && spider_can_play(c, c.seq) {
+			debug_logf("idle: pick %s (try %d)", seq_name(c, c.seq), tries)
+			break
+		}
 	}
 
-	// TODO: walk to the log (1 in 51, every 12 min) or the glass (30%, every
-	// 3 min) via move_to_then_anim (0x40bdd0), not decoded yet.
+	if rand_n(50) == 25 && now_ms > c.last_played[ids.log_hide] + 720_000 {
+		debug_logf("idle: go hide under the rock")
+		move_to(c, .Point, LOG_X, FLOOR_TOP, 7, ids.log_hide, 120)
+		return
+	}
+	if rand_n(10) > 6 && now_ms > c.last_played[ids.glass] + 180_000 {
+		debug_logf("idle: go to the glass")
+		move_to(c, .Y_Band, c.x, (100 - c.size) / 2 + GLASS_Y, 4, ids.glass, 60)
+	}
+}
+
+// Behind the rock: stay put, now and then come out (0x402760, else branch).
+spider_idle_hidden :: proc(c: ^Creature) {
+	ids := &game.seq
+	hidden_x := ROCK_X - (100 - c.size) / 2
+	if c.hide == 2 ||
+	   (now_ms > c.last_played[ids.log_hide] + 120_000 &&
+		   rand_n(50) < game.stats.temperament && rand_n(10) < 2) {
+		c.hide = 2
+		c.x, c.y = hidden_x, HIDE_Y
+		enqueue_anim(c, ids.walk, 6, 14, flush = true)
+		enqueue_anim(c, ids.walk, rand_n(10) > 4 ? 4 : 5, 12)
+		c.hide = 3
+		c.seq = ids.lurk
+		debug_logf("hidden: coming out")
+		return
+	}
+	if c.hide == 1 {
+		clear_queue(c)
+		clear_goal(c)
+		c.seq = ids.lurk
+		c.x, c.y = hidden_x, HIDE_Y
+		c.dir = 6
+	}
+}
+
+// Sequence-finished hook for the spider (0x403520).
+spider_finished :: proc(c: ^Creature) {
+	ids := &game.seq
+	switch c.seq {
+	case ids.log_hide:
+		// crawled under the rock: teleport behind it
+		clear_goal(c)
+		clear_queue(c)
+		c.x, c.y = ROCK_X, HIDE_Y
+		c.seq = ids.lurk
+		c.hide = 1 // not seen being set in the decompile yet; implied by the idle branch
+		debug_logf("hidden under the rock")
+	case ids.clean:
+		if rand_n(15) < game.stats.temperament * 2 {
+			dir := rand_n(5) + 3
+			enqueue_anim(c, ids.clean, dir, rand_n(2) + 2, flush = true)
+		}
+	case ids.web_laying:
+		if rand_n(10) < 6 && c.queue_len == 0 {
+			dir := c.dir + 2
+			if dir > 7 do dir = 0
+			run := rand_n(2) != 0
+			enqueue_anim(c, ids.web_laying, dir, rand_n(2) + 8, flush = true, run = run)
+		}
+	}
 }

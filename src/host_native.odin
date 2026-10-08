@@ -32,3 +32,9 @@ ui_add_anim :: proc "contextless" (name: string) {}
 ui_add_seq :: proc "contextless" (anim: i32, name: string, dir_mask: u32) {}
 ui_status :: proc "contextless" (seq, dir, frame, frames: i32) {}
 tank_status :: proc "contextless" (food, water, health, mood, temperament: i32, seq: string, dir: i32) {}
+debug_begin :: proc "contextless" () {}
+debug_rect :: proc "contextless" (x, y, w, h: i32, color: u32) {}
+debug_line :: proc "contextless" (x0, y0, x1, y1: i32, color: u32) {}
+debug_text :: proc "contextless" (x, y: i32, text: string, color: u32) {}
+debug_panel :: proc "contextless" (text: string) {}
+debug_log :: proc "contextless" (text: string) {}

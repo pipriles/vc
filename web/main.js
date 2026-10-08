@@ -22,6 +22,11 @@ const mem = new odin.WasmMemoryInterface();
 const canvas = $("view");
 const ctx = canvas.getContext("2d");
 const seqs = []; // viewer: per animation [{name, mask}]
+const overlay = $("overlay");
+const octx = overlay?.getContext("2d");
+if (octx) { octx.font = "12px ui-monospace, Menlo, monospace"; octx.lineWidth = 1; }
+const debugLines = [];
+const hex = (c) => `#${c.toString(16).padStart(6, "0")}`;
 
 const imports = {
 	vc: {
@@ -49,6 +54,32 @@ const imports = {
 		ui_status: (seq, dir, frame, frames) => {
 			$("status").textContent = `frame ${frame + 1} / ${frames}`;
 			if ($("dir").value != dir) $("dir").value = dir;
+		},
+		debug_begin: () => {
+			octx.clearRect(0, 0, overlay.width, overlay.height);
+		},
+		debug_rect: (x, y, w, h, color) => {
+			octx.strokeStyle = hex(color);
+			octx.strokeRect(x + 0.5, y + 0.5, w, h);
+		},
+		debug_line: (x0, y0, x1, y1, color) => {
+			octx.strokeStyle = hex(color);
+			octx.beginPath();
+			octx.moveTo(x0 + 0.5, y0 + 0.5);
+			octx.lineTo(x1 + 0.5, y1 + 0.5);
+			octx.stroke();
+		},
+		debug_text: (x, y, p, n, color) => {
+			octx.fillStyle = hex(color);
+			octx.fillText(mem.loadString(p, n), x, y);
+		},
+		debug_panel: (p, n) => { $("debug-panel").textContent = mem.loadString(p, n); },
+		debug_log: (p, n) => {
+			const log = $("debug-log");
+			debugLines.push(mem.loadString(p, n));
+			if (debugLines.length > 200) debugLines.shift();
+			log.textContent = debugLines.join("\n");
+			log.scrollTop = log.scrollHeight;
 		},
 		tank_status: (food, water, health, mood, temper, p, n, dir) => {
 			$("status").textContent =
@@ -93,6 +124,21 @@ function setupViewer() {
 }
 
 function setupTank() {
+	const setDebug = (on) => {
+		$("debug").checked = on;
+		document.body.classList.toggle("show-debug", on);
+		if (!on) octx.clearRect(0, 0, overlay.width, overlay.height);
+		mem.exports.tank_set_debug(on ? 1 : 0);
+		try { localStorage.setItem("vc-debug", on ? "1" : ""); } catch {}
+	};
+	$("debug").onchange = () => setDebug($("debug").checked);
+	addEventListener("keydown", (e) => {
+		if (e.key === "d" || e.key === "D") setDebug(!$("debug").checked);
+	});
+	let saved = false;
+	try { saved = localStorage.getItem("vc-debug") === "1"; } catch {}
+	setDebug(saved);
+
 	$("follow").onchange = () => mem.exports.tank_set_follow($("follow").checked ? 1 : 0);
 	$("speed").oninput = () => {
 		$("speedv").textContent = `${$("speed").value}×`;

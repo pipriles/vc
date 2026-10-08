@@ -73,13 +73,62 @@ internet/website links, floppy-disk cricket "download", screensaver config.
    `sx = trunc(base_sx / (100/scale))`, `sy` likewise.
    Spider: base 5×3, size 40 when new (grows; SKIN = moult, TBD).
 
+## Goals: walk somewhere, then play **confirmed**
+`move_to_then_anim(c, target, type, x, y, dir, seq, timeout)` only stores a
+goal (refused while hiding or above the floor line); it lets the current
+play finish.
+- Types: 1/2 chase a creature (crickets, TBD), 10 cursor, 11 point,
+  12 only y matters (front glass), 13 only x matters.
+- Arrival, checked every frame (`goal_check`): tolerance `9·sx` by `7·sy`
+  around the target (bands for 12/13). On arrival the queue is flushed and
+  `seq` queued facing `dir`; the current sequence ends at once. Not yet
+  arrived but already level in x or y → end the current play early to
+  re-steer. Goals expire after `timeout` seconds; target x is clamped to
+  the wall margins.
+- At each sequence end (`goal_step`): pick the heading from the offsets
+  (x beyond ±4·sx, y beyond ±3·sy), 8 directions; queue WALK ×6 that way.
+  If that direction is blocked, start a detour: remember the blocked
+  direction ±1, rotate (cw or ccw depending on which side is blocked) to
+  the first free direction and walk ×4; resume once the three directions
+  around the original heading are free and the creature has moved. Facing
+  a wall while detouring: back off sideways ×10 and drop the goal.
+- Blocks: per-direction slots `+0xfa + 8d` {active, kind, id, ticks}.
+  Walls set kind 5 only; every position update first ages all slots and
+  clears those whose ticks run out, so a wall mark lasts one update.
+
+## Hiding under the rock **confirmed** (except where noted)
+- Idle: 1 in 51 picks, ≥ 12 min since the last LOG_HIDE: goal to
+  (640, 170), then LOG_HIDE facing 7 (up-left), timeout 120 s. LOG_HIDE
+  only plays at x 630–650, y < 174, size > 24.
+- When LOG_HIDE finishes (`spider_seq_finished`) the spider is moved to
+  (422, 114) and lurks; hiding state 1 (*tentative*: the setter isn't
+  found yet, the idle code implies it).
+- Hidden: stays at (422 − (100−size)/2, 114) facing left, no turning.
+  Each idle pick, ≥ 2 min after hiding: `rand_n(50) < temperament` and 20%
+  → come out: walk left ×14 (flush), then down or down-left ×12.
+- While hiding and above y 170 the floor clamp is off (y ≥ 114); back on
+  the floor the hiding state resets (`creature_post_frame`).
+- The rock overlay (vcg_4005, keyed) is drawn at (330, 84) after the
+  spider whenever its y < 170.
+
+## Glass **confirmed**
+30% of idle picks, ≥ 3 min since GLASS last finished: goal type 12 (y only)
+to y = 375 + (100−size)/2, then GLASS facing 4. GLASS is re-validated when
+it comes off the queue and needs size > 49, so a young spider walks to the
+front and lurks instead; since GLASS never finishes, its cooldown never
+starts and it keeps going back (faithful to the original logic).
+
 ## Rendering **confirmed**
 - Scene is composed into an 8-bit 1200×480 surface; the 640×480 view is a
   window at `scroll_x` (panning moves 20 px per tick).
 - Creatures drawn in render-list order with `blit_creature`: the frame
   canvas scaled to scale% (StretchBlt COLORONCOLOR = nearest), centred on
   the creature's centre; skips the key colour and `key2` (dir header byte,
-  0x31 = 49 = shadow colour). Shadows come from another pass (TBD).
+  0x31 = 49 = shadow colour).
+- Shadows: before any bodies, `blit_shadow` copies only the key2 pixels of
+  every creature, as solid colour 49 (#2c2418). No blending.
+- Clamps for animated creatures: y ≥ 170 (180 for crickets), and
+  y + drawn_h/3 < 480 using the previous frame's drawn height.
 - Tank and creature buffer share a palette (bitmaps 4500/9100); the other
   bitmaps differ only at index 71.
 
@@ -95,8 +144,8 @@ probability (rand_n(5)+4)/10 unless it just turned; otherwise `spider_idle`:
    WEB_LAYING when food < 36), not repeat, not CIRCLE, have frames, and its
    precondition if flagged (GLASS near the front glass, LOG_HIDE at the log
    x 630–650 y < 174). Gives up after 8 tries → LURK 60% / WALK.
-5. 1/51 chance (≥12 min apart) walk to the log and hide; 30% (≥3 min apart)
-   walk to the glass (needs `move_to_then_anim`, TBD).
+5. 1/51 chance (≥12 min apart) go hide under the rock; 30% (≥3 min apart)
+   go to the front glass (see below).
 Crickets: random sequence with frames in the current direction.
 
 ## Needs **confirmed** (`spider_stats_tick`, every second)
@@ -151,6 +200,6 @@ Crickets: random sequence with frames in the current direction.
 
 ## Open questions
 - Remaining tool cases, idle behaviour loop, hunting (CATCH/KILL/cricket AI).
-- Shadow pass; `move_to_then_anim` (walk to a point, then play); growth
-  and moulting; death and resurrection; hiding under the log.
+- Growth and moulting; death and resurrection; footprints and footstep
+  sound (`creature_post_frame`).
 - Tank objects, crickets and hunting (CATCH/KILL), player tools and UI.

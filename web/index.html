@@ -10,8 +10,15 @@
   body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
   .bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 12px; background: var(--panel); border-radius: 6px; }
   label { display: flex; gap: 6px; align-items: center; }
-  #view { display: block; margin-top: 16px; width: 640px; max-width: 100%; image-rendering: pixelated; touch-action: none; cursor: grab; }
+  .stage { position: relative; margin-top: 16px; width: 640px; max-width: 100%; }
+  #view { display: block; width: 100%; image-rendering: pixelated; touch-action: none; cursor: grab; }
+  #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   #status { font-variant-numeric: tabular-nums; margin-top: 8px; }
+  .debug { display: none; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+  body.show-debug .debug { display: flex; }
+  .debug pre { margin: 0; padding: 8px 12px; background: var(--panel); border-radius: 6px;
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow: auto; }
+  #debug-log { height: 220px; width: 520px; max-width: 100%; }
 </style>
 </head>
 <body data-mode="tank">
@@ -19,10 +26,18 @@
   <label>Variant <select id="variant"><option value="cr">Chile Rose</option><option value="rk">Red Knee</option></select></label>
   <label><input id="follow" type="checkbox" checked> Follow spider</label>
   <label>Sim speed <input id="speed" type="range" min="1" max="20" step="1" value="1"><span id="speedv">1×</span></label>
+  <label><input id="debug" type="checkbox"> Debug <kbd>D</kbd></label>
   <a href="viewer.html">Animation viewer →</a>
 </div>
-<canvas id="view" width="320" height="200"></canvas>
+<div class="stage">
+  <canvas id="view" width="640" height="480"></canvas>
+  <canvas id="overlay" width="640" height="480"></canvas>
+</div>
 <div id="status"></div>
+<div class="debug">
+  <pre id="debug-panel"></pre>
+  <pre id="debug-log"></pre>
+</div>
 <script src="odin.js"></script>
 <script type="module" src="main.js"></script>
 </body>

@@ -88,8 +88,13 @@ depth_scale_and_speed :: proc(t: ^testing.T) {
 	testing.expect_value(t, c.sy, 1)
 	c.y = 470
 	creature_update_position(&c)
-	testing.expect_value(t, c.y, VIEW_H - 100) // bottom clamp: y + h/2 < 480
-	testing.expect_value(t, c.scale, 66)       // 380/480*40 + 35 = 66.67, truncated
+	// bottom clamp: y + drawn_h/3 < 480, drawn_h = 200 at the previous 60% = 120
+	testing.expect_value(t, c.y, 440)
+	testing.expect_value(t, c.scale, 71) // 440/480*40 + 35 = 71.67, truncated
+	testing.expect(t, c.blocks[4].kind == BLOCK_WALL, "bottom marks dir 4 as wall")
+	c.y = 100
+	creature_update_position(&c)
+	testing.expect_value(t, c.y, FLOOR_TOP) // creatures with animation: y >= 170
 }
 
 @(test)
@@ -100,6 +105,27 @@ wall_bump_marks_directions :: proc(t: ^testing.T) {
 	creature_init(&c, &a, 10, 300, 5, 3, 40)
 	defer delete(c.last_played)
 	testing.expect_value(t, c.x, WALL_MARGIN)
-	testing.expect(t, c.bumped[5] == BUMP_TICKS && c.bumped[6] == BUMP_TICKS && c.bumped[7] == BUMP_TICKS)
-	testing.expect(t, c.bumped[2] == 0)
+	for d in ([?]int{5, 6, 7}) do testing.expect(t, c.blocks[d].kind == BLOCK_WALL)
+	testing.expect(t, c.blocks[2].kind == 0)
+	// a wall mark only lasts until the next position update
+	c.x = 600
+	creature_update_position(&c)
+	testing.expect(t, c.blocks[6].kind == 0)
+}
+
+@(test)
+hidden_spider_skips_floor_clamp :: proc(t: ^testing.T) {
+	a := Anim{w = 320, h = 200, seqs = make([]Seq, 1)}
+	defer delete(a.seqs)
+	c: Creature
+	creature_init(&c, &a, 422, 300, 5, 3, 40)
+	defer delete(c.last_played)
+	c.hide, c.no_clamp, c.y = 1, true, 50
+	creature_update_position(&c)
+	testing.expect_value(t, c.y, HIDE_Y) // 0x72
+	creature_post_frame(&c)
+	testing.expect(t, c.no_clamp && c.hide == 1, "still hidden above the floor line")
+	c.y = 200
+	creature_post_frame(&c)
+	testing.expect(t, !c.no_clamp && c.hide == 0, "back on the floor resets hiding")
 }

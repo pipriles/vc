@@ -30,7 +30,6 @@ main :: proc() {
 	switch mode {
 	case .Tank:
 		running = tank_init()
-		if running do build_shade_table()
 	case .Viewer:
 		running = viewer_init()
 	}
