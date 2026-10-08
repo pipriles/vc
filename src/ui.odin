@@ -77,6 +77,7 @@ UI :: struct {
 	slide:        int,  // 0 none, 1 out, 2 in (0x44df64)
 	slide_t:      int,  // ticks left (0x4560fe)
 	ind_y, btn_y: int,  // indicator bottom and button row while sliding (0x454710, 0x4525e6)
+	from_ind, from_btn: int, // smooth drawing: at the start of the last step
 	logo_hover:   bool,
 	font:         Bitmap, // vcg_2008: A-Z, 0-9
 	logo:         Anim,
@@ -186,6 +187,7 @@ ui_toggle :: proc() {
 	} else {
 		u.slide, u.ind_y, u.btn_y = 2, 0, VIEW_H
 	}
+	u.from_ind, u.from_btn = u.ind_y, u.btn_y
 	// 14 px a tick for the indicators, (480 - 420) / 6 for the buttons
 	host_sound(400)
 }
@@ -284,7 +286,7 @@ ui_draw :: proc() {
 	ui_draw_logo()
 	if u.logo_hover && settings.help_text do ui_text(LOGO_X - 120, LOGO_Y - 16, "Toggle display of buttons and icons.")
 	// needs: mood gauge (frame = temperament), then health, water, food
-	iy := u.slide != 0 ? u.ind_y : u.shown ? INDICATOR_B : 0
+	iy := u.slide != 0 ? lerp_pos(u.from_ind, u.ind_y, 40) : u.shown ? INDICATOR_B : 0
 	if u.icons_only do iy = INDICATOR_B
 	if iy >= 1 do draw_indicators(iy)
 
@@ -304,7 +306,8 @@ ui_draw :: proc() {
 		draw_button(&u.buttons[0], BUTTON_Y, 100)
 	} else if (u.slide == 1 && u.icons_only) || u.slide == 2 {
 		// (the original pops the buttons in at the end; they slide in here)
-		for &b in u.buttons do draw_button(&b, u.btn_y, 100)
+		by := lerp_pos(u.from_btn, u.btn_y, 40)
+		for &b in u.buttons do draw_button(&b, by, 100)
 	}
 }
 

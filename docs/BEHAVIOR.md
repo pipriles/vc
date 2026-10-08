@@ -502,6 +502,11 @@ Crickets: random sequence with frames in the current direction.
   16, orange), others Arial bold 12; icons are bottom-row buttons or the
   gauges. Holding an arrow scrolls 5 px a frame, faster the longer it's
   held (to 20).
+- Port additions: Smooth Motion in Settings (the Freeze Simulation slot),
+  Screensaver in Utilities (start now, full screen; −/+ idle time, default
+  never), a Browser Port section at the end of the credits. With smooth
+  motion the UI slides, the box's growth and wipe, and help / credits
+  scrolling are drawn between steps too.
 - Registering added 25 crickets to the store; Download Crickets fetched
   more from the website. The port starts every spider with 25 in store
   and Download Crickets adds 12.

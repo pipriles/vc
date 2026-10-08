@@ -204,11 +204,12 @@ const imports = {
 		},
 		host_set_sound: (on) => setSound(!!on),
 		host_fullscreen: () => toggleFullscreen(),
-		host_settings: (rate, smooth, helpText) => {
-			const st = { rate, smooth: !!smooth, helpText: !!helpText };
-			window.vcSettingsChanged?.(st.rate, st.smooth, st.helpText);
+		host_settings: (rate, smooth, helpText, idle) => {
+			const st = { rate, smooth: !!smooth, helpText: !!helpText, idle };
+			window.vcSettingsChanged?.(st);
 			try { localStorage.setItem("vc-settings", JSON.stringify(st)); } catch {}
 		},
+		host_saver: () => window.vcStartSaver?.(true),
 		host_tz_offset: () => -new Date().getTimezoneOffset(),
 		ui_text: (x, y, p, n) => {
 			const text = mem.loadString(p, n);
@@ -378,25 +379,20 @@ function setupTank() {
 	let soundOn = true;
 	try { soundOn = localStorage.getItem("vc-sound") !== "off"; } catch {}
 	sound.setOn(soundOn);
-	let st = { rate: 1, smooth: false, helpText: true };
+	let st = { rate: 1, smooth: true, helpText: true, idle: 0 };
 	try { st = { ...st, ...JSON.parse(localStorage.getItem("vc-settings") ?? "{}") }; } catch {}
-	$("smooth").checked = st.smooth;
 	const pushState = () => mem.exports.tank_set_host_state(sound.on ? 1 : 0, document.fullscreenElement ? 1 : 0, st.helpText ? 1 : 0);
 	pushState();
 	mem.exports.tank_set_frame_rate(st.rate, st.smooth ? 1 : 0);
-	window.vcSettingsChanged = (rate, smooth, helpText) => { st = { rate, smooth, helpText }; };
-	$("smooth").onchange = () => {
-		st.smooth = $("smooth").checked;
-		mem.exports.tank_set_frame_rate(st.rate, st.smooth ? 1 : 0);
-		try { localStorage.setItem("vc-settings", JSON.stringify(st)); } catch {}
-	};
+	mem.exports.tank_set_saver_idle(st.idle);
+	window.vcSettingsChanged = (next) => { st = next; };
 	document.addEventListener("fullscreenchange", pushState);
 	mem.exports.tank_set_variant(variant === "rk" ? 1 : 0);
 	$("fullscreen").onclick = toggleFullscreen;
 
 	// screensaver: UI and cursor hidden, the view follows the spider; any
-	// input ends it. After some idle minutes in the window, or full screen
-	// from the button (browsers only allow full screen after a click).
+	// input ends it. After the idle minutes set in Options > Utilities, or
+	// full screen from its button there (full screen needs a click).
 	const stage = $("stage");
 	let saverOn = false, saverFull = false, saverSince = 0, lastInput = Date.now();
 	const startSaver = (full) => {
@@ -415,7 +411,7 @@ function setupTank() {
 		mem.exports.tank_set_saver(0);
 		if (saverFull && document.fullscreenElement) document.exitFullscreen().catch(() => {});
 	};
-	$("saver").onclick = () => startSaver(true);
+	window.vcStartSaver = startSaver;
 	const onInput = (e) => {
 		lastInput = Date.now();
 		if (!saverOn) return;
@@ -429,10 +425,8 @@ function setupTank() {
 		addEventListener(t, onInput, { capture: true, passive: false });
 	}
 	document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && saverFull) stopSaver(); });
-	try { $("idle").value = localStorage.getItem("vc-idle") ?? "5"; } catch {}
-	$("idle").onchange = () => { try { localStorage.setItem("vc-idle", $("idle").value); } catch {} };
 	setInterval(() => {
-		const min = +$("idle").value;
+		const min = +st.idle;
 		if (min > 0 && !document.hidden && Date.now() - lastInput >= min * 60_000) startSaver(false);
 	}, 5000);
 

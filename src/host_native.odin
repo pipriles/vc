@@ -51,7 +51,8 @@ host_open :: proc "contextless" (what: i32) {}
 ui_text_ex :: proc "contextless" (x, y, w, h: int, text: string, font, color, flags: i32) {}
 host_set_sound :: proc "contextless" (on: bool) {}
 host_fullscreen :: proc "contextless" () {}
-host_settings :: proc "contextless" (frame_rate: i32, smooth, help_text: bool) {}
+host_settings :: proc "contextless" (frame_rate: i32, smooth, help_text: bool, saver_idle: i32) {}
+host_saver :: proc "contextless" () {}
 host_tz_offset :: proc "contextless" () -> i32 {return 0}
 ui_begin :: proc "contextless" () {}
 ui_text :: proc "contextless" (x, y: int, text: string) {}

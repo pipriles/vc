@@ -272,8 +272,10 @@ settings := struct {
 	sound:      bool, // (kept by the host)
 	fullscreen: bool, // (kept by the host)
 	help_text:  bool, // flyover help (tooltips)
+	saver_idle: int,  // port: index into SAVER_IDLE, 0 = never
 } {
 	frame_rate = 1,
+	smooth     = true,
 	sound      = true,
 	help_text  = true,
 }
@@ -298,12 +300,20 @@ tank_set_frame_rate :: proc "contextless" (rate, smooth: i32) {
 	settings.smooth = smooth != 0
 }
 
+@(export)
+tank_set_saver_idle :: proc "contextless" (minutes: i32) {
+	settings.saver_idle = 0
+	for m, i in SAVER_IDLE do if int(minutes) == m do settings.saver_idle = i
+}
+
 // Where things were at the start of the last step, for smooth drawing.
 remember_positions :: proc() {
 	game.from_scroll = game.scroll_x
 	game.spider.from_x, game.spider.from_y = game.spider.x, game.spider.y
 	for &c in game.crickets do c.from_x, c.from_y = c.x, c.y
 	game.skin.from_x, game.skin.from_y = game.skin.x, game.skin.y
+	game.ui.from_ind, game.ui.from_btn = game.ui.ind_y, game.ui.btn_y
+	box_remember()
 }
 
 // Position to draw at: between the last two steps when smooth, unless it

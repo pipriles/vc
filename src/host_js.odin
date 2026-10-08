@@ -35,7 +35,8 @@ foreign host {
 	ui_text_ex ::   proc(x, y, w, h: int, text: string, font, color, flags: i32) --- // flags: 1 centre, 2 wrap, 4 clip
 	host_set_sound :: proc(on: bool) ---
 	host_fullscreen :: proc() ---
-	host_settings :: proc(frame_rate: i32, smooth, help_text: bool) ---
+	host_settings :: proc(frame_rate: i32, smooth, help_text: bool, saver_idle: i32) ---
+	host_saver ::   proc() --- // start the screensaver, full screen
 	host_tz_offset :: proc() -> i32 --- // minutes east of UTC
 	ui_begin ::    proc() ---
 	ui_text ::     proc(x, y: int, text: string) ---

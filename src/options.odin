@@ -17,12 +17,13 @@ PIC_W :: 200 // the left picture (vcg_2000's width, 0x454b90)
 BOX_CX :: BOX_X + PIC_W // page contents (0x437574)
 BOX_TEXT_R :: BOX_X + 0x1d6 // right edge of help and credits text
 BOX_CLIP :: BOX_Y + 0x85 // help and credits lines are clipped here
+SAVER_X :: BOX_CX + 182 // port: screensaver idle buttons on the Utilities page
 BAR_Y :: 0x94
 ARROW_Y :: 0x134
 CLOSE_Y :: 0x91
 
 HELP_LINES :: 161 // 0x42dd68
-CREDIT_LINES :: 32 // 0x42d2e8
+CREDIT_LINES :: 43 // 0x42d2e8 (32), plus the port's own
 
 Box_Page :: enum {
 	Menu,
@@ -54,6 +55,8 @@ Box :: struct {
 	mx, my:         int, // pointer in view coordinates
 	down, inside:   bool,
 	mood, variant:  int, // stats picture frame and prognosis variant (0x44ddea, 0x44ddec)
+	// smooth drawing: values at the start of the last step
+	from_w, from_h, from_wipe, from_pic, from_scroll: int,
 }
 
 // What the pointer is over.
@@ -62,6 +65,8 @@ Box_Hit :: enum {
 	Item, // menu / utilities buttons, toggles, Back: item index in hit_i
 	Minus, // frame rate
 	Plus,
+	Saver_Minus, // screensaver idle time (port)
+	Saver_Plus,
 	Up, // help and credits scrolling
 	Down,
 	Close,
@@ -199,6 +204,13 @@ CREDITS := [CREDIT_LINES]Line {
 	{"Sound FX", 2, true, 0, 0, 0}, {"Chris Ford", 0, true, 0, 0, 0}, {},
 	{"Additional Graphics", 2, true, 0, 0, 0}, {"Dan Northover", 0, true, 0, 0, 0},
 	{"Gary Ellis", 0, true, 0, 0, 0}, {"Stephen Rose", 0, true, 0, 0, 0}, {},
+	// the browser port
+	{"Browser Port", 2, true, 0, 0, 0}, {"Oswald Capriles", 0, true, 0, 0, 0}, {},
+	{"Rescued from the original Windows release: the", 0, false, 0, 0, 0},
+	{"program and its data were reverse engineered", 0, false, 0, 0, 0},
+	{"from the old binaries and rebuilt in Odin for", 0, false, 0, 0, 0},
+	{"WebAssembly, so the spiders can live on in a", 0, false, 0, 0, 0},
+	{"web browser, behaving just as they always did.", 0, false, 0, 0, 0}, {}, {}, {},
 }
 
 // Stats prognosis (0x42cde8): four ways of saying each of five states.
@@ -226,8 +238,9 @@ PROGNOSIS := [20]string {
 }
 
 MENU_ITEMS := [5]string{"Settings", "Help", "Stats", "Credits", "Utilities"}
-SETTING_ITEMS := [4]string{"Frame Rate", "Sound", "Full Screen", "Help Text"}
-UTILITY_ITEMS := [3]string{"Download Crickets", "Resurrect Creature", "Version Info"}
+SETTING_ITEMS := [5]string{"Frame Rate", "Sound", "Full Screen", "Help Text", "Smooth Motion"} // (port: smooth in the Freeze Simulation slot)
+SAVER_IDLE := [5]int{0, 2, 5, 10, 30} // screensaver after these idle minutes, 0 never
+UTILITY_ITEMS := [4]string{"Download Crickets", "Resurrect Creature", "Version Info", "Screensaver"}
 
 // Fonts (0x40e... CreateFontA): Arial bold 18, bold 12, bold italic 16.
 FONT_BIG :: 1
@@ -294,6 +307,17 @@ open_help :: proc(line: int) {
 	}
 	b.top, b.sub = line, 0
 	b.speed, b.speed_n = 5, 0
+	b.from_scroll = scroll_pos(b.top, b.sub)
+}
+
+// Help / credits scroll as one number: line y = BOX_Y + 20 * line - pos.
+scroll_pos :: proc(top, sub: int) -> int {return top * 20 - sub}
+
+// The values to draw with: between the last two steps when smooth.
+box_remember :: proc() {
+	b := &game.ui.box
+	b.from_w, b.from_h, b.from_wipe, b.from_pic = b.w, b.h, b.wipe, b.pic
+	b.from_scroll = scroll_pos(b.top, b.sub)
 }
 
 box_switch :: proc(to: Box_Page) {
@@ -303,6 +327,7 @@ box_switch :: proc(to: Box_Page) {
 	b.switching = true
 	b.wipe, b.wipe_v = 0, speed
 	b.pic, b.pic_v = 0, speed / 2
+	b.from_wipe, b.from_pic = 0, 0
 	b.held = -1
 	host_sound(418)
 }
@@ -378,8 +403,8 @@ box_tick :: proc() {
 
 // --- layout and pointer --------------------------------------------------------
 
-box_left :: proc() -> int {return BOX_X + (BOX_W - game.ui.box.w) / 2}
-box_top :: proc() -> int {return BOX_Y + (BOX_H - game.ui.box.h) / 2}
+box_left :: proc(w := -1) -> int {return BOX_X + (BOX_W - (w < 0 ? game.ui.box.w : w)) / 2}
+box_top :: proc(h := -1) -> int {return BOX_Y + (BOX_H - (h < 0 ? game.ui.box.h : h)) / 2}
 
 in_rect :: proc(px, py, x, y, w, h: int) -> bool {return px >= x && px < x + w && py >= y && py < y + h}
 
@@ -391,10 +416,10 @@ item_row :: proc(page: Box_Page, i: int) -> (y: int, bmp: ^Bitmap, frames: int) 
 	case .Menu:
 		return top + 3 + 32 * i, &a.button, 3
 	case .Utilities:
-		if i == 3 do return top + 0x89, &a.back, 3
+		if i == 4 do return top + 0x89, &a.back, 3
 		return top + 3 + 32 * i, &a.button, 3
 	case .Settings:
-		if i == 4 do return top + 0x89, &a.back, 3
+		if i == 5 do return top + 0x89, &a.back, 3
 		if i == 0 do return top + 3, &a.minus, 3
 		return top + 3 + 26 * i, &a.toggle, 6
 	}
@@ -404,8 +429,8 @@ item_row :: proc(page: Box_Page, i: int) -> (y: int, bmp: ^Bitmap, frames: int) 
 item_count :: proc(page: Box_Page) -> int {
 	switch page {
 	case .Menu: return 5
-	case .Utilities: return 4
-	case .Settings: return 5
+	case .Utilities: return 5
+	case .Settings: return 6
 	case .Stats, .Credits, .Help, .Version: return 1
 	}
 	return 0
@@ -427,6 +452,11 @@ box_hit :: proc(px, py: int) -> (Box_Hit, int) {
 			continue
 		}
 		if in_rect(px, py, BOX_CX + 12, y, bmp.w, fh) do return .Item, i
+		if b.page == .Utilities && i == 3 {
+			mh := a.minus.h / 3
+			if in_rect(px, py, SAVER_X, y, a.minus.w, mh) do return .Saver_Minus, 0
+			if in_rect(px, py, SAVER_X + a.minus.w, y, a.plus.w, mh) do return .Saver_Plus, 0
+		}
 	}
 	if b.page == .Help || b.page == .Credits {
 		if in_rect(px, py, BOX_CX + 0xd7, ARROW_Y, a.up.w, a.up.h / 3) do return .Up, 0
@@ -484,6 +514,14 @@ box_activate :: proc(hit: Box_Hit, i: int) {
 		settings.frame_rate = (settings.frame_rate + 2) % 3
 		settings_changed()
 		return
+	case .Saver_Minus:
+		settings.saver_idle = (settings.saver_idle + len(SAVER_IDLE) - 1) % len(SAVER_IDLE)
+		settings_changed()
+		return
+	case .Saver_Plus:
+		settings.saver_idle = (settings.saver_idle + 1) % len(SAVER_IDLE)
+		settings_changed()
+		return
 	case .Item:
 	case:
 		return
@@ -494,6 +532,7 @@ box_activate :: proc(hit: Box_Hit, i: int) {
 		if pages[i] == .Help || pages[i] == .Credits {
 			b.top, b.sub = 0, 20
 			b.speed, b.speed_n = 5, 0
+			b.from_scroll = scroll_pos(b.top, b.sub)
 		}
 		box_switch(pages[i])
 	case .Settings:
@@ -508,6 +547,9 @@ box_activate :: proc(hit: Box_Hit, i: int) {
 			settings.help_text = !settings.help_text
 			settings_changed()
 		case 4:
+			settings.smooth = !settings.smooth
+			settings_changed()
+		case 5:
 			box_switch(.Menu)
 		}
 	case .Utilities:
@@ -515,7 +557,8 @@ box_activate :: proc(hit: Box_Hit, i: int) {
 		case 0: download_crickets()
 		case 1: tank_resurrect()
 		case 2: box_switch(.Version)
-		case 3: box_switch(.Menu)
+		case 3: host_saver() // full screen now
+		case 4: box_switch(.Menu)
 		}
 	case .Version:
 		box_switch(.Utilities)
@@ -536,7 +579,7 @@ download_crickets :: proc() {
 }
 
 settings_changed :: proc() {
-	host_settings(i32(settings.frame_rate), settings.smooth, settings.help_text)
+	host_settings(i32(settings.frame_rate), settings.smooth, settings.help_text, i32(SAVER_IDLE[settings.saver_idle]))
 }
 
 // --- drawing --------------------------------------------------------------------------
@@ -545,16 +588,18 @@ box_draw :: proc() {
 	b := &game.ui.box
 	a := &assets.options_box
 	if b.state == .Closed do return
-	left, top := box_left(), box_top()
+	w, h := lerp_pos(b.from_w, b.w, 100), lerp_pos(b.from_h, b.h, 50)
+	wipe, pic := lerp_pos(b.from_wipe, b.wipe, 100), lerp_pos(b.from_pic, b.pic, 50)
+	left, top := box_left(w), box_top(h)
 
 	// the see-through background: palette 6 on every other pixel
 	if b.state == .Open && !b.switching {
-		dither(BOX_CX, top, BOX_W - PIC_W, b.h)
+		dither(BOX_CX, top, BOX_W - PIC_W, h)
 	} else {
-		dither(left, top, b.w, b.h)
+		dither(left, top, w, h)
 	}
 	if b.state != .Open {
-		draw_stretched_keyed(&a.frame, left, top, b.w, b.h)
+		draw_stretched_keyed(&a.frame, left, top, w, h)
 	} else if !b.switching {
 		box_draw_page()
 	}
@@ -563,22 +608,23 @@ box_draw :: proc() {
 	draw_keyed(&a.frame, left - 10, 0x90)
 	page := b.page
 	if b.switching && b.wipe_v < 1 do page = b.next
-	title, pic, pic_frames := page_art(page)
+	title, pic_bmp, pic_frames := page_art(page)
+	pic_x := pic
 	frame := 0
-	if pic == &a.stats {
+	if pic_bmp == &a.stats {
 		frame = b.mood
 	}
-	ph := pic.h / pic_frames
+	ph := pic_bmp.h / pic_frames
 	if !b.switching {
 		draw_keyed(&a.bar, left + 0x2a, BAR_Y)
 		draw_keyed(title, left + 0x43, BAR_Y + 5)
-		blit(pic, left, top + 1, 0, frame * ph, pic.w, ph - 2)
+		blit(pic_bmp, left, top + 1, 0, frame * ph, pic_bmp.w, ph - 2)
 	} else {
-		draw_keyed_cols(&a.bar, left + 0x2a + b.wipe, BAR_Y, 0, a.bar.w - b.wipe)
-		if title.w + 0x19 + b.wipe <= a.bar.w {
-			draw_keyed(title, left + 0x43 + b.wipe, BAR_Y + 5)
+		draw_keyed_cols(&a.bar, left + 0x2a + wipe, BAR_Y, 0, a.bar.w - wipe)
+		if title.w + 0x19 + wipe <= a.bar.w {
+			draw_keyed(title, left + 0x43 + wipe, BAR_Y + 5)
 		}
-		blit(pic, left, top + 1, b.pic, frame * ph, pic.w - b.pic, ph - 2)
+		blit(pic_bmp, left, top + 1, pic_x, frame * ph, pic_bmp.w - pic_x, ph - 2)
 	}
 
 	// close button
@@ -638,12 +684,12 @@ box_draw_page :: proc() {
 				ph := a.plus.h / 3
 				draw_keyed_part(&a.plus, BOX_CX + 12 + a.minus.w, y, ctl_frame(.Plus, 0) * ph, ph)
 			} else {
-				on := i == 1 ? settings.sound : i == 2 ? settings.fullscreen : settings.help_text
+				on := i == 1 ? settings.sound : i == 2 ? settings.fullscreen : i == 3 ? settings.help_text : settings.smooth
 				draw_keyed_part(bmp, BOX_CX + 12, y, ((on ? 3 : 0) + ctl_frame(.Item, i)) * fh, fh)
 			}
 			box_text(BOX_CX + 0x50, y + 4, name)
 		}
-		draw_back(4)
+		draw_back(5)
 		draw_keyed(&a.fps, BOX_CX + 0xc9, top + 8)
 		fps := [3]string{"10", "14", "18"}
 		box_text(BOX_CX + 0xcc, top + 10, fps[clamp(settings.frame_rate, 0, 2)], FONT_SMALL, RED)
@@ -653,8 +699,16 @@ box_draw_page :: proc() {
 			fh := bmp.h / n
 			draw_keyed_part(bmp, BOX_CX + 12, y, ctl_frame(.Item, i) * fh, fh)
 			box_text(BOX_CX + 0x50, y + 4, name)
+			if i == 3 {
+				// port: how long idle before the screensaver starts
+				mh := a.minus.h / 3
+				draw_keyed_part(&a.minus, SAVER_X, y, ctl_frame(.Saver_Minus, 0) * mh, mh)
+				draw_keyed_part(&a.plus, SAVER_X + a.minus.w, y, ctl_frame(.Saver_Plus, 0) * mh, mh)
+				m := SAVER_IDLE[settings.saver_idle]
+				box_text(BOX_CX + 0x50, y + 21, m == 0 ? "when idle: never" : fmt.tprintf("when idle: after %d min", m), FONT_SMALL, LIGHT_YELLOW)
+			}
 		}
-		draw_back(3)
+		draw_back(4)
 	case .Stats:
 		draw_stats()
 		draw_back(0)
@@ -704,11 +758,15 @@ draw_arrows :: proc() {
 draw_lines :: proc(lines: []Line, help: bool) {
 	b := &game.ui.box
 	top := BOX_Y
+	// between steps when smooth (unless the scroll wrapped round)
+	pos := lerp_pos(b.from_scroll, scroll_pos(b.top, b.sub), 40)
+	first := pos >= 0 ? (pos + 19) / 20 : -((-pos) / 20) // ceil(pos / 20)
+	b_sub := first * 20 - pos
 	for row in 0 ..< 9 {
-		idx := b.top + row
+		idx := first + row
 		if idx < 0 || idx >= len(lines) do continue
 		l := lines[idx]
-		y := b.sub + row * 20 + top
+		y := b_sub + row * 20 + top
 		if y >= BOX_CLIP do continue
 		bottom := min(y + 20, BOX_CLIP)
 		left := BOX_CX + 5
@@ -716,14 +774,14 @@ draw_lines :: proc(lines: []Line, help: bool) {
 		case 1:
 			ui := &game.ui
 			btn := &ui.buttons[l.index]
-			blit_clipped_keyed(&btn.bmp, BOX_CX + 2, row * 20 - btn.fh / 2 + b.sub - 4 + top,
+			blit_clipped_keyed(&btn.bmp, BOX_CX + 2, row * 20 - btn.fh / 2 + b_sub - 4 + top,
 				l.frame * btn.fh, btn.fw, btn.fh, top + 3, BOX_CLIP)
 			left = BOX_CX + btn.fw + 6
 		case 2:
 			g := &game.ui.gauges[l.index]
 			n := l.index == 0 ? 8 : 10
 			fh := g.h / n
-			blit_clipped_keyed(g, BOX_CX + 2, row * 20 - fh / 2 + b.sub - 4 + top,
+			blit_clipped_keyed(g, BOX_CX + 2, row * 20 - fh / 2 + b_sub - 4 + top,
 				l.frame * fh, g.w, fh, top + 3, BOX_CLIP)
 			left = BOX_CX + g.w + 6
 		}
