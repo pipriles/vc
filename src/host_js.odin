@@ -16,6 +16,7 @@ foreign host {
 	ui_add_anim :: proc(name: string) ---
 	ui_add_seq ::  proc(anim: i32, name: string, dir_mask: u32) ---
 	ui_status ::   proc(seq, dir, frame, frames: i32) ---
+	ui_add_object :: proc(id: i32, name: string, in_tank: bool) ---
 	tank_status :: proc(food, water, health, mood, temperament: i32, seq: string, dir: i32) ---
 	// debug overlay, view coordinates; colour is 0xRRGGBB
 	debug_begin :: proc() ---

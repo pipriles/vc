@@ -82,6 +82,15 @@ const imports = {
 			log.scrollTop = log.scrollHeight;
 		},
 		host_sound: (id) => {}, // sound comes later
+		ui_add_object: (id, p, n, inTank) => {
+			const label = document.createElement("label");
+			const box = document.createElement("input");
+			box.type = "checkbox";
+			box.checked = !!inTank;
+			box.onchange = () => mem.exports.tank_set_object(id, box.checked ? 1 : 0);
+			label.append(box, " " + mem.loadString(p, n));
+			$("objects")?.append(label);
+		},
 		tank_status: (food, water, health, mood, temper, p, n, dir) => {
 			$("status").textContent =
 				`food ${food}  water ${water}  health ${health}  mood ${mood}  temperament ${temper}` +
@@ -134,6 +143,7 @@ function setupTank() {
 	};
 	$("debug").onchange = () => setDebug($("debug").checked);
 	$("drop").onclick = () => mem.exports.tank_drop_cricket();
+	$("fill").onclick = () => mem.exports.tank_fill_bowl();
 	addEventListener("keydown", (e) => {
 		if (e.target.tagName === "INPUT" && e.target.type !== "checkbox") return;
 		if (e.key === "d" || e.key === "D") setDebug(!$("debug").checked);

@@ -39,3 +39,4 @@ debug_text :: proc "contextless" (x, y: i32, text: string, color: u32) {}
 debug_panel :: proc "contextless" (text: string) {}
 debug_log :: proc "contextless" (text: string) {}
 host_sound :: proc "contextless" (id: int) {}
+ui_add_object :: proc "contextless" (id: i32, name: string, in_tank: bool) {}

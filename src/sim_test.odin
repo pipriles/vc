@@ -19,10 +19,14 @@ sim_setup :: proc(t: ^testing.T, seed: u32) -> bool {
 
 // Runs the sim and returns a hash of every tick's observable state.
 sim_hid, sim_came_out: int // hide cycles seen by the last sim_run
+sim_drank: int              // water increases seen by the last sim_run
+sim_min_x, sim_max_x: int   // horizontal range the spider covered
 
 sim_run :: proc(t: ^testing.T, ticks: int, check: bool) -> (trace: u64, variety: int) {
-	sim_hid, sim_came_out = 0, 0
+	sim_hid, sim_came_out, sim_drank = 0, 0, 0
+	sim_min_x, sim_max_x = TANK_W, 0
 	prev_hide := 0
+	prev_water := game.stats.water
 	c := &game.spider
 	seen: map[int]bool
 	defer delete(seen)
@@ -47,6 +51,9 @@ sim_run :: proc(t: ^testing.T, ticks: int, check: bool) -> (trace: u64, variety:
 		state := [7]int{c.x, c.y, c.dir, c.seq, c.frame, game.stats.mood, game.eaten}
 		h = hash.fnv64a(transmute([]u8)state[:], h)
 		seen[c.seq] = true
+		if game.stats.water > prev_water do sim_drank += 1
+		prev_water = game.stats.water
+		sim_min_x, sim_max_x = min(sim_min_x, c.x), max(sim_max_x, c.x)
 		if c.hide == 1 && prev_hide == 0 do sim_hid += 1
 		if c.hide == 0 && prev_hide != 0 do sim_came_out += 1
 		prev_hide = c.hide
@@ -87,7 +94,7 @@ sim_invariants_hold :: proc(t: ^testing.T) {
 	_, variety := sim_run(t, SIM_TICKS, true)
 	log.infof("%d distinct sequences played", variety)
 	testing.expect(t, variety >= 5, "spider shows varied behaviour")
-	log.infof("hid under the rock %d times, came out %d times", sim_hid, sim_came_out)
+	log.infof("hid under the rock %d times, came out %d times, x range %d..%d", sim_hid, sim_came_out, sim_min_x, sim_max_x)
 	testing.expect(t, sim_hid > 0, "spider hides under the rock")
 	testing.expect(t, sim_came_out > 0, "spider comes back out")
 	log.infof("ate %d crickets, %d in the tank at the end, food %d", game.eaten, crickets_in_tank(), game.stats.food)
@@ -104,4 +111,20 @@ sim_is_deterministic :: proc(t: ^testing.T) {
 	if !sim_setup(t, 778) do return
 	c, _ := sim_run(t, 20_000, false)
 	testing.expect(t, a != c, "different seeds diverge")
+}
+
+@(test)
+sim_with_all_objects :: proc(t: ^testing.T) {
+	if !sim_setup(t, 4242) do return
+	for i in 0 ..< OBJECT_COUNT do game.pending_objects[i] = 1
+	game.stats.water = 30
+	_, variety := sim_run(t, SIM_TICKS / 2, true)
+	placed := 0
+	for &o in game.objects do if o.active && !o.in_box do placed += 1
+	log.infof("objects placed %d, sequences %d, drank %d times, water %d, bowl level %d, x range %d..%d, ate %d",
+		placed, variety, sim_drank, game.stats.water, game.objects[BOWL].frame, sim_min_x, sim_max_x, game.eaten)
+	testing.expect_value(t, placed, OBJECT_COUNT)
+	testing.expect(t, sim_drank > 0, "spider drinks from the bowl")
+	testing.expect(t, sim_max_x - sim_min_x > 400, "spider still roams the tank")
+	testing.expect(t, variety >= 5, "varied behaviour with objects in the way")
 }

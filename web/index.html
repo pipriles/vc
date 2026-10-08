@@ -19,6 +19,8 @@
   .debug pre { margin: 0; padding: 8px 12px; background: var(--panel); border-radius: 6px;
     font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow: auto; }
   #debug-log { height: 220px; width: 520px; max-width: 100%; }
+  .objects { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; margin-top: 8px;
+    padding: 8px 12px; background: var(--panel); border-radius: 6px; }
 </style>
 </head>
 <body data-mode="tank">
@@ -35,6 +37,7 @@
   <canvas id="overlay" width="640" height="480"></canvas>
 </div>
 <div id="status"></div>
+<div class="objects" id="objects"><strong>Objects</strong> <button id="fill">Fill bowl</button></div>
 <div class="debug">
   <pre id="debug-panel"></pre>
   <pre id="debug-log"></pre>

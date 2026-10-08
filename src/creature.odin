@@ -110,7 +110,7 @@ creature_init :: proc(c: ^Creature, a: ^Anim, x, y, base_sx, base_sy, size: int)
 	c.prev_x, c.prev_y = x, y
 	c.base_sx, c.base_sy = base_sx, base_sy
 	c.size = size
-	c.dir = 4
+	c.dir = min(rand_n(8), 7) // creature_init picks a random facing
 	c.step = 1
 	c.hold = -1
 	c.turn_target = -1
@@ -451,6 +451,11 @@ collide_respond :: proc(a, b: ^Creature) -> bool {
 
 	if a.kind == .Spider {
 		if a.hide != 0 do return false
+		if b.kind == .Object && b.id == BOWL {
+			f := a.blocks[a.dir]
+			if f.active && f.kind == int(Kind.Object) && f.id == BOWL do spider_thirst(a)
+			return false
+		}
 		if b.kind == .Cricket && !a.eating {
 			if a.goal.active do clear_goal(a)
 			if s == 8 do s = a.dir
@@ -514,6 +519,21 @@ goal_check :: proc(c: ^Creature) -> bool {
 		cr := &game.crickets[g.target]
 		g.x, g.y = cr.x, cr.y
 	}
+	if g.type == .Creature_A && g.target >= 0 {
+		t := &game.objects[g.target]
+		g.x, g.y = t.x, t.y
+		if g.target == BELL {
+			// wait in front of or behind the bell
+			if t.y < c.y {
+				g.dir = 0
+				g.y = t.hit.bottom - (t.hit.bottom - t.y) / 5
+			} else {
+				g.y = t.hit.top - 20
+				g.dir = 4
+				g.x += (t.hit.right - t.hit.left) / 4
+			}
+		}
+	}
 	g.x = clamp(g.x, WALL_MARGIN, TANK_W - WALL_MARGIN)
 	if g.timeout_s != 0 && now_ms > g.start_ms + u32(g.timeout_s) * 1000 {
 		debug_logf("%s goal timed out", c.name)
@@ -541,6 +561,16 @@ goal_check :: proc(c: ^Creature) -> bool {
 					break
 				}
 			}
+		}
+	case .Creature_A:
+		// objects: touching it, except the bell which has a waiting spot
+		if g.target == BELL {
+			if abs(c.x - gx) <= tx / 2 && abs(c.y - gy) <= ty / 2 {
+				arrived = true
+				c.blocks[g.dir] = {active = true, kind = int(Kind.Object), id = BELL, ticks = 80}
+			}
+		} else {
+			for b in c.blocks[:8] do if b.kind == int(Kind.Object) && b.id == g.target {arrived = true; break}
 		}
 	case .Point, .Cursor:
 		arrived = abs(c.x - gx) <= tx / 2 && abs(c.y - gy) <= ty / 2

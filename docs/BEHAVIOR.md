@@ -156,6 +156,47 @@ starts and it keeps going back (faithful to the original logic).
 - KILL finished: eating cleared, cricket remains (vcg_4004, 1 of 6) left at
   the hit-rect centre (ring of 12), KILL_RESET then CLEAN ×2–3.
 
+## Tank objects **confirmed**
+Table built on the stack at startup (recovered by tracing the stores):
+
+| # | object | bitmap | frames | depth | in tank | animation |
+|---|--------|--------|--------|-------|---------|-----------|
+| 0 | Waterbowl | 3000 | 5 (dry..full) | 0 | yes | fill level |
+| 1 | Bell | 3008 | 11 | 0 | no | swing ×N, rest on 4, 2 ticks/frame |
+| 2 | Rock #1 | 3002 | 1 | 0 | no | |
+| 3 | Rock #2 | 3003 | 1 | 0 | no | |
+| 4 | Cactus #1 | 3005 | 2 | 1 | no | |
+| 5 | Cactus #2 | 3004 | 2 | 0 | no | |
+| 6 | Rock #3 | 3001 | 1 | 0 | no | |
+| 7 | Yucca Plant | 3006 | 10 | 2 | no | 1 frame per day (slow anim) |
+| 8 | Water Fountain | 3007 | 8 | 1 | no | loop, sound 419 every 18–36 ticks |
+| 9 | Windpump | 3009 | 4 | 2 | no | loop, every tick |
+| 10 | Skin (kind 6) | – | 6 | – | – | crumbles, then gone |
+
+- Objects are creature structs of kind 1 without animation data. Depth
+  class sets the floor clamp: y ≥ 170 + h/3, h/6 or h/12; bottom
+  y + h/2 < 480; x margin 130. Scale `min(100, 35 + 100·y/480)`.
+- Hit rect: non-key bounds of frame 0 (`object_content_bounds`), scaled.
+  Shadows are colour 49 in the object bitmaps, drawn in the shadow pass.
+- Start: random x = rand_n(1200) − w, y = rand_n(480) − h + 170 (then
+  clamped); the bowl starts half full (frame 2).
+- Objects block creatures: a creature whose facing cell overlaps one is
+  put back where it was and its walk ends; the goal steering detours.
+- New spider: random facing, then the free-spot search (`place_free`:
+  random point, step 50 px right / down until the position update leaves
+  it unchanged), then faces the first free direction.
+
+## Water **confirmed**
+`spider_thirst`, once a minute and whenever the spider touches the bowl
+(facing it): only if water < 81. A counter cycles 0..4.
+- Bowl in the tank, spider facing and touching it, level > 0: drink,
+  +20 water, level −1, sound 457.
+- Otherwise every 5th call: go to the bowl (goal type 1, arrive on touch),
+  then LURK.
+- No bowl: every 5th call with water < 51, go and wait at the bell.
+- Hungry (food < 26) with the bell in the tank: every 5th minute go and
+  wait at the bell (in front of or behind it, by where the spider is).
+
 ## Rendering **confirmed**
 - Scene is composed into an 8-bit 1200×480 surface; the 640×480 view is a
   window at `scroll_x` (panning moves 20 px per tick).
@@ -241,4 +282,5 @@ Crickets: random sequence with frames in the current direction.
 - Growth and moulting; death and resurrection; footprints and footstep
   sound (`creature_post_frame`).
 - Tank objects (kind 1), webs, player tools and UI, the cricket box view.
-- Per-minute hunger stalk targets a tank object (`DAT_00454a38`), TBD.
+- Bell ringing (what sets the swing count), yucca growth start state,
+  fountain as a water source.

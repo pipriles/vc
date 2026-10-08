@@ -21,7 +21,8 @@ python3 -I tools/serve.py   # no-cache dev server on :8081
 ```
 Open http://127.0.0.1:8081/ for the tank (`?v=rk` for Red Knee), `viewer.html` for the animation viewer.
 `C` / "Drop cricket" releases a cricket from the box into the tank (until
-the feed tool exists). Press `D` (or tick Debug) for the overlay: tank limits, drawn box, facing,
+the feed tool exists). The Objects bar places or removes objects (only the bowl starts in the tank)
+and "Fill bowl" refills the water. Press `D` (or tick Debug) for the overlay: tank limits, drawn box, facing,
 blocked directions, goal target and tolerance, a state panel and a log of
 the spider's decisions. Sim speed runs the clock up to 20× faster.
 
@@ -60,4 +61,5 @@ Not covered yet: comparison against the original program's behaviour
 - [x] Walk-to-goal steering with detours; hiding under the rock; glass; shadows
 - [x] Debug overlay
 - [x] Crickets: collisions, chase, catch, eat, remains (debug "Drop cricket")
+- [x] Tank objects: rendering, animation, blocking, drinking at the bowl
 - [ ] Crickets, hunting, tank objects, tools, UI, sound, persistence

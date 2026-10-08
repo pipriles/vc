@@ -46,13 +46,24 @@
 0x407d00 collide_mark          # 3x3 hit-rect cells -> direction slots
 0x404180 cricket_eaten         # +25 food, refill from storage
 0x408350 add_remains           # cricket remains on the sand
+0x41a790 game_setup            # builds the object table (stack rows from 0x41a7b0)
+0x4086b0 place_free            # random free spot, stepping 50 px
+0x403e90 spider_thirst         # drink at the bowl / go to bowl or bell
+0x403c90 object_slow_anim      # yucca growth (1 frame/day), skin crumbling
+0x41c2e0 object_content_bounds # non-key bounds of an object bitmap
+0x416e40 blit_object           # bitmap frame scaled to scale%, keyed
 0x417390 blit_shadow           # copies only key2 (shadow colour) pixels, before bodies
 0x412600 blit_keyed            # bitmap blit skipping its top-left colour
 
 # --- globals
 0x44dc80 spider                # creature struct (0x274 bytes)
 0x4529a0 crickets              # 12 creature structs, stride 0x274
-0x44f9a0 tank_objects          # creature structs of kind 1 (bowl, rocks, ...), TBD
+0x44f9a0 tank_objects          # 11 creature structs: 10 objects (kind 1) + shed skin (kind 6)
+0x455846 bowl_index            # 0
+0x454a38 bell_index            # 1
+0x44def4 yucca_index           # 7
+0x4514d8 skin_index            # 10
+0x451760 floor_layer           # 1200x480 decal surface (footprints, webs)
 0x452720 remains_ring          # next index, then 12 x {x, y, sprite}
 0x4514dc crickets_in_storage
 0x4549a0 render_list           # 24 creature pointers, drawn in order

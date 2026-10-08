@@ -1,5 +1,6 @@
 package vc
 
+import "base:runtime"
 import "core:fmt"
 import "core:slice"
 import "core:strings"
@@ -31,6 +32,10 @@ Game :: struct {
 	storage:  int, // crickets in storage, refill the box
 	eaten:    int,
 	pending_drops: int,
+	objects:  [OBJECT_COUNT]Object,
+	pending_objects: [OBJECT_COUNT]int, // 1 = place, 2 = remove (from the UI)
+	thirst_count, hunger_count: int, // cycle 0..4: act on every 5th check
+	fountain_wait: int,
 	stats:    Spider_Stats,
 	seq:      Seq_Ids,
 	scroll_x: int,
@@ -48,24 +53,64 @@ frame_buf: [MAX_W * MAX_H]u8
 view: [VIEW_W * VIEW_H]u8 // palette indices
 view_rgba: [VIEW_W * VIEW_H * 4]u8
 
-tank_init :: proc() -> bool {
-	game = {}
+// Game data loaded once; game state is rebuilt from it by tank_reset.
+Assets :: struct {
+	loaded:      bool,
+	tank, rock:  Bitmap,
+	remains:     Bitmap,
+	spider:      Anim,
+	cricket:     Anim,
+	objects:     [OBJECT_COUNT]Bitmap,
+	objects_ok:  [OBJECT_COUNT]bool,
+}
+
+assets: Assets
+
+load_assets :: proc() -> bool {
+	if assets.loaded do return true
+	// assets outlive whatever allocator the caller runs with (tests use
+	// per-test allocators)
+	context.allocator = runtime.heap_allocator()
 	tank, ok := bmp_load(load_file("bitmaps/vcg_4500.bmp"))
 	if !ok {
 		fmt.eprintln("missing tank bitmap")
 		return false
 	}
-	game.tank = tank
-	state.palette = tank.palette
-	game.rock, _ = bmp_load(load_file("bitmaps/vcg_4005.bmp"))
-	game.remains_bmp, _ = bmp_load(load_file("bitmaps/vcg_4004.bmp"))
-
+	assets.tank = tank
+	assets.rock, _ = bmp_load(load_file("bitmaps/vcg_4005.bmp"))
+	assets.remains, _ = bmp_load(load_file("bitmaps/vcg_4004.bmp"))
 	base, ok1 := anim_parse(load_file("spider.idx"), load_file("spider.pix"))
 	if !ok1 do return false
-	game.spider_a = base
+	assets.spider = base
 	if plug, ok2 := anim_parse(load_file("plugin_spider.idx"), load_file("plugin_spider.pix")); ok2 {
-		game.spider_a = anim_merge(base, plug)
+		assets.spider = anim_merge(base, plug)
 	}
+	cricket, ok3 := anim_parse(load_file("cricket.idx"), load_file("cricket.pix"))
+	if !ok3 do return false
+	assets.cricket = cricket
+	for def, i in OBJECT_DEFS {
+		assets.objects[i], assets.objects_ok[i] = bmp_load(load_file(fmt.tprintf("bitmaps/vcg_%d.bmp", def.bitmap)))
+	}
+	assets.loaded = true
+	return true
+}
+
+tank_init :: proc() -> bool {
+	if !load_assets() do return false
+	rng.seed = u32(host_time())
+	tank_reset()
+	return true
+}
+
+// Fresh tank with a new spider (keeps the random seed going).
+tank_reset :: proc() {
+	game = {}
+	game.render_list = make([dynamic]^Creature, 0, 32, runtime.heap_allocator())
+	game.tank = assets.tank
+	state.palette = assets.tank.palette
+	game.rock = assets.rock
+	game.remains_bmp = assets.remains
+	game.spider_a = assets.spider
 	a := &game.spider_a
 	game.seq = {
 		circle      = seq_find(a, "CIRCLE"),
@@ -88,7 +133,6 @@ tank_init :: proc() -> bool {
 		dead        = seq_find(a, "DEAD"),
 	}
 
-	rng.seed = u32(host_time())
 	// new spider (0x406680 call in the setup path): x 100, y 300, speed 5x3, size 40
 	creature_init(&game.spider, a, 100, 300, 5, 3, 40)
 	game.spider.idle = spider_idle
@@ -96,20 +140,19 @@ tank_init :: proc() -> bool {
 	game.spider.can_play = spider_can_play
 	game.spider.name = "spider"
 	game.spider.seq = game.seq.lurk
+	place_free_creature(&game.spider) // 0x4086b0 right after creation
 	start_sequence(&game.spider)
 	game.stats = {food = 30, water = 30}
 	spider_stats_tick(&game.stats)
 
-	cricket_a, ok3 := anim_parse(load_file("cricket.idx"), load_file("cricket.pix"))
-	if !ok3 do return false
-	game.cricket_a = cricket_a
+	game.cricket_a = assets.cricket
 	crickets_init()
+	objects_init()
 	update_render_list()
 
 	game.follow = true
 	game.speed = 1
 	game.scroll_x = clamp(game.spider.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
-	return true
 }
 
 // Creatures in the tank, back to front.
@@ -117,12 +160,15 @@ update_render_list :: proc() {
 	clear(&game.render_list)
 	append(&game.render_list, &game.spider)
 	for &c in game.crickets do if c.active && !c.in_box do append(&game.render_list, &c)
+	for &o in game.objects do if o.active && !o.in_box do append(&game.render_list, &o.c)
 	slice.sort_by(game.render_list[:], proc(a, b: ^Creature) -> bool {return a.y < b.y})
 }
 
 tank_tick :: proc() {
 	now_ms += 100
 	handle_pending_drops()
+	handle_pending_objects()
+	for &o in game.objects do if o.active && !o.in_box do object_tick(&o)
 	update_render_list()
 	creature_tick(&game.spider)
 	for &c in game.crickets do creature_tick(&c)
@@ -211,6 +257,10 @@ Draw_Pass :: enum {
 // Draws the frame scaled to scale% (StretchBlt, nearest) with its canvas
 // centred on the creature (0x417390 shadow pass, 0x417180 body pass).
 draw_creature :: proc(c: ^Creature, pass: Draw_Pass) {
+	if c.kind == .Object {
+		draw_object((^Object)(c), pass)
+		return
+	}
 	a := c.anim
 	s := &a.seqs[c.seq]
 	d := &s.dirs[c.dir]
@@ -233,6 +283,27 @@ draw_creature :: proc(c: ^Creature, pass: Draw_Pass) {
 			if vx < 0 || vx >= VIEW_W do continue
 			p := frame_buf[sy * a.w + i * a.w / dw]
 			if p == a.key || (p == d.key2) != (pass == .Shadow) do continue
+			view[vy * VIEW_W + vx] = p
+		}
+	}
+}
+
+// Objects: frame scaled to scale% centred on the object (0x416e40), shadow
+// colour (49) in the shadow pass.
+draw_object :: proc(o: ^Object, pass: Draw_Pass) {
+	dw, dh := x87_scale_trunc(o.fw, o.scale), x87_scale_trunc(o.fh, o.scale)
+	if dw <= 0 || dh <= 0 do return
+	x0, y0 := o.x - game.scroll_x - dw / 2, o.y - dh / 2
+	base := o.frame * o.fh * o.fw
+	for j in 0 ..< dh {
+		vy := y0 + j
+		if vy < 0 || vy >= VIEW_H do continue
+		row := base + (j * o.fh / dh) * o.fw
+		for i in 0 ..< dw {
+			vx := x0 + i
+			if vx < 0 || vx >= VIEW_W do continue
+			p := o.bmp.pixels[row + i * o.fw / dw]
+			if p == o.key || (p == 49) != (pass == .Shadow) do continue
 			view[vy * VIEW_W + vx] = p
 		}
 	}
@@ -288,7 +359,11 @@ draw_debug :: proc() {
 		if o == c do continue
 		debug_rect(i32(o.hit.left + sx), i32(o.hit.top), i32(o.hit.right - o.hit.left),
 			i32(o.hit.bottom - o.hit.top), 0x80c0ff)
-		debug_text(i32(o.x + sx - 10), i32(o.hit.top - 3), fmt.tprintf("c%d %s", o.id, seq_name(o, o.seq)), 0x80c0ff)
+		if o.kind == .Object {
+			debug_text(i32(o.x + sx - 10), i32(o.hit.top - 3), fmt.tprintf("%s f%d", o.name, o.frame), 0xc0ff80)
+		} else {
+			debug_text(i32(o.x + sx - 10), i32(o.hit.top - 3), fmt.tprintf("c%d %s", o.id, seq_name(o, o.seq)), 0x80c0ff)
+		}
 	}
 	debug_rect(i32(c.hit.left + sx), i32(c.hit.top), i32(c.hit.right - c.hit.left),
 		i32(c.hit.bottom - c.hit.top), 0xffa040)

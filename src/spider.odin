@@ -59,6 +59,16 @@ spider_stats_tick :: proc(s: ^Spider_Stats) {
 		s.interacted = false
 		s.mood -= 1
 		if s.mood < -100 do s.mood = 100 // sic: the original wraps here
+		spider := &game.spider
+		bell := &game.objects[BELL]
+		if s.food < 26 && bell.active && !bell.in_box {
+			game.hunger_count = (game.hunger_count + 1) % 5
+			if game.hunger_count == 0 {
+				debug_logf("hungry (food %d): wait at the bell", s.food)
+				move_to(spider, .Creature_A, -1, -1, 4, game.seq.lurk, 120, target = BELL)
+			}
+		}
+		spider_thirst(spider)
 	}
 }
 
