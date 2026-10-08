@@ -461,10 +461,24 @@ Crickets: random sequence with frames in the current direction.
   (`move_to_then_anim(…, 0x280, 0xaa, …, LOG_HIDE, 0x78)`).
 - Remaining cases (2..5) to be decoded.
 
+## Frame rate, right button, screensaver **confirmed**
+- The whole game step (creatures, UI, cursor, scrolling) runs once per
+  frame, every 100, 71 or 55 ms (10 / 14 / 18 fps, table 0x4525e0,
+  default 14); needs and time use real milliseconds. The port adds a
+  smooth option that draws between steps.
+- Right button released in the tank view (0x205): over a button (when
+  shown) or an indicator → the Options box's help page at that item
+  (0x4065b0 gives the top line); elsewhere → the tools command: with the
+  UI hidden the first only shows the tools button alone for 50 frames
+  (0x4514b8), further ones cycle the tool and restart the 50.
+- Scan / follow button: frame 0 scan, 1 follow (0x451748, 1 = follow).
+- VC.SCR only launches VC.EXE (`start NN`) and handles the preview. The
+  port has a screensaver mode instead: UI and cursor hidden, following
+  the spider, after idle minutes in the window or full screen from a
+  button; any input ends it.
+
 ## Not yet ported
-- Options: Freeze Simulation (" - SIMULATION FROZEN - " overlay, needs and
-  time stop), Frame Rate (10 / 14 / 18 fps), Full Screen.
-- Help: the F1 help mode, help text pages, credits.
-- With the UI hidden, the tools command shows the tools button alone for
-  50 ticks (0x4514b8); the key path that sends it isn't decoded.
-- The screensaver (VC_SCR) and its preview window.
+- The in-view Options box (bitmaps 2000-2022): pages Settings, Help (161
+  lines at 0x42dd68, 0x54 bytes each: text, style, icon), Stats, Credits,
+  Utilities. The port has an HTML panel instead.
+- Freeze Simulation (not wanted).

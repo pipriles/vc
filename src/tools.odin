@@ -30,6 +30,7 @@ Pointer_Event :: enum i32 {
 	Down = 1,
 	Up   = 2,
 	Leave = 3,
+	Right = 4, // right button released without dragging
 }
 
 Carry :: enum {
@@ -118,9 +119,14 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 		if ev == .Down do leave_view()
 		return
 	case .Tank:
+		if ev == .Right {
+			ui_right_click(vx, vy)
+			return
+		}
 		if ui_pointer(ev, vx, vy) do return
 	case .Box:
 	}
+	if ev == .Right do return
 	if in_.view == .Tank {
 		in_.x, in_.y = vx + game.scroll_x, vy
 		game.cursor_x = in_.x
@@ -130,6 +136,7 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 	s := &game.spider
 
 	switch ev {
+	case .Right: // handled above
 	case .Leave:
 		if in_.carry == .None do in_.down = false
 	case .Down:
@@ -389,9 +396,13 @@ button :: proc(b: Button) {
 	case .Tank:
 		in_.view = .Tank
 	case .Next_Tool:
+		// with the UI hidden the first one only shows the tools button
+		// for 50 frames; while it shows, they cycle (0x41c4b0 case 4)
 		s := &game.spider
 		if s.goal.active && s.goal.type == .Cursor do clear_goal(s)
-		in_.tool = Tool((int(in_.tool) + 1) % TOOL_COUNT)
+		u := &game.ui
+		if u.shown || u.tools_flash > 0 do in_.tool = Tool((int(in_.tool) + 1) % TOOL_COUNT)
+		if !u.shown do u.tools_flash = 50
 	case .Water:
 		bowl := &game.objects[BOWL]
 		if bowl.active && !bowl.in_box && bowl.frame < bowl.def.frames - 1 {

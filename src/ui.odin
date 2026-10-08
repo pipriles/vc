@@ -21,7 +21,7 @@ BUTTON_DEFS := [10]struct {
 	{304, 5}, // tools (frame = current tool)
 	{303, 1}, // feed
 	{307, 1}, // water
-	{302, 2}, // scan / follow (frame 0 follow, 1 scan)
+	{302, 2}, // scan / follow (frame 0 scan, 1 follow)
 	{300, 1}, // close-up view
 	{301, 1}, // whole tank
 	{309, 1}, // clear debris
@@ -87,6 +87,9 @@ UI :: struct {
 	blink:        int, // 0..10, low needs blink (0x451f30)
 	logo_frame:   int,
 	options_open: bool,
+	saver:        bool, // screensaver: no UI, the view follows the spider
+	tools_flash:  int,  // ticks the tools button shows alone while hidden (0x4514b8)
+	saver_follow: bool, // follow mode before it
 	name:         [24]u8,
 	name_len:     int,
 }
@@ -114,6 +117,57 @@ ui_init :: proc() {
 	u.logo = assets.logo
 	u.hover, u.pressed = -1, -1
 	u.shown, u.cycle = true, 1
+}
+
+// Help page top line for a right-clicked button (0x4065b0).
+button_help_line :: proc(i: int) -> int {
+	switch i {
+	case 0: return 34 + 6 * int(game.input.tool)
+	case 1: return 64
+	case 2: return 71
+	case 3: return game.follow ? 80 : 86
+	case 4: return 91
+	case 5: return 96
+	case 6: return 103
+	case 7: return 108
+	case 8: return 112
+	case 9: return 118
+	}
+	return 0
+}
+
+// The right button released in the tank (0x205): help for a button or
+// indicator under the pointer, otherwise the tools command.
+ui_right_click :: proc(vx, vy: int) {
+	u := &game.ui
+	if game.input.carry != .None do return
+	if u.shown && u.slide == 0 {
+		if b := button_at(vx, vy); b >= 0 {
+			open_help(button_help_line(b))
+			return
+		}
+	}
+	if line := indicator_help_at(vx, vy); line >= 0 {
+		open_help(line)
+		return
+	}
+	button(.Next_Tool)
+}
+
+// Screensaver mode (port of VC.SCR, which started VC.EXE full screen):
+// nothing drawn over the tank and the viewfinder follows the spider.
+@(export)
+tank_set_saver :: proc "contextless" (on: i32) {
+	u := &game.ui
+	if (on != 0) == u.saver do return
+	u.saver = on != 0
+	if u.saver {
+		u.saver_follow = game.follow
+		game.follow = true
+		u.hover, u.pressed, u.logo_hover = -1, -1, false
+	} else {
+		game.follow = u.saver_follow
+	}
 }
 
 // The logo was clicked.
@@ -155,6 +209,7 @@ ui_slide_tick :: proc() {
 ui_tick :: proc() {
 	u := &game.ui
 	u.blink = (u.blink + 1) % 11
+	u.tools_flash = max(u.tools_flash - 1, 0)
 	ui_slide_tick()
 	u.ring_count += 1
 	if u.ring_count > 3 {
@@ -220,6 +275,7 @@ ui_pointer :: proc(ev: Pointer_Event, vx, vy: int) -> bool {
 ui_draw :: proc() {
 	u := &game.ui
 	ui_begin()
+	if u.saver do return
 
 	// pet name, top left, in the bitmap font
 	draw_name(10, 10)
@@ -242,6 +298,9 @@ ui_draw :: proc() {
 			draw_button(&b, BUTTON_Y, i == u.pressed ? PRESSED_SCALE : 100)
 			if i == u.hover do ui_text(b.x, BUTTON_Y - 16, button_tip(b.cmd))
 		}
+	} else if u.slide == 0 && u.tools_flash > 0 {
+		// right-clicked while hidden: the tools button alone
+		draw_button(&u.buttons[0], BUTTON_Y, 100)
 	} else if (u.slide == 1 && u.icons_only) || u.slide == 2 {
 		// (the original pops the buttons in at the end; they slide in here)
 		for &b in u.buttons do draw_button(&b, u.btn_y, 100)
@@ -252,9 +311,29 @@ draw_button :: proc(b: ^UI_Button, y, scale: int) {
 	frame := 0
 	switch b.cmd {
 	case 4: frame = int(game.input.tool)
-	case 2: frame = game.follow ? 0 : 1
+	case 2: frame = game.follow ? 1 : 0 // (0x451748: 1 = follow)
 	}
 	draw_scaled_part(&b.bmp, b.x, y, b.fw, b.fh, frame * b.fh, scale)
+}
+
+// Help line for the indicator under the pointer, -1 if none: mood 16,
+// health 11, water 6, food 0 (wnd_proc 0x205 via the hover flags).
+indicator_help_at :: proc(px, py: int) -> int {
+	u := &game.ui
+	if u.slide != 0 || !(u.shown || u.icons_only) do return -1
+	g := &u.gauges[0]
+	gh := g.h / 8
+	top := INDICATOR_B - gh
+	if px > INDICATOR_X + 10 && px < INDICATOR_X + g.w - 10 && py > top + 5 && py < top + gh - 5 do return 16
+	x := INDICATOR_X + 4 + g.w
+	lines := [3]int{11, 6, 0}
+	for i in 0 ..< 3 {
+		b := &u.gauges[i + 1]
+		fh := b.h / 10
+		if px > x + 12 && px < x + b.w - 12 && py > top + 5 && py < top + fh - 5 do return lines[i]
+		x += b.w + 4
+	}
+	return -1
 }
 
 // The four indicators with their bottom at y (0x40e990).
@@ -371,4 +450,12 @@ tank_name_char :: proc "contextless" (ch: i32) {
 		u.name[u.name_len] = u8(ch)
 		u.name_len += 1
 	}
+}
+
+// Opens help at a line of the help page. The original shows it in its
+// Options box (page 4); until that is ported, open the options panel.
+open_help :: proc(line: int) {
+	debug_logf("help at line %d", line)
+	game.ui.options_open = true
+	host_options(true)
 }

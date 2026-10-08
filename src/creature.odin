@@ -75,6 +75,7 @@ Creature :: struct {
 	hit:                Rect, // current frame box in tank coordinates (+0xd0)
 	prev_x, prev_y:     int,  // position before this tick's move (+0xaa, +0xac)
 	x, y:               int,  // centre in tank coordinates (+0xa6, +0xa8)
+	from_x, from_y:     int,  // smooth drawing: position at the start of the last step
 	dir:                int,  // facing 0..7: 0 = up, clockwise (+0x9a)
 	seq, prev_seq:      int,  // (+0x98, +0xbc)
 	frame, step:        int,  // (+0xb2, +0xb4)

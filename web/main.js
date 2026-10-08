@@ -368,6 +368,67 @@ function setupTank() {
 		try { localStorage.setItem("vc-sound", $("sound").checked ? "on" : "off"); } catch {}
 	};
 
+	// frame rate (the original's 10 / 14 / 18 fps) and smooth motion
+	const setRate = () => {
+		mem.exports.tank_set_frame_rate(+$("fps").value, $("smooth").checked ? 1 : 0);
+		try { localStorage.setItem("vc-fps", $("fps").value + ($("smooth").checked ? "s" : "")); } catch {}
+	};
+	try {
+		const r = localStorage.getItem("vc-fps");
+		if (r) { $("fps").value = r[0]; $("smooth").checked = r.endsWith("s"); }
+	} catch {}
+	$("fps").onchange = $("smooth").onchange = setRate;
+	setRate();
+
+	// full screen: the stage (view and dialogs), scaled to fit
+	const stage = $("stage");
+	const toggleFullscreen = () => {
+		if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+		else stage.requestFullscreen?.().catch(() => {});
+	};
+	$("fullscreen").onclick = toggleFullscreen;
+
+	// screensaver: UI and cursor hidden, the view follows the spider; any
+	// input ends it. After some idle minutes in the window, or full screen
+	// from the button (browsers only allow full screen after a click).
+	let saverOn = false, saverFull = false, saverSince = 0, lastInput = Date.now();
+	const startSaver = (full) => {
+		if (saverOn || mode !== 0) return;
+		saverOn = true;
+		saverFull = full;
+		saverSince = Date.now();
+		stage.classList.add("saver");
+		mem.exports.tank_set_saver(1);
+		if (full && !document.fullscreenElement) stage.requestFullscreen?.().catch(() => {});
+	};
+	const stopSaver = () => {
+		if (!saverOn) return;
+		saverOn = false;
+		stage.classList.remove("saver");
+		mem.exports.tank_set_saver(0);
+		if (saverFull && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+	};
+	$("saver").onclick = () => startSaver(true);
+	const onInput = (e) => {
+		lastInput = Date.now();
+		if (!saverOn) return;
+		if (Date.now() - saverSince < 800) { e.stopPropagation(); return; } // settling after the switch
+		if (e.type === "pointermove" && Math.hypot(e.movementX, e.movementY) < 3) return;
+		stopSaver();
+		e.stopPropagation(); // the input that ends it does nothing else
+		if (e.cancelable && e.type !== "pointermove") e.preventDefault();
+	};
+	for (const t of ["pointermove", "pointerdown", "pointerup", "keydown", "wheel"]) {
+		addEventListener(t, onInput, { capture: true, passive: false });
+	}
+	document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && saverFull) stopSaver(); });
+	try { $("idle").value = localStorage.getItem("vc-idle") ?? "5"; } catch {}
+	$("idle").onchange = () => { try { localStorage.setItem("vc-idle", $("idle").value); } catch {} };
+	setInterval(() => {
+		const min = +$("idle").value;
+		if (min > 0 && !document.hidden && Date.now() - lastInput >= min * 60_000) startSaver(false);
+	}, 5000);
+
 	// volume, 0-100 %
 	let volume = 100;
 	try { volume = +(localStorage.getItem("vc-volume") ?? 100); } catch {}
@@ -413,6 +474,7 @@ function setupTank() {
 		if (e.key === "d" || e.key === "D") setDebug(!$("debug").checked);
 		if (e.key === "c" || e.key === "C") mem.exports.tank_drop_cricket();
 		if (e.key >= "1" && e.key <= "5") mem.exports.tank_set_tool(+e.key - 1);
+		if (e.key === "f" || e.key === "F") $("fullscreen").click();
 	});
 	let saved = false;
 	try { saved = localStorage.getItem("vc-debug") === "1"; } catch {}
@@ -422,20 +484,33 @@ function setupTank() {
 		$("speedv").textContent = `${$("speed").value}×`;
 		mem.exports.tank_set_speed(+$("speed").value);
 	};
-	// left button: the current tool; right (or middle) drag pans the viewfinder
-	let panX = null;
+	// left button: the current tool; right click: help on a button or
+	// indicator, otherwise the next tool (the original's right button);
+	// right (or middle) drag pans the viewfinder
+	let panX = null, panFrom = null, panning = false;
 	canvas.oncontextmenu = (e) => e.preventDefault();
 	canvas.onpointerdown = (e) => {
 		canvas.setPointerCapture(e.pointerId);
-		if (e.button !== 0) { panX = e.clientX; return; }
+		if (e.button !== 0) {
+			panX = e.clientX;
+			panFrom = [e.clientX, e.clientY, e.button];
+			panning = false;
+			return;
+		}
 		mem.exports.tank_pointer(1, ...toCanvas(e));
 	};
 	canvas.onpointerup = (e) => {
-		if (panX !== null) { panX = null; return; }
+		if (panX !== null) {
+			if (!panning && panFrom[2] === 2) mem.exports.tank_pointer(4, ...toCanvas(e));
+			panX = panFrom = null;
+			return;
+		}
 		mem.exports.tank_pointer(2, ...toCanvas(e));
 	};
 	canvas.onpointermove = (e) => {
 		if (panX !== null) {
+			if (!panning && Math.hypot(e.clientX - panFrom[0], e.clientY - panFrom[1]) < 5) return;
+			panning = true;
 			const k = canvas.width / canvas.getBoundingClientRect().width;
 			mem.exports.tank_scroll(Math.round((panX - e.clientX) * k));
 			panX = e.clientX;

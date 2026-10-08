@@ -64,6 +64,8 @@ Game :: struct {
 	stats:    Spider_Stats,
 	seq:      Seq_Ids,
 	scroll_x: int,
+	from_scroll: int, // smooth drawing: scroll_x at the start of the last step
+	alpha:       f64, // how far into the next step the display is (0..1)
 	follow:   bool,
 	accum:    f64,
 	speed:    f64,
@@ -71,7 +73,7 @@ Game :: struct {
 }
 
 game: Game
-now_ms: u32 // simulation clock, advanced 100 ms per tick
+now_ms: u32 // simulation clock, advanced one frame (100, 71 or 55 ms) per tick
 debug_enabled: bool
 
 frame_buf: [MAX_W * MAX_H]u8
@@ -254,8 +256,44 @@ update_render_list :: proc() {
 	slice.sort_by(game.render_list[:], proc(a, b: ^Creature) -> bool {return a.y < b.y})
 }
 
+// Frame rate setting (Options > Settings): the original runs the whole
+// game step once per frame, every 100, 71 or 55 ms (10, 14 or 18 fps,
+// table at 0x4525e0, default 14). Smooth draws every display frame and
+// slides creatures and the viewfinder between steps (port only).
+FRAME_MS := [3]int{100, 71, 55}
+settings := struct {
+	frame_rate: int,
+	smooth:     bool,
+} {
+	frame_rate = 1,
+}
+
+tick_ms :: proc() -> int {return FRAME_MS[clamp(settings.frame_rate, 0, 2)]}
+
+@(export)
+tank_set_frame_rate :: proc "contextless" (rate, smooth: i32) {
+	settings.frame_rate = int(clamp(rate, 0, 2))
+	settings.smooth = smooth != 0
+}
+
+// Where things were at the start of the last step, for smooth drawing.
+remember_positions :: proc() {
+	game.from_scroll = game.scroll_x
+	game.spider.from_x, game.spider.from_y = game.spider.x, game.spider.y
+	for &c in game.crickets do c.from_x, c.from_y = c.x, c.y
+	game.skin.from_x, game.skin.from_y = game.skin.x, game.skin.y
+}
+
+// Position to draw at: between the last two steps when smooth, unless it
+// jumped (teleports, drops, a new view).
+lerp_pos :: proc(from, to: int, limit: int) -> int {
+	if !settings.smooth || abs(to - from) > limit do return to
+	return from + int(f64(to - from) * game.alpha)
+}
+
 tank_tick :: proc() {
-	now_ms += 100
+	remember_positions()
+	now_ms += u32(tick_ms())
 	if game.pending_new {
 		tank_reset()
 		host_message("NEW SPIDER", "A new spider has hatched.")
@@ -307,12 +345,14 @@ tank_tick :: proc() {
 }
 
 tank_step :: proc(dt: f64) {
+	tick := f64(tick_ms()) / 1000
 	game.accum += dt * game.speed
-	if game.accum > 1 do game.accum = TICK
-	for game.accum >= TICK {
-		game.accum -= TICK
+	if game.accum > 1 do game.accum = tick
+	for game.accum >= tick {
+		game.accum -= tick
 		tank_tick()
 	}
+	game.alpha = clamp(game.accum / tick, 0, 1)
 	tank_render()
 }
 
@@ -363,8 +403,9 @@ tank_render :: proc() {
 	dst = view_surface()
 	#partial switch game.input.view {
 	case .Tank:
+		sx := clamp(lerp_pos(game.from_scroll, game.scroll_x, 40), 0, TANK_W - VIEW_W)
 		for y in 0 ..< VIEW_H {
-			copy(view[y * VIEW_W:][:VIEW_W], tank_buf[y * TANK_W + game.scroll_x:][:VIEW_W])
+			copy(view[y * VIEW_W:][:VIEW_W], tank_buf[y * TANK_W + sx:][:VIEW_W])
 		}
 		ui_draw()
 	case .Whole:
@@ -416,8 +457,8 @@ draw_creature :: proc(c: ^Creature, pass: Draw_Pass, scroll: int) {
 	dw := x87_scale_trunc(a.w, c.scale)
 	dh := x87_scale_trunc(a.h, c.scale)
 	if dw <= 0 || dh <= 0 do return
-	x0 := c.x - scroll - dw / 2
-	y0 := c.y - dh / 2
+	x0 := lerp_pos(c.from_x, c.x, 30) - scroll - dw / 2
+	y0 := lerp_pos(c.from_y, c.y, 30) - dh / 2
 	for j in 0 ..< dh {
 		vy := y0 + j
 		if vy < 0 || vy >= dst.h do continue

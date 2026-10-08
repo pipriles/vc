@@ -76,6 +76,11 @@ async function run(variant, mode, saveJson = null) {
 		ex.tank_resume(600); // ten hours away
 		ex.tank_resurrect();
 		ex.tank_new_spider();
+		ex.tank_set_frame_rate(2, 1); // 18 fps, smooth
+		ex.tank_set_saver(1);
+		for (let t = 0; t < 50; t++) ex.step(0.016, ctx);
+		ex.tank_set_saver(0);
+		ex.tank_set_frame_rate(1, 0);
 		for (let t = 0; t < 50; t++) ex.step(0.1, ctx);
 	}
 	return mode === 0 && !saveJson ? { lines: log.length, saved } : { lines: log.length, log };

@@ -10,7 +10,11 @@
   body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
   .bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 12px; background: var(--panel); border-radius: 6px; }
   label { display: flex; gap: 6px; align-items: center; }
-  .stage { position: relative; margin-top: 16px; width: 640px; max-width: 100%; }
+  .stage { margin-top: 16px; width: 640px; max-width: 100%; }
+  .screen { position: relative; }
+  .stage:fullscreen { display: grid; place-items: center; width: 100vw; max-width: none; height: 100vh; margin: 0; background: #000; }
+  .stage:fullscreen .screen { width: min(100vw, calc(100vh * 4 / 3)); }
+  .stage.saver, .stage.saver * { cursor: none !important; }
   #view { display: block; width: 100%; image-rendering: pixelated; touch-action: none; }
   #overlay, #ui-text { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   #status { font-variant-numeric: tabular-nums; margin-top: 8px; }
@@ -39,15 +43,29 @@
   <label><input id="debug" type="checkbox"> Debug <kbd>D</kbd></label>
   <a href="viewer.html">Animation viewer →</a>
 </div>
-<div class="stage">
-  <canvas id="view" width="640" height="480"></canvas>
-  <canvas id="ui-text" width="640" height="480"></canvas>
-  <canvas id="overlay" width="640" height="480"></canvas>
+<div class="stage" id="stage">
+  <div class="screen">
+    <canvas id="view" width="640" height="480"></canvas>
+    <canvas id="ui-text" width="640" height="480"></canvas>
+    <canvas id="overlay" width="640" height="480"></canvas>
+  </div>
+  <div id="message" class="message" hidden>
+    <div class="message-box">
+      <strong id="message-title"></strong>
+      <p id="message-text"></p>
+      <button id="message-ok">OK</button>
+    </div>
+  </div>
 </div>
 <div id="status"></div>
 <div class="objects" id="options" hidden>
   <strong>Options</strong>
   <label>Name <input id="pet-name" maxlength="20" placeholder="ENTER PETS NAME HERE"></label>
+  <label>Frame rate <select id="fps"><option value="0">10 fps</option><option value="1" selected>14 fps</option><option value="2">18 fps</option></select></label>
+  <label><input id="smooth" type="checkbox"> Smooth motion</label>
+  <button id="fullscreen">Full screen</button>
+  <button id="saver">Screensaver</button>
+  <label>Screensaver after <select id="idle"><option value="0">never</option><option value="2">2 min</option><option value="5" selected>5 min</option><option value="10">10 min</option><option value="30">30 min</option></select></label>
   <button id="fill">Fill bowl</button>
   <button id="resurrect" disabled>Resurrect Creature</button>
   <button id="new-spider">New spider</button>
@@ -57,13 +75,6 @@
 <div class="debug">
   <pre id="debug-panel"></pre>
   <pre id="debug-log"></pre>
-</div>
-<div id="message" class="message" hidden>
-  <div class="message-box">
-    <strong id="message-title"></strong>
-    <p id="message-text"></p>
-    <button id="message-ok">OK</button>
-  </div>
 </div>
 <script src="odin.js"></script>
 <script type="module" src="main.js"></script>

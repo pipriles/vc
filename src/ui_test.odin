@@ -35,3 +35,22 @@ logo_cycles_with_slides :: proc(t: ^testing.T) {
 	slide_done()
 	testing.expect(t, u.shown && !u.icons_only && u.cycle == 1, "all shown again")
 }
+
+@(test)
+right_click_with_ui_hidden_flashes_then_cycles :: proc(t: ^testing.T) {
+	if !sim_setup(t, 2) do return
+	u := &game.ui
+	in_ := &game.input
+	in_.tool = .Tap
+	pointer_event(.Right, 300, 300) // shown: cycles straight away
+	testing.expect_value(t, in_.tool, Tool.Pickup)
+	u.shown, u.icons_only = false, false
+	pointer_event(.Right, 300, 300) // hidden: only shows the button
+	testing.expect_value(t, in_.tool, Tool.Pickup)
+	testing.expect_value(t, u.tools_flash, 50)
+	pointer_event(.Right, 300, 300) // while it shows: cycles
+	testing.expect_value(t, in_.tool, Tool.Prod)
+	for _ in 0 ..< 50 do ui_tick()
+	testing.expect_value(t, u.tools_flash, 0)
+	u.shown = true
+}
