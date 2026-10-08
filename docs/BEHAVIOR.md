@@ -100,9 +100,11 @@ play finish.
 - Idle: 1 in 51 picks, ≥ 12 min since the last LOG_HIDE: goal to
   (640, 170), then LOG_HIDE facing 7 (up-left), timeout 120 s. LOG_HIDE
   only plays at x 630–650, y < 174, size > 24.
-- When LOG_HIDE finishes (`spider_seq_finished`) the spider is moved to
-  (422, 114) and lurks; hiding state 1 (*tentative*: the setter isn't
-  found yet, the idle code implies it).
+- While LOG_HIDE plays (`spider_post_draw`, every frame) the spider is
+  marked hidden and creeps left (frames > 8: −sx, > 17: a further
+  −((100−size)/30 + 1)) and up (−1 − (100−size)/65 on frames
+  (100−size)/25+4 .. 15), footsteps on odd frames, sound 411 on frames 23
+  and 29. When it finishes the spider is moved to (422, 114) and lurks.
 - Hidden: stays at (422 − (100−size)/2, 114) facing left, no turning.
   Each idle pick, ≥ 2 min after hiding: `rand_n(50) < temperament` and 20%
   → come out: walk left ×14 (flush), then down or down-left ×12.
@@ -255,6 +257,46 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   hovered; corners vcg_2009; names). Drag objects between the panel and
   the tank; a click elsewhere returns and restores the tool. (The
   unregistered original allowed 3 objects in the tank.)
+
+## Pauses and frame events **confirmed** (`creature_post_frame`)
+Run on every frame advance. A pause (`+0xf8`) freezes the creature
+(no frames, no movement) for that many ticks.
+- WALK frames 0 and 3: unless following the cursor or chasing,
+  `rand_n(14) < temperament/2` → pause `rand()*temperament*2/0x7fff + 5`;
+  health < 16 and `rand_n(6) == 2` → pause `rand()*(8−temperament)*2/0x7fff
+  + 11`. While following/chasing: `rand_n(10) == health/10` → pause
+  `rand_n(10) + 8`.
+- THREAT: frame 9 hiss (459); last frame pause 8–16. CRUSH: last two
+  frames pause 15–30 (cut short if a tool interaction is pending).
+- LURK ending facing up/down against the bell (within 29 px / 0–49 px):
+  the bell swings 60 times — the spider rings it.
+- Sequence start (`0x403210`): no running while turning if health < 30,
+  or walking if health < 15 or blocked; a running walk plays at double
+  frame step; a cricket chirps (401) when CHIRP starts in the visible view.
+
+## Sound **confirmed**
+`play_sound` (0x415f00) is a 4-channel software mixer: channel 0 for the
+eating crunches 450–456 (they cut it off); everything else takes the first
+free channel of 1–3 and is skipped if all are busy or the same sound is
+already playing (the bell 466 excepted). Two loops: running water 465 while
+the fountain is in the tank (not in the box view, channel 1) and scraping
+403 while an object is dragged and moving (channel 2). The fountain splash
+419 is muted in the box view.
+
+| id | sound | id | sound |
+|----|-------|----|-------|
+| 400 | button click | 450–452 | crunch on catching |
+| 401 | cricket chirp | 453–456 | eating |
+| 402 | water poured | 457 | drinking |
+| 403 | object dragged (loop) | 458 | hair flick |
+| 404 | knock on the glass | 459 | threat hiss |
+| 405 | spider picked up | 460 | footstep |
+| 406 | spider dropped | 461, 462 | cleaning |
+| 407 | cricket picked up | 463, 464 | at the glass |
+| 408 | cricket dropped | 465 | fountain water (loop) |
+| 409 | cricket lands a jump | 466 | bell |
+| 410 | prod | 411 | stroke / crawling under the rock |
+| 412, 413 | laying a web | 419 | fountain splash |
 
 ## Offline catch-up (for saving) **found**
 `offline_catch_up` (0x415430) replays the time the program was closed:

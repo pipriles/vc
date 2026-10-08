@@ -94,6 +94,7 @@ Creature :: struct {
 	goal:               Goal,
 	hide:               int, // hiding state (+0x48): 0 out, 1 hidden, 2..3 coming out
 	web_stuck:          bool, // cricket caught in a web (+0x166)
+	pause:              int,         // ticks frozen (+0xf8)
 	tool:               Interaction, // pending player interaction (+0x4c)
 	prev_tool:          Interaction, // (+0x4e)
 	mood_step:          int,         // (+0x50)
@@ -185,6 +186,24 @@ start_sequence :: proc(c: ^Creature) {
 	c.moving_y = d.move_y
 	c.no_clamp = d.no_clamp
 	c.hold = -1
+	sequence_start_rules(c)
+}
+
+// Per-sequence start rules (0x403210): cricket chirps; a weak spider
+// doesn't run; a running walk also plays at double frame speed.
+sequence_start_rules :: proc(c: ^Creature) {
+	if c.kind == .Cricket {
+		if c.seq == game.cseq.chirp && c.in_box == (game.input.view == .Box) do host_sound(401)
+		return
+	}
+	if c.kind != .Spider do return
+	health := game.stats.health
+	if c.seq == game.seq.circle {
+		if health < 30 do c.run = false
+	} else if c.seq == game.seq.walk {
+		if health < 15 || c.blocks[c.dir].active do c.run = false
+		if c.run do c.step *= 2
+	}
 }
 
 // One CIRCLE play rotates the creature by one direction (0x4081c0):
@@ -270,31 +289,37 @@ creature_tick :: proc(c: ^Creature) {
 	}
 	f := d.frames[c.frame]
 
-	if c.hold < 0 && f.hold_flag != 0 {
-		c.hold = f.hold < 0 ? rand() * int(f.hold) / 0x7FFF : int(f.hold)
-	}
-	c.hold -= 1
-	if c.hold < 0 {
-		c.hold = -1
-		c.frame += c.step
-		ended := c.frame < 0 || c.frame >= len(d.frames)
-		if c.goal.active && goal_check(c) do ended, c.plays = true, 1 // arrived: cut short
-		if ended {
-			c.plays -= 1
-			if c.plays > 0 {
-				c.frame = c.step < 0 ? len(d.frames) - 1 : 0
-			} else {
-				next_sequence(c)
+	// a pause (+0xf8) freezes the creature: no frames, no movement
+	c.pause -= 1
+	paused := c.pause >= 0
+	if !paused {
+		c.pause = 0
+		if c.hold < 0 && f.hold_flag != 0 {
+			c.hold = f.hold < 0 ? rand() * int(f.hold) / 0x7FFF : int(f.hold)
+		}
+		c.hold -= 1
+		if c.hold < 0 {
+			c.hold = -1
+			c.frame += c.step
+			ended := c.frame < 0 || c.frame >= len(d.frames)
+			if c.goal.active && goal_check(c) do ended, c.plays = true, 1 // arrived: cut short
+			if ended {
+				c.plays -= 1
+				if c.plays > 0 {
+					c.frame = c.step < 0 ? len(d.frames) - 1 : 0
+				} else {
+					next_sequence(c)
+				}
 			}
+			creature_post_frame(c)
 		}
 	}
-	creature_post_frame(c)
 
 	// movement for the frame now showing
 	d = creature_dir(c)
 	f = d.frames[clamp(c.frame, 0, len(d.frames) - 1)]
 	dx, dy := int(f.dx), int(f.dy)
-	if c.moving_x || c.moving_y || dx != 0 || dy != 0 {
+	if !paused && (c.moving_x || c.moving_y || dx != 0 || dy != 0) {
 		sx, sy := c.sx, c.sy
 		if c.run && c.seq == game.seq.walk {
 			sx *= 2
@@ -315,7 +340,14 @@ creature_tick :: proc(c: ^Creature) {
 // Tail of 0x404b20: hiding behind the rock lifts the floor clamp until the
 // creature is back on the floor.
 creature_post_frame :: proc(c: ^Creature) {
-	if c.kind == .Spider do spider_catch_frame(c)
+	if c.kind == .Cricket {
+		cricket_frame_sounds(c)
+		return
+	}
+	if c.kind == .Spider {
+		spider_frame_events(c)
+		spider_catch_frame(c)
+	}
 	if c.hide == 0 {
 		if c.y < FLOOR_TOP do return
 	} else if c.y < FLOOR_TOP {

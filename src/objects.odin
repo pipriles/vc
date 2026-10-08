@@ -147,7 +147,7 @@ object_tick :: proc(o: ^Object) {
 	if o.id == FOUNTAIN && o.frame == 0 {
 		game.fountain_wait -= 1
 		if game.fountain_wait < 1 {
-			host_sound(419)
+			if game.input.view != .Box do host_sound(419)
 			game.fountain_wait = rand_n(18) + 18
 		}
 	}

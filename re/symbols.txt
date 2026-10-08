@@ -40,7 +40,7 @@
 0x404600 sequence_play_done    # repeats, ping-pong; returns 1 when all plays done
 0x404b20 creature_post_frame   # footprints, footstep sound, hiding clamp state
 0x403520 spider_seq_finished   # KILL, LOG_HIDE (teleport behind rock), CLEAN/WEB_LAYING repeats
-0x4057b0 spider_post_draw      # ..., rock overlay when y < 170
+0x4057b0 spider_post_draw      # LOG_HIDE crawl (sets hidden), rock overlay when y < 170
 0x404010 spider_sees_cricket   # hunt decision on drop / web-stuck
 0x403770 collide_respond       # spider lunges (CATCH), cricket flees
 0x407d00 collide_mark          # 3x3 hit-rect cells -> direction slots
@@ -60,6 +60,8 @@
 0x41f710 clear_debris
 0x415430 offline_catch_up      # replays the time the program was closed
 0x409de0 cheat_codes           # typed codes, stored +100
+0x403210 sequence_start_rules  # running rules, chirp sound, crush/lurk loop counts
+0x416510 sound_loops           # fountain water 465, dragging 403
 0x417390 blit_shadow           # copies only key2 (shadow colour) pixels, before bodies
 0x412600 blit_keyed            # bitmap blit skipping its top-left colour
 

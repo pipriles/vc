@@ -73,5 +73,7 @@ Not covered yet: comparison against the original program's behaviour
 - [x] Crickets: collisions, chase, catch, eat, remains (debug "Drop cricket")
 - [x] Tank objects: rendering, animation, blocking, drinking at the bowl
 - [x] Player tools with the original cursors, reactions, cricket box, buttons
-- [ ] Sound, saving with offline catch-up, whole-tank and close-up views,
-      object placement panel, growth and moulting, webs, death
+- [x] In-view UI, close-up and whole-tank views, object panel
+- [x] Sound: the original 4-channel mixing rules, frame-triggered sounds
+- [ ] Saving with offline catch-up, growth and moulting, webs and
+      footprints, death and resurrection

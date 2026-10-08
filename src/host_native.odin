@@ -46,3 +46,4 @@ host_tool :: proc "contextless" (tool: i32, follow: bool) {}
 host_options :: proc "contextless" (open: bool) {}
 ui_begin :: proc "contextless" () {}
 ui_text :: proc "contextless" (x, y: int, text: string) {}
+host_loop :: proc "contextless" (id: int, on: bool) {}

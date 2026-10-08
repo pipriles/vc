@@ -47,6 +47,8 @@ Game :: struct {
 	ui:       UI,
 	saved_tool: Tool, // restored when leaving the whole-tank view
 	scroll_left, scroll_right: int, // edge scrolling ticks left
+	loop_fountain, loop_drag: bool, // looping sounds on (465, 403)
+	drag_x, drag_y: int,
 	stats:    Spider_Stats,
 	seq:      Seq_Ids,
 	scroll_x: int,
@@ -227,6 +229,8 @@ tank_tick :: proc() {
 	update_render_list()
 	creature_tick(&game.spider)
 	for &c in game.crickets do creature_tick(&c)
+	spider_hide_crawl(&game.spider)
+	sound_loops()
 	if now_ms >= game.sec_ms + 1000 {
 		game.sec_ms = now_ms
 		spider_stats_tick(&game.stats)
@@ -522,4 +526,25 @@ draw_debug :: proc() {
 		fmt.sbprintf(&sb, "%s %.0fs ago  ", seq_name(c, id), f64(now_ms - c.last_played[id]) / 1000)
 	}
 	debug_panel(strings.to_string(sb))
+}
+
+// The two looping sounds (0x416510): running water while the fountain is in
+// the tank (not in the box view), scraping while an object is dragged.
+sound_loops :: proc() {
+	f := &game.objects[FOUNTAIN]
+	fountain := f.active && !f.in_box && game.input.view != .Box
+	if fountain != game.loop_fountain {
+		game.loop_fountain = fountain
+		host_loop(465, fountain)
+	}
+	drag := false
+	if game.input.carry == .Object {
+		o := &game.objects[game.input.carry_id]
+		drag = abs(o.x - game.drag_x) > 2 || abs(o.y - game.drag_y) > 2
+		game.drag_x, game.drag_y = o.x, o.y
+	}
+	if drag != game.loop_drag {
+		game.loop_drag = drag
+		host_loop(403, drag)
+	}
 }

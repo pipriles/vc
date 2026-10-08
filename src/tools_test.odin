@@ -12,7 +12,8 @@ press :: proc(ev: Pointer_Event, x, y: int) {
 check_spider_ok :: proc(t: ^testing.T, tick: int) -> bool {
 	c := &game.spider
 	frames := len(c.anim.seqs[c.seq].dirs[c.dir].frames)
-	ok := c.x >= WALL_MARGIN && c.x <= TANK_W - WALL_MARGIN && c.y >= (c.no_clamp ? HIDE_Y : FLOOR_TOP) &&
+	floor := c.no_clamp ? HIDE_Y : c.seq == game.seq.log_hide ? FLOOR_TOP - 10 : FLOOR_TOP
+	ok := c.x >= WALL_MARGIN && c.x <= TANK_W - WALL_MARGIN && c.y >= floor &&
 		c.y < VIEW_H && frames > 0 && c.frame >= 0 && c.frame < frames
 	return testing.expectf(t, ok, "tick %d: bad spider state x=%d y=%d seq=%s frame=%d/%d",
 		tick, c.x, c.y, seq_name(c, c.seq), c.frame, frames)

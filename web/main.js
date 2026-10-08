@@ -26,6 +26,70 @@ const overlay = $("overlay");
 const octx = overlay?.getContext("2d");
 if (octx) { octx.font = "12px ui-monospace, Menlo, monospace"; octx.lineWidth = 1; }
 const debugLines = [];
+
+// The original's 4-channel mixer (play_sound, 0x415f00): channel 0 for the
+// eating crunches (they cut it off), channels 1-3 for everything else
+// (first free one; skipped when all are busy or the same sound is already
+// playing, except the bell), and two looping sounds the game switches on
+// and off: running water (465, channel 1) and scraping (403, channel 2).
+const sound = {
+	ctx: null,
+	buffers: new Map(),
+	ch: [null, null, null, null], // {id, src, end, loop}
+	loops: new Map(), // id -> wanted on
+	on: true,
+	unlock() {
+		if (this.ctx) return;
+		this.ctx = new AudioContext();
+		for (const id of manifest.sounds ?? []) {
+			fetch(`${base}sounds/${id}.wav`).then((r) => r.arrayBuffer())
+				.then((b) => this.ctx.decodeAudioData(b))
+				.then((buf) => { this.buffers.set(id, buf); if (this.loops.get(id)) this.loop(id, true); })
+				.catch(() => {});
+		}
+	},
+	busy(c) { return c && (c.loop || c.end > this.ctx.currentTime); },
+	start(chan, id, loop) {
+		const buf = this.buffers.get(id);
+		if (!buf) return;
+		this.stop(chan);
+		const src = this.ctx.createBufferSource();
+		src.buffer = buf;
+		src.loop = loop;
+		src.connect(this.ctx.destination);
+		src.start();
+		this.ch[chan] = { id, src, end: this.ctx.currentTime + buf.duration, loop };
+	},
+	stop(chan) {
+		const c = this.ch[chan];
+		if (c) { try { c.src.stop(); } catch {} }
+		this.ch[chan] = null;
+	},
+	play(id) {
+		if (!this.on || !this.ctx) return;
+		if (id >= 450 && id <= 456) return this.start(0, id, false);
+		if (id !== 466 && this.ch.some((c) => this.busy(c) && c.id === id)) return;
+		for (let chan = 1; chan <= 3; chan++) {
+			if (!this.busy(this.ch[chan])) return this.start(chan, id, false);
+		}
+	},
+	loop(id, on) {
+		this.loops.set(id, on);
+		if (!this.ctx) return;
+		const chan = id === 465 ? 1 : 2;
+		if (on && this.on) this.start(chan, id, true);
+		else if (this.ch[chan]?.id === id) this.stop(chan);
+	},
+	setOn(on) {
+		this.on = on;
+		if (!this.ctx) return;
+		for (let chan = 0; chan < 4; chan++) this.stop(chan);
+		if (on) for (const [id, want] of this.loops) if (want) this.loop(id, true);
+	},
+};
+window.vcSound = sound; // for debugging in the console
+addEventListener("pointerdown", () => sound.unlock(), { capture: true });
+addEventListener("keydown", () => sound.unlock(), { capture: true });
 const noop = () => {};
 const tctx = $("ui-text")?.getContext("2d");
 if (tctx) { tctx.font = "bold 11px Arial, sans-serif"; tctx.textBaseline = "top"; }
@@ -84,7 +148,8 @@ const imports = {
 			log.textContent = debugLines.join("\n");
 			log.scrollTop = log.scrollHeight;
 		},
-		host_sound: (id) => {}, // sound comes later
+		host_sound: (id) => sound.play(id),
+		host_loop: (id, on) => sound.loop(id, !!on),
 		host_cursor: (set, frame) => setCursor(set, frame),
 		host_view: (view) => setView(view),
 		host_tool: noop,
@@ -161,6 +226,18 @@ function setView(view) {
 }
 
 function setupTank() {
+	// sound on/off (the original's Sound menu item; plays the click)
+	let soundOn = true;
+	try { soundOn = localStorage.getItem("vc-sound") !== "off"; } catch {}
+	$("sound").checked = soundOn;
+	sound.setOn(soundOn);
+	$("sound").onchange = () => {
+		sound.unlock();
+		sound.setOn($("sound").checked);
+		sound.play(400);
+		try { localStorage.setItem("vc-sound", $("sound").checked ? "on" : "off"); } catch {}
+	};
+
 	// pet name (kept in this browser until saving exists)
 	const setName = (name) => {
 		mem.exports.tank_name_clear();

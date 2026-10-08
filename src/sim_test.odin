@@ -61,8 +61,10 @@ sim_run :: proc(t: ^testing.T, ticks: int, check: bool) -> (trace: u64, variety:
 
 		frames := len(c.anim.seqs[c.seq].dirs[c.dir].frames)
 		ok := c.x >= WALL_MARGIN && c.x <= TANK_W - WALL_MARGIN &&
-			c.y >= (c.no_clamp ? HIDE_Y : FLOOR_TOP) && c.y < VIEW_H &&
-			(c.hide == 0) == !c.no_clamp &&
+			// while crawling under the rock it rises above the floor line a
+			// tick before the clamp is lifted (crawl runs after the update)
+			c.y >= (c.no_clamp ? HIDE_Y : c.seq == game.seq.log_hide ? FLOOR_TOP - 10 : FLOOR_TOP) && c.y < VIEW_H &&
+			(!c.no_clamp || c.hide != 0) && // the floor clamp is only lifted while hiding
 			frames > 0 && c.frame >= 0 && c.frame < frames &&
 			c.scale >= 35 && c.scale <= 100
 		if !testing.expectf(t, ok, "tick %d: bad state x=%d y=%d seq=%s dir=%d frame=%d/%d scale=%d",

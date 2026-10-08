@@ -264,8 +264,7 @@ spider_finished :: proc(c: ^Creature) {
 		clear_queue(c)
 		c.x, c.y = ROCK_X, HIDE_Y
 		c.seq = ids.lurk
-		c.hide = 1 // not seen being set in the decompile yet; implied by the idle branch
-		debug_logf("hidden under the rock")
+		debug_logf("hidden under the rock") // hide was set while crawling (0x4057b0)
 	case ids.clean:
 		if rand_n(15) < game.stats.temperament * 2 {
 			dir := rand_n(5) + 3
