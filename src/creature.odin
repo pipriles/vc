@@ -49,6 +49,7 @@ Goal :: struct {
 	cand:                 [3]int, // directions around the blocked one (+0x78..)
 	detour_x, detour_y:   int, // where the detour started (+0x74, +0x76)
 	resume_dir, walk_dir: int, // (+0x72, +0x70)
+	detour_cw:            bool, // port: which way round the detour turns
 }
 
 Kind :: enum {
@@ -671,6 +672,13 @@ clear_goal :: proc(c: ^Creature) {
 // Arrival test, run every frame while a goal is active (0x40c6a0).
 goal_check :: proc(c: ^Creature) -> bool {
 	g := &c.goal
+	// port: time out while detouring too (the original only checks after
+	// the detour test, so a detour that gets nowhere never ends)
+	if g.detouring && g.timeout_s != 0 && now_ms > g.start_ms + u32(g.timeout_s) * 1000 {
+		debug_logf("%s goal timed out while detouring", c.name)
+		clear_goal(c)
+		return false
+	}
 	if g.detouring do return false
 	run := false
 	// follow the target (0x40bf10)
@@ -816,6 +824,9 @@ goal_step :: proc(c: ^Creature) {
 		}
 		if !resolved {
 			if !moved {
+				// port: that way got nowhere either: try the next one round
+				// (the original repeats it)
+				g.walk_dir = (g.walk_dir + (g.detour_cw ? 1 : 7)) % 8
 				enqueue(c, g.walk_dir, 6)
 				return
 			}
@@ -844,6 +855,7 @@ goal_step :: proc(c: ^Creature) {
 				if !c.blocks[d].active do break
 			}
 			g.walk_dir = d
+			g.detour_cw = cw
 			debug_logf("%s detour: %d blocked, going %d", c.name, dir, d)
 			enqueue(c, d, steps)
 			return

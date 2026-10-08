@@ -129,3 +129,14 @@ hidden_spider_skips_floor_clamp :: proc(t: ^testing.T) {
 	creature_post_frame(&c)
 	testing.expect(t, !c.no_clamp && c.hide == 0, "back on the floor resets hiding")
 }
+
+@(test)
+goal_times_out_while_detouring :: proc(t: ^testing.T) {
+	if !sim_setup(t, 3) do return
+	s := &game.spider
+	move_to(s, .Point, 1000, 400, -1, game.seq.lurk, 10)
+	s.goal.detouring = true
+	now_ms += 11_000
+	goal_check(s)
+	testing.expect(t, !s.goal.active, "a detour that gets nowhere still times out")
+}
