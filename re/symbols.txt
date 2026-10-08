@@ -1,0 +1,45 @@
+# VC.EXE (Chile Rose, 1999-08-05) symbols: <address> <name>
+# Functions are renamed; other addresses become data labels.
+# Applied by tools/ApplySymbols.java via tools/decompile.sh.
+
+# --- functions
+0x417e00 wnd_proc_main
+0x40b9e0 map_sequence_ids
+0x415f00 play_sound
+0x4291d0 strcmpi
+0x4201a0 rand                  # MSVC LCG: seed = seed*0x343FD + 0x269EC3; (seed>>16)&0x7FFF
+0x414700 enqueue_anim          # (creature, seq, dir (8 = keep facing), p4, p5 flush?, p6)
+0x401420 spider_react_tool     # reaction to player tool, mood +-3, 2.5 s cooldown
+0x40bdd0 move_to_then_anim     # tentative: (creature, ?, ?, x, y, ?, seq, ?)
+
+# --- globals
+0x432658 rand_seed
+0x44defc now_ms                # GetTickCount() sampled each tick
+
+# --- sequence ids (index into the creature's index blob), set by map_sequence_ids
+0x45279c seq_cricket_chirp
+0x4526c4 seq_cricket_circle
+0x455a98 seq_cricket_drop
+0x454716 seq_cricket_jump
+0x4514da seq_cricket_lurk
+0x454a58 seq_cricket_pickup
+0x44f728 seq_cricket_walk
+0x44dc08 seq_cricket_web_stuck
+0x456118 seq_spider_catch
+0x455a60 seq_spider_catch_reset
+0x454a82 seq_spider_circle
+0x451f1a seq_spider_clean
+0x44f758 seq_spider_crush
+0x451f50 seq_spider_dead
+0x456098 seq_spider_drop
+0x4526c0 seq_spider_glass
+0x454a5c seq_spider_hair
+0x44f72a seq_spider_kill
+0x44f724 seq_spider_kill_reset
+0x44def8 seq_spider_log_hide
+0x4519c0 seq_spider_lurk
+0x452640 seq_spider_lurk_d
+0x451efc seq_spider_pickup
+0x452900 seq_spider_threat
+0x454a3e seq_spider_walk
+0x451740 seq_spider_web_laying

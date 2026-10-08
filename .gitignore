@@ -1,0 +1,6 @@
+# Extracted original assets (copyrighted, regenerate with tools/extract.py)
+data/
+# Build output
+build/
+*.wasm
+.DS_Store

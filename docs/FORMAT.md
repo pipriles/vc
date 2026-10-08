@@ -1,0 +1,55 @@
+# VCG animation format (Virtual Creatures, 1999)
+
+Animations live in `RT_RCDATA` resources of `VCG.DLL` / `VCG2.DLL`, in pairs:
+even id = **index**, odd id = **pixels** (e.g. 9000/9001 spider, 9002/9003 cricket,
+9004/9005 logo, 9006/9007 footprints, 9008/9009 web, 9010/9011 skin; plugin 1000/2000).
+
+## Index blob
+| off | type | field |
+|-----|------|-------|
+| 0   | char[32] | creature name (`SPIDER`, `CRICKET`, ...) |
+| 32  | u16 | sequence count N |
+| 34  | u16 | canvas width (320) |
+| 36  | u16 | canvas height (200) |
+| 38  | u16 | pad |
+| 40  | Seq[N] | fixed 18764-byte records |
+
+## Seq record (18764 bytes)
+| off | type | field |
+|-----|------|-------|
+| 0    | char[32] | sequence name (`WALK`, `CIRCLE`, `LURK`, `THREAT`, ...) |
+| 32   | u32 | 0 |
+| 36   | u32 | 1 on ambient behaviours (CIRCLE, WALK, LURK, THREAT, CLEAN...), 0 on scripted ones |
+| 40   | u32 | small int 2..7, meaning unknown (weight?) |
+| 0x48 + k*0x924 | Dir[8] | one block per facing direction k=0..7 (base b below) |
+
+Each Dir block really starts 0x14 bytes before b (its flag bytes sit at
+b-0x14); the last block of a record is cut short, so never slice a fixed
+0x924 bytes past b. `enqueue_anim` also reads a u16 at b-2.
+
+## Dir block (0x924 bytes, base b)
+| off | type | field |
+|-----|------|-------|
+| b-0x14  | u8[8] | flags; (1,0,1,0,...) on moving sequences (WALK, CATCH, JUMP, LOG_HIDE) |
+| b+4     | u16 | frame count F (0 = direction unused) |
+| b+6     | u16 | unknown (0x31 for spider) |
+| b+8     | {u32 x0,y0,x1,y1}[64] | per-frame bounding box in canvas |
+| b+0x408 | u32[64] | per-frame offset into pixel blob |
+| b+0x508 | u32[64] | per-frame byte length |
+
+## Pixel blob
+Each frame = RLE `(u8 count, u8 palette_index)` pairs, row-major **bottom-up**
+(like DIBs; runs may cross rows),
+decoding to exactly width*height (64000) bytes. Palette = 8-bit palette of
+VCG bitmaps. Index 7 (spider) / 0xFA (others) = transparent key.
+Shadow drawn in a separate dark palette range (TBD: blend mode).
+
+Animation pairs per DLL: VCG has 9000/9001 spider, 9002/9003 cricket,
+9004/9005 logo, 9006/9007 footprints, 9008/9009 web, 9010/9011 skin;
+VCG2 (plugin) has 1000/2000 extra spider sequences
+(CRUSH, GLASS, HAIR, CLEAN, LOG_HIDE, WEB_LAYING, LURK_D).
+
+Palettes differ per variant (Chile Rose vs Red Knee); take it from VCG
+bitmap 1000. Index 7 = 0x808080 (spider key), 0xFA = 0x00FF00.
+
+See BEHAVIOR.md for runtime behaviour.

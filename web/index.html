@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VC Animation Viewer</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f4f4f2; --fg: #1d1d1b; --panel: #e6e6e2; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #18181a; --fg: #e8e8e6; --panel: #26262a; } }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 12px; background: var(--panel); border-radius: 6px; }
+  label { display: flex; gap: 6px; align-items: center; }
+  #view { display: block; margin-top: 16px; max-width: 100%; image-rendering: pixelated; }
+  #status { font-variant-numeric: tabular-nums; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <label>Variant <select id="variant"><option value="cr">Chile Rose</option><option value="rk">Red Knee</option></select></label>
+  <label>Animation <select id="anim"></select></label>
+  <label>Sequence <select id="seq"></select></label>
+  <label>Direction <select id="dir"></select></label>
+  <label>Speed <input id="speed" type="range" min="0.25" max="4" step="0.25" value="1"><span id="speedv">1×</span></label>
+  <button id="prev">◀</button><button id="play">Pause</button><button id="next">▶</button>
+</div>
+<canvas id="view" width="320" height="200"></canvas>
+<div id="status"></div>
+<script src="odin.js"></script>
+<script type="module" src="main.js"></script>
+</body>
+</html>
