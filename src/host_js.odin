@@ -27,6 +27,9 @@ foreign host {
 	debug_log ::   proc(text: string) ---
 	host_sound ::  proc(id: int) --- // WAVE resource id
 	host_loop ::   proc(id: int, on: bool) ---
+	host_save ::   proc(json: string) ---
+	host_message :: proc(title, text: string) ---
+	host_life ::   proc(born, died: f64, resurrections, eaten: i32, dead: bool) ---
 	host_cursor :: proc(set, frame: i32) ---
 	host_view ::   proc(view: i32) ---
 	host_tool ::   proc(tool: i32, follow: bool) ---

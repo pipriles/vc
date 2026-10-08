@@ -25,8 +25,11 @@ Controls are the original's, in the view: the hand button cycles the tools
 the cricket box (click a cricket to carry it into the tank), the tap fills
 the water bowl, the magnifiers show the close-up and the whole tank (drag
 objects between the tank and the panel there), the broom clears debris,
-options opens the settings panel (pet name), and the logo hides or shows
-the buttons and icons. Move the pointer to the left or
+options opens the settings panel (pet name, Resurrect Creature, New
+spider, life history), and the logo hides or shows the buttons and icons.
+The game saves every minute and when the page is hidden or closed; time
+away is replayed on return, so the spider gets hungry, drinks, eats and
+can die while you are gone. Move the pointer to the left or
 right edge to scroll in scan mode (right-drag also pans). `C` drops a
 cricket straight into the tank (debug). The Objects bar places or removes objects (only the bowl starts in the tank)
 and "Fill bowl" refills the water. Press `D` (or tick Debug) for the overlay: tank limits, drawn box, facing,
@@ -75,5 +78,6 @@ Not covered yet: comparison against the original program's behaviour
 - [x] Player tools with the original cursors, reactions, cricket box, buttons
 - [x] In-view UI, close-up and whole-tank views, object panel
 - [x] Sound: the original 4-channel mixing rules, frame-triggered sounds
-- [ ] Saving with offline catch-up, growth and moulting, webs and
-      footprints, death and resurrection
+- [x] Saving (localStorage, per variant) with the original's catch-up of
+      time away; death and resurrection
+- [ ] Growth and moulting, webs and footprints

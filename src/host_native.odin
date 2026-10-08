@@ -12,6 +12,7 @@ data_dir := "data/cr"
 
 file_size :: proc "contextless" (name: string) -> i32 {
 	context = runtime.default_context()
+	if name == "save.json" do return i32(len(saved_json))
 	path := strings.concatenate({data_dir, "/", name}, context.temp_allocator)
 	fi, err := os.stat(path, context.temp_allocator)
 	if err != nil do return -1
@@ -20,6 +21,10 @@ file_size :: proc "contextless" (name: string) -> i32 {
 
 file_read :: proc "contextless" (name: string, dst: [^]u8) {
 	context = runtime.default_context()
+	if name == "save.json" {
+		copy(dst[:len(saved_json)], saved_json)
+		return
+	}
 	path := strings.concatenate({data_dir, "/", name}, context.temp_allocator)
 	data, err := os.read_entire_file(path, context.temp_allocator)
 	if err == nil do copy(dst[:len(data)], data)
@@ -47,3 +52,15 @@ host_options :: proc "contextless" (open: bool) {}
 ui_begin :: proc "contextless" () {}
 ui_text :: proc "contextless" (x, y: int, text: string) {}
 host_loop :: proc "contextless" (id: int, on: bool) {}
+host_save :: proc "contextless" (json: string) {
+	context = runtime.default_context()
+	delete(saved_json)
+	saved_json = strings.clone(json)
+}
+host_message :: proc "contextless" (title, text: string) {
+	context = runtime.default_context()
+	last_message = strings.clone(title)
+}
+saved_json: string // what the last save wrote (tests read it back as save.json)
+last_message: string
+host_life :: proc "contextless" (born, died: f64, resurrections, eaten: i32, dead: bool) {}

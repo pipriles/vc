@@ -20,6 +20,11 @@
     font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow: auto; }
   #debug-log { height: 220px; width: 520px; max-width: 100%; }
   .objects[hidden] { display: none; }
+  .life { margin: 0; flex-basis: 100%; font: 12px/1.5 ui-monospace, Menlo, monospace; }
+  .message { position: fixed; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 0.45); }
+  .message[hidden] { display: none; }
+  .message-box { max-width: 420px; padding: 16px 20px; background: var(--panel); border-radius: 8px; }
+  .message-box p { margin: 8px 0 12px; }
   .objects { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; margin-top: 8px;
     padding: 8px 12px; background: var(--panel); border-radius: 6px; }
 </style>
@@ -43,11 +48,21 @@
   <strong>Options</strong>
   <label>Name <input id="pet-name" maxlength="20" placeholder="ENTER PETS NAME HERE"></label>
   <button id="fill">Fill bowl</button>
+  <button id="resurrect" disabled>Resurrect Creature</button>
+  <button id="new-spider">New spider</button>
+  <pre id="life" class="life"></pre>
   <span id="objects"><strong>Objects</strong></span>
 </div>
 <div class="debug">
   <pre id="debug-panel"></pre>
   <pre id="debug-log"></pre>
+</div>
+<div id="message" class="message" hidden>
+  <div class="message-box">
+    <strong id="message-title"></strong>
+    <p id="message-text"></p>
+    <button id="message-ok">OK</button>
+  </div>
 </div>
 <script src="odin.js"></script>
 <script type="module" src="main.js"></script>

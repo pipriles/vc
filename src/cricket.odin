@@ -109,7 +109,7 @@ cricket_idle :: proc(c: ^Creature) {
 // Whether the spider goes after a cricket (0x404010). Called when a cricket
 // lands in the tank, and for crickets stuck in a web.
 spider_sees_cricket :: proc(s, c: ^Creature) {
-	if s.kind != .Spider || c.kind != .Cricket do return
+	if s.kind != .Spider || c.kind != .Cricket || game.life.dead do return
 	dx, dy := abs(s.x - c.x), abs(s.y - c.y)
 	timeout: int
 	if c.carried == 2 {

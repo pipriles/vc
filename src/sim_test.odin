@@ -12,7 +12,9 @@ SIM_TICKS :: 100_000 // ~2.8 hours of simulated time
 sim_setup :: proc(t: ^testing.T, seed: u32) -> bool {
 	if !have_data(t, "cr") do return false
 	now_ms = 0
+	saved_json = "" // no save carried over between tests
 	if !testing.expect(t, tank_init(), "tank_init") do return false
+	mode, running = .Tank, true
 	rng.seed = seed
 	return true
 }

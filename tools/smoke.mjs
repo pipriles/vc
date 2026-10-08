@@ -18,20 +18,23 @@ const wasmBytes = readFileSync(`${root}/build/vc.wasm`);
 
 function noop() {}
 
-async function run(variant, mode) {
+async function run(variant, mode, saveJson = null) {
 	const base = `${root}/data/${variant}/`;
 	const manifest = JSON.parse(readFileSync(base + "manifest.json", "utf8"));
 	const files = new Map(manifest.files.map((n) => [n, new Uint8Array(readFileSync(base + n))]));
+	if (saveJson) files.set("save.json", new TextEncoder().encode(saveJson));
 
 	const mem = new odin.WasmMemoryInterface();
 	const str = (p, n) => mem.loadString(p, n);
 	const log = [];
+	let saved = "";
 	const vc = {
 		file_size: (p, n) => files.get(str(p, n))?.length ?? -1,
 		file_read: (p, n, dst) => { const f = files.get(str(p, n)); mem.loadBytes(dst, f.length).set(f); },
 		present: noop, host_mode: () => mode, host_time: () => Date.now() / 1000,
 		ui_add_anim: noop, ui_add_seq: noop, ui_status: noop, ui_add_object: noop,
-		tank_status: noop, host_sound: noop, host_loop: noop, host_cursor: noop, host_view: noop, host_tool: noop,
+		tank_status: noop, host_sound: noop, host_loop: noop, host_save: (p, n) => { saved = str(p, n); },
+		host_message: noop, host_life: noop, host_cursor: noop, host_view: noop, host_tool: noop,
 		host_options: noop, ui_begin: noop, ui_text: noop,
 		debug_begin: noop, debug_rect: noop, debug_line: noop, debug_text: noop,
 		debug_panel: noop, debug_log: (p, n) => log.push(str(p, n)),
@@ -41,6 +44,7 @@ async function run(variant, mode) {
 	const ex = instance.exports;
 	mem.setExports(ex);
 	mem.setMemory(ex.memory);
+	if (mode === 0) ex.tank_set_debug(1); // log the load / catch-up during start-up
 	ex._start();
 	const ctx = ex.default_context_ptr();
 
@@ -66,15 +70,32 @@ async function run(variant, mode) {
 		}
 		if (!ex.step(0.1, ctx)) throw new Error("step returned false");
 	}
-	return log.length;
+	if (mode === 0) {
+		ex.tank_save();
+		if (!saved.startsWith("{")) throw new Error("tank_save wrote nothing");
+		ex.tank_resume(600); // ten hours away
+		ex.tank_resurrect();
+		ex.tank_new_spider();
+		for (let t = 0; t < 50; t++) ex.step(0.1, ctx);
+	}
+	return mode === 0 && !saveJson ? { lines: log.length, saved } : { lines: log.length, log };
 }
 
 let failed = false;
 for (const variant of ["cr", "rk"]) {
 	for (const [mode, name] of [[0, "tank"], [1, "viewer"]]) {
 		try {
-			const n = await run(variant, mode);
-			console.log(`ok   ${variant} ${name} (${ticks} ticks${mode === 0 ? `, ${n} log lines` : ""})`);
+			const r = await run(variant, mode);
+			console.log(`ok   ${variant} ${name} (${ticks} ticks${mode === 0 ? `, ${r.lines} log lines` : ""})`);
+			if (mode === 0) {
+				// load that save as if it was written 30 hours ago
+				const old = JSON.parse(r.saved);
+				old.saved_at -= 30 * 3600;
+				const r2 = await run(variant, 0, JSON.stringify(old));
+				const caught = r2.log.some((l) => l.includes("catching up 1800 minutes"));
+				if (!caught) throw new Error("save not loaded / no catch-up");
+				console.log(`ok   ${variant} tank loads a 30-hour-old save`);
+			}
 		} catch (e) {
 			failed = true;
 			console.log(`FAIL ${variant} ${name}: ${e.message}`);

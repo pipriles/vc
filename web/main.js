@@ -18,6 +18,15 @@ await Promise.all(manifest.files.map(async (name) => {
 	if (r.ok) files.set(name, new Uint8Array(await r.arrayBuffer()));
 }));
 
+// the saved game (one per variant) is offered to the game as save.json
+const SAVE_KEY = `vc-save-${variant}`;
+if (mode === 0) {
+	try {
+		const saved = localStorage.getItem(SAVE_KEY);
+		if (saved) files.set("save.json", new TextEncoder().encode(saved));
+	} catch {}
+}
+
 const mem = new odin.WasmMemoryInterface();
 const canvas = $("view");
 const ctx = canvas.getContext("2d");
@@ -150,6 +159,9 @@ const imports = {
 		},
 		host_sound: (id) => sound.play(id),
 		host_loop: (id, on) => sound.loop(id, !!on),
+		host_save: (p, n) => { try { localStorage.setItem(SAVE_KEY, mem.loadString(p, n)); } catch {} },
+		host_message: (tp, tn, xp, xn) => showMessage(mem.loadString(tp, tn), mem.loadString(xp, xn)),
+		host_life: (born, died, resurrections, eaten, dead) => showLife(born, died, resurrections, eaten, dead),
 		host_cursor: (set, frame) => setCursor(set, frame),
 		host_view: (view) => setView(view),
 		host_tool: noop,
@@ -225,7 +237,57 @@ function setView(view) {
 	document.body.dataset.view = view === 3 ? "box" : "tank";
 }
 
+function showMessage(title, text) {
+	const box = $("message");
+	if (!box) return;
+	$("message-title").textContent = title;
+	$("message-text").textContent = text;
+	box.hidden = false;
+}
+
+const fmtDate = (sec) => new Date(sec * 1000).toLocaleString();
+function fmtSpan(sec) {
+	const m = Math.max(0, Math.floor(sec / 60));
+	return `Days: ${Math.floor(m / 1440)}, Hours: ${Math.floor(m / 60) % 24}, Minutes: ${m % 60}`;
+}
+let lifeShown = "";
+function showLife(born, died, resurrections, eaten, dead) {
+	if (!$("life")) return;
+	const now = Date.now() / 1000;
+	const text = [
+		`Birth Date: ${born ? fmtDate(born) : "-"}`,
+		`Time Alive: ${born ? fmtSpan((dead && died ? died : now) - born) : "-"}`,
+		dead ? `Death Date: ${fmtDate(died)}` : null,
+		`No of Resurrections: ${resurrections}`,
+		`Total No of Crickets Eaten: ${eaten}`,
+	].filter(Boolean).join("\n");
+	if (text !== lifeShown) { $("life").textContent = text; lifeShown = text; }
+	$("resurrect").disabled = !dead;
+}
+
 function setupTank() {
+	$("message-ok").onclick = () => { $("message").hidden = true; };
+	$("resurrect").onclick = () => mem.exports.tank_resurrect();
+	$("new-spider").onclick = () => {
+		if (confirm("Start again with a new spider? The current one is lost.")) mem.exports.tank_new_spider();
+	};
+
+	// saving: every minute, when hidden, when closed; time away is replayed
+	const save = () => { if (!window.vcNoSave) mem.exports.tank_save(); }; // vcNoSave: for testing
+	setInterval(save, 60_000);
+	addEventListener("pagehide", save);
+	let hiddenAt = 0;
+	document.addEventListener("visibilitychange", () => {
+		if (document.hidden) {
+			hiddenAt = Date.now();
+			save();
+		} else if (hiddenAt) {
+			const minutes = Math.floor((Date.now() - hiddenAt) / 60_000);
+			hiddenAt = 0;
+			if (minutes >= 3) mem.exports.tank_resume(minutes);
+		}
+	});
+
 	// sound on/off (the original's Sound menu item; plays the click)
 	let soundOn = true;
 	try { soundOn = localStorage.getItem("vc-sound") !== "off"; } catch {}

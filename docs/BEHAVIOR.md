@@ -298,10 +298,33 @@ the fountain is in the tank (not in the box view, channel 1) and scraping
 | 410 | prod | 411 | stroke / crawling under the rock |
 | 412, 413 | laying a web | 419 | fountain splash |
 
-## Offline catch-up (for saving) **found**
-`offline_catch_up` (0x415430) replays the time the program was closed:
-water −2 per 150 min, food −2 per 120 min, the spider drinks from the bowl
-when water < 80 and eats crickets in the tank when food < 26.
+## Time away, death and resurrection **confirmed**
+`offline_catch_up` (0x415430) runs when the program starts and replays the
+minutes M since it was closed (the port also runs it when a hidden page
+comes back after ≥ 3 minutes):
+- M < 3: nothing, except a hidden spider is put back under the rock.
+- M ≥ 60: mood becomes rand_n(200) − 100. Crickets in the tank are
+  moved to free spots.
+- Steps of 1, 2, 3 or 90 minutes (M < 30, < 60, < 90, else). Each step:
+  water −(acc/75) per 150 min, food −(acc/60) per 120 min; water < 80 →
+  drink from the bowl (+20, level −1); food < 26 → 50 % per tank cricket to
+  eat one (once per step), else wander and maybe lay webs (≤ 3 a day);
+  then the needs are recomputed and **health < 1 kills the spider**
+  (temperament 0, date of death recorded).
+- Afterwards the remainders carry into the live decay timers; a dead
+  spider leaves the yucca wilted; otherwise 50 % (more if grumpy) the
+  spider is found hiding under the rock.
+- Health is min(food, water) + 1 once either is below 41, and 0 below 2,
+  so the spider dies when food or water reaches 0. From 30/30 untended:
+  about 28–30 hours. The original only checks this in the catch-up, so a
+  spider starving while the program runs dies at the next start.
+- Dead: lies on its DEAD frame (the first direction after 0 that has
+  frames), no needs, no tools, no hunting; "YOUR CREATURE HAS DIED!" after
+  a few seconds.
+- Resurrect Creature (0x404230): refused while alive or with no crickets
+  left anywhere; otherwise clears debris, revives as a newborn (size 40,
+  food/water 30, mood 0, birth date now, DROP), resurrections +1, yucca
+  frame 8.
 
 ## Rendering **confirmed**
 - Scene is composed into an 8-bit 1200×480 surface; the 640×480 view is a

@@ -45,6 +45,8 @@ Game :: struct {
 	pending_buttons_len: int,
 	box_bg:   Bitmap, // vcg_4501: the cricket box
 	ui:       UI,
+	life:     Life,
+	pending_resurrect, pending_new: bool,
 	saved_tool: Tool, // restored when leaving the whole-tank view
 	scroll_left, scroll_right: int, // edge scrolling ticks left
 	loop_fountain, loop_drag: bool, // looping sounds on (465, 403)
@@ -151,7 +153,16 @@ tank_init :: proc() -> bool {
 	if !load_assets() do return false
 	rng.seed = u32(host_time())
 	tank_reset()
+	if load_game() {
+		if game.life.dead do game.life.death_notice = 30
+	}
 	return true
+}
+
+// A brand new spider (Options: New spider).
+@(export)
+tank_new_spider :: proc "contextless" () {
+	game.pending_new = true
 }
 
 // Fresh tank with a new spider (keeps the random seed going).
@@ -204,6 +215,7 @@ tank_reset :: proc() {
 	update_render_list()
 
 	ui_init()
+	game.life.born_at = host_time()
 	game.follow = true
 	game.speed = 1
 	game.scroll_x = clamp(game.spider.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
@@ -220,9 +232,19 @@ update_render_list :: proc() {
 
 tank_tick :: proc() {
 	now_ms += 100
+	if game.pending_new {
+		tank_reset()
+		host_message("NEW SPIDER", "A new spider has hatched.")
+		return
+	}
+	if game.pending_resurrect {
+		game.pending_resurrect = false
+		spider_resurrect()
+	}
 	handle_input()
 	cursor_tick()
 	ui_tick()
+	death_notice_tick()
 	handle_pending_drops()
 	handle_pending_objects()
 	for &o in game.objects do if o.active && !o.in_box do object_tick(&o)
@@ -326,6 +348,7 @@ tank_render :: proc() {
 	}
 	present(&view_rgba[0], VIEW_W, VIEW_H)
 	if debug_enabled && game.input.view == .Tank do draw_debug()
+	host_life(game.life.born_at, game.life.died_at, i32(game.life.resurrections), i32(game.eaten), game.life.dead)
 	s := &game.stats
 	tank_status(
 		i32(s.food), i32(s.water), i32(s.health), i32(s.mood), i32(s.temperament),

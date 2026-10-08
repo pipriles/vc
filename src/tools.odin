@@ -103,7 +103,7 @@ hit_test :: proc(c: ^Creature, x, y: int) -> bool {
 // Whether the spider may be picked up (0x403a60).
 spider_pickable :: proc(s: ^Creature) -> bool {
 	return game.input.carry == .None && s.seq != game.seq.kill && s.hide == 0 &&
-		s.y >= FLOOR_TOP && !s.eating
+		s.y >= FLOOR_TOP && !s.eating && !game.life.dead
 }
 
 pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {

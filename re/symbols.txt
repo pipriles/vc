@@ -58,7 +58,11 @@
 0x403a60 spider_pickable
 0x408140 force_sequence        # (c, seq, now)
 0x41f710 clear_debris
-0x415430 offline_catch_up      # replays the time the program was closed
+0x415430 offline_catch_up      # replays the time the program was closed; the only death check
+0x404230 resurrect_creature
+0x415cc0 record_death_date
+0x403ac0 spider_growth         # per minute: size from age, moulting (TBD)
+0x41f4d0 minute_tick
 0x409de0 cheat_codes           # typed codes, stored +100
 0x403210 sequence_start_rules  # running rules, chirp sound, crush/lurk loop counts
 0x416510 sound_loops           # fountain water 465, dragging 403

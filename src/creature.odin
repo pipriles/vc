@@ -281,6 +281,10 @@ creature_tick :: proc(c: ^Creature) {
 	if !c.active do return
 	// crickets in the box only move while the box is on screen
 	if c.in_box && !(c.kind == .Cricket && game.input.view == .Box) do return
+	if c.kind == .Spider && game.life.dead {
+		spider_dead_tick(c)
+		return
+	}
 	if c.kind == .Spider && c.tool != .None do spider_react_tool(c)
 	d := creature_dir(c)
 	if len(d.frames) == 0 {
@@ -502,7 +506,7 @@ collide_respond :: proc(a, b: ^Creature) -> bool {
 	if s < 0 do return false
 
 	if a.kind == .Spider {
-		if a.hide != 0 do return false
+		if a.hide != 0 || game.life.dead do return false
 		if b.kind == .Object && b.id == BOWL {
 			f := a.blocks[a.dir]
 			if f.active && f.kind == int(Kind.Object) && f.id == BOWL do spider_thirst(a)
