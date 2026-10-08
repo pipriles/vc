@@ -43,6 +43,18 @@ Save :: struct {
 	born_at, died_at:   f64, // unix seconds, died_at 0 while alive
 	ui_hidden, follow:  bool,
 	tool:               int,
+	footprints:         [FOOTPRINT_COUNT]Footprint,
+	footprint_next:     int,
+	webs:               [WEB_PIECES]Web_Piece,
+	web_next:           int,
+	corner_webs:        [4]Corner_Web,
+	skin:               struct {
+		active:                   bool,
+		x, y, dir, stage, size:   int,
+		stage_age:                int,
+		shed_at:                  f64,
+	},
+	yucca_age:          int,
 }
 
 Life :: struct {
@@ -77,6 +89,12 @@ make_save :: proc() -> Save {
 	sv.born_at, sv.died_at = game.life.born_at, game.life.died_at
 	sv.ui_hidden, sv.follow = game.ui.hidden, game.follow
 	sv.tool = int(game.input.tool)
+	sv.footprints, sv.footprint_next = game.footprints, game.footprint_next
+	sv.webs, sv.web_next = game.webs, game.web_next
+	sv.corner_webs = game.corner_webs
+	k := &game.skin
+	sv.skin = {k.active, k.x, k.y, k.dir, k.frame, k.size, k.stage_age, k.shed_at}
+	sv.yucca_age = game.yucca_age
 	return sv
 }
 
@@ -114,6 +132,16 @@ apply_save :: proc(sv: ^Save) {
 	game.life.born_at, game.life.died_at = sv.born_at, sv.died_at
 	game.ui.hidden, game.follow = sv.ui_hidden, sv.follow
 	game.input.tool = Tool(clamp(sv.tool, 0, TOOL_COUNT - 1))
+	game.footprints, game.footprint_next = sv.footprints, sv.footprint_next % FOOTPRINT_COUNT
+	game.webs, game.web_next = sv.webs, sv.web_next % WEB_PIECES
+	game.corner_webs = sv.corner_webs
+	k := &game.skin
+	k.active, k.x, k.y = sv.skin.active, sv.skin.x, sv.skin.y
+	k.dir, k.frame, k.size = clamp(sv.skin.dir, 0, 7), clamp(sv.skin.stage, 0, SKIN_STAGES - 1), sv.skin.size
+	k.stage_age, k.shed_at = sv.skin.stage_age, sv.skin.shed_at
+	k.prev_x, k.prev_y = k.x, k.y
+	if k.active do creature_update_position(&k.c)
+	game.yucca_age = sv.yucca_age
 	spider_stats_tick(st)
 	creature_update_position(s)
 	game.scroll_x = clamp(s.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
@@ -227,12 +255,23 @@ catch_up :: proc(minutes: int, since: f64) {
 				}
 				if !ate {
 					if rand_n(10) < 7 do place_free_creature(s)
-					// webs aren't drawn yet; keep the original's rand() calls
+					// webs: pieces round the spider, or a big corner web
 					if rand_n(10) < 5 && webs_today < 3 {
-						rand_n(10)
-						rand_n(10)
+						if rand_n(10) < 7 {
+							add_web_piece(s, 0, 0)
+							add_web_piece(s, 0, 1)
+							add_web_piece(s, 2, 0)
+							add_web_piece(s, 2, 1)
+						}
+						if rand_n(10) < 7 {
+							add_web_piece(s, 4, 0)
+							add_web_piece(s, 4, 1)
+							add_web_piece(s, 6, 0)
+							add_web_piece(s, 6, 1)
+						}
 						webs_today += 1
 					} else if !(rand_n(10) > 4 || webs_today < 1 || webs_today > 2) {
+						add_corner_web(true)
 						webs_today += 1
 					}
 				}
@@ -242,6 +281,8 @@ catch_up :: proc(minutes: int, since: f64) {
 		food_acc += step
 		day_acc += step
 		t += step
+		slow_anims(step)
+		age_webs(step)
 		spider_stats_tick(st)
 		if st.health < 1 && !game.life.dead {
 			spider_dies(s, since + f64(t) * 60)
@@ -319,7 +360,7 @@ spider_resurrect :: proc() {
 		host_message("RESURRECT CREATURE", "You don't have any Crickets left to resurrect your creature with!")
 		return
 	}
-	game.remains = {}
+	clear_debris()
 	game.life.dead = false
 	game.life.died_at = 0
 	game.life.resurrections += 1
@@ -335,6 +376,7 @@ spider_resurrect :: proc() {
 	s.prev_seq = -1
 	stop_current(s)
 	game.life.born_at = host_time()
+	spider_growth(false)
 	debug_logf("the spider was resurrected (%d times now)", game.life.resurrections)
 	host_sound(400)
 }

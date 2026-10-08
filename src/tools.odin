@@ -286,6 +286,7 @@ force_sequence :: proc(c: ^Creature, seq: int) {
 	clear_queue(c)
 	clear_goal(c)
 	c.turn_target, c.turn_dir = -1, 0
+	c.pop_turning = false
 	c.prev_seq = c.seq
 	c.seq = seq
 	c.dir = 4
@@ -401,7 +402,7 @@ button :: proc(b: Button) {
 			}
 		}
 	case .Clear:
-		game.remains = {}
+		clear_debris()
 	case:
 		if int(b) == 6 {
 			game.ui.options_open = !game.ui.options_open

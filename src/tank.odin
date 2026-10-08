@@ -46,6 +46,16 @@ Game :: struct {
 	box_bg:   Bitmap, // vcg_4501: the cricket box
 	ui:       UI,
 	life:     Life,
+	skin:     Skin,
+	skin_a:   Anim,
+	footprints:     [FOOTPRINT_COUNT]Footprint,
+	footprint_next: int,
+	webs:           [WEB_PIECES]Web_Piece,
+	web_next:       int,
+	web_frame:      int,
+	corner_webs:    [4]Corner_Web,
+	yucca_age:      int,
+	minute_ms:      u32,
 	pending_resurrect, pending_new: bool,
 	saved_tool: Tool, // restored when leaving the whole-tank view
 	scroll_left, scroll_right: int, // edge scrolling ticks left
@@ -98,6 +108,8 @@ Assets :: struct {
 	ring:        Bitmap,
 	gauges:      [4]Bitmap,
 	corners:     Bitmap,
+	corner_webs: [4]Bitmap,
+	footprints, web, skin: Anim,
 	font:        Bitmap,
 	logo:        Anim,
 	remains:     Bitmap,
@@ -130,6 +142,12 @@ load_assets :: proc() -> bool {
 		assets.gauges[i], _ = bmp_load(load_file(fmt.tprintf("bitmaps/vcg_%d.bmp", id)))
 	}
 	assets.corners, _ = bmp_load(load_file("bitmaps/vcg_2009.bmp"))
+	for def, i in CORNER_WEBS {
+		assets.corner_webs[i], _ = bmp_load(load_file(fmt.tprintf("bitmaps/vcg_%d.bmp", def.bitmap)))
+	}
+	assets.footprints, _ = anim_parse(load_file("footprints.idx"), load_file("footprints.pix"))
+	assets.web, _ = anim_parse(load_file("web.idx"), load_file("web.pix"))
+	assets.skin, _ = anim_parse(load_file("skin.idx"), load_file("skin.pix"))
 	assets.font, _ = bmp_load(load_file("bitmaps/vcg_2008.bmp"))
 	assets.logo, _ = anim_parse(load_file("logo.idx"), load_file("logo.pix"))
 	assets.remains, _ = bmp_load(load_file("bitmaps/vcg_4004.bmp"))
@@ -156,6 +174,8 @@ tank_init :: proc() -> bool {
 	if load_game() {
 		if game.life.dead do game.life.death_notice = 30
 	}
+	spider_growth(true) // starting up: growth and the moult check (0x403ac0)
+	floor_rebuild()
 	return true
 }
 
@@ -212,6 +232,9 @@ tank_reset :: proc() {
 	game.cricket_a = assets.cricket
 	crickets_init()
 	objects_init()
+	game.skin_a = assets.skin
+	skin_init()
+	floor_rebuild()
 	update_render_list()
 
 	ui_init()
@@ -227,6 +250,7 @@ update_render_list :: proc() {
 	append(&game.render_list, &game.spider)
 	for &c in game.crickets do if c.active && !c.in_box do append(&game.render_list, &c)
 	for &o in game.objects do if o.active && !o.in_box do append(&game.render_list, &o.c)
+	if game.skin.active do append(&game.render_list, &game.skin.c)
 	slice.sort_by(game.render_list[:], proc(a, b: ^Creature) -> bool {return a.y < b.y})
 }
 
@@ -253,6 +277,10 @@ tank_tick :: proc() {
 	for &c in game.crickets do creature_tick(&c)
 	spider_hide_crawl(&game.spider)
 	sound_loops()
+	if now_ms >= game.minute_ms + 60_000 {
+		game.minute_ms = now_ms
+		minute_tick()
+	}
 	if now_ms >= game.sec_ms + 1000 {
 		game.sec_ms = now_ms
 		spider_stats_tick(&game.stats)
@@ -311,7 +339,7 @@ tank_render :: proc() {
 
 	// compose the whole tank, then show part of it
 	dst = tank_surface()
-	copy(tank_buf[:], game.tank.pixels[:TANK_W * VIEW_H])
+	copy(tank_buf[:], floor_buf[:]) // background plus footprints and webs
 
 	// cricket remains on the sand (0x40ca70)
 	rb := &game.remains_bmp
@@ -347,7 +375,10 @@ tank_render :: proc() {
 		view_rgba[4 * i + 3] = 255
 	}
 	present(&view_rgba[0], VIEW_W, VIEW_H)
-	if debug_enabled && game.input.view == .Tank do draw_debug()
+	if debug_enabled {
+		if game.input.view == .Tank do draw_debug()
+		else do debug_begin() // the overlay is in tank-view coordinates: clear it
+	}
 	host_life(game.life.born_at, game.life.died_at, i32(game.life.resurrections), i32(game.eaten), game.life.dead)
 	s := &game.stats
 	tank_status(

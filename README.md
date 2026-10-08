@@ -80,4 +80,4 @@ Not covered yet: comparison against the original program's behaviour
 - [x] Sound: the original 4-channel mixing rules, frame-triggered sounds
 - [x] Saving (localStorage, per variant) with the original's catch-up of
       time away; death and resurrection
-- [ ] Growth and moulting, webs and footprints
+- [x] Growth and moulting, webs and footprints

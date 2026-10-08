@@ -326,6 +326,31 @@ comes back after ≥ 3 minutes):
   food/water 30, mood 0, birth date now, DROP), resurrections +1, yucca
   frame 8.
 
+## Growth and moulting **confirmed** (`spider_growth` 0x403ac0, 0x408d50)
+- Size = min(100, 40 + minutes alive / 360): one point every 6 hours,
+  full grown after 15 days. Recomputed every game minute.
+- Moults are only checked while starting up (after time away): days 5–15,
+  and from day 28 in every 28-day cycle on its first 5 days. At most one a
+  day, and only when no shed skin is lying in the tank.
+- The skin lies at x 200–999, y 170–389, facing 0 or 1, the spider's size;
+  it crumbles one frame per 1920 minutes and is gone after 3.
+- Yucca grows back one frame per 1440 minutes (wilted while dead).
+
+## Webs and footprints **confirmed** (0x408430, 0x408880, 0x408b70)
+- Decals are drawn into the 1200×480 floor surface once; they stay drawn
+  until the floor is rebuilt (start-up or Clear).
+- Footprints: walk frame 3 and circle frames 0/6 (±2 px jitter) on the
+  floor; ring of 500.
+- Web pieces: WEB_LAYING frame 3 lays a piece behind the spider, frame
+  chosen by facing and play number; ring of 100, 2880-minute lifetime.
+  The catch-up also lays them (≤ 3 times a day). Crickets overlapping
+  half their hit box get stuck (the spider notices); otherwise 70 % turn
+  away.
+- Corner webs (bitmaps 4000–4003) appear only during the catch-up;
+  stages grow every day (4 stages; the big fourth web needs the other
+  three and lasts 3 days).
+- Clear removes remains, footprints and web pieces and frees crickets.
+
 ## Rendering **confirmed**
 - Scene is composed into an 8-bit 1200×480 surface; the 640×480 view is a
   window at `scroll_x` (panning moves 20 px per tick).

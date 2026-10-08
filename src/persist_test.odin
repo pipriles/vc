@@ -29,6 +29,9 @@ save_load_round_trip :: proc(t: ^testing.T) {
 	testing.expect_value(t, after.objects, before.objects)
 	testing.expect_value(t, after.eaten, before.eaten)
 	testing.expect_value(t, after.seed, before.seed)
+	testing.expect_value(t, after.footprints, before.footprints)
+	testing.expect_value(t, after.webs, before.webs)
+	testing.expect_value(t, after.skin, before.skin)
 }
 
 @(test)

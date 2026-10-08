@@ -55,6 +55,7 @@ Kind :: enum {
 	Spider  = 0,
 	Object  = 1, // tank objects (TBD)
 	Cricket = 2,
+	Skin    = 6, // the shed skin
 }
 
 Rect :: struct {
@@ -84,6 +85,7 @@ Creature :: struct {
 	run:                bool, // double speed while walking (+0x152)
 	turn_target:        int,  // facing to reach before the next queued seq, -1 = none
 	turn_dir:           int,  // +1 clockwise, -1 counter-clockwise, 0 = not turning
+	pop_turning:        bool, // turning for a queued sequence: no goal step meanwhile (+0x5a)
 	base_sx, base_sy:   int,  // (+0x9e, +0xa0)
 	size:               int,  // growth factor (+0x1e6), 40 for a new spider
 	scale:              int,  // percent (+0x9c)
@@ -240,7 +242,7 @@ next_sequence :: proc(c: ^Creature) {
 	}
 	c.turn_target = -1
 
-	if c.goal.active do goal_step(c)
+	if c.goal.active && !c.pop_turning do goal_step(c)
 
 	if c.queue_len > 0 {
 		// pop (0x414840)
@@ -250,10 +252,12 @@ next_sequence :: proc(c: ^Creature) {
 		if dir != c.dir {
 			c.turn_target = dir
 			c.run = q.run
+			c.pop_turning = true
 			cw := (dir - c.dir + 8) % 8 <= 4
 			start_turn_step(c, cw)
 			return
 		}
+		c.pop_turning = false
 		copy(c.queue[:], c.queue[1:c.queue_len])
 		c.queue_len -= 1
 		c.prev_seq = c.seq
@@ -323,6 +327,8 @@ creature_tick :: proc(c: ^Creature) {
 	d = creature_dir(c)
 	f = d.frames[clamp(c.frame, 0, len(d.frames) - 1)]
 	dx, dy := int(f.dx), int(f.dy)
+	if c.kind == .Cricket && !paused do cricket_web_check(c)
+	if c.kind == .Cricket && c.web_stuck do paused = true // stuck crickets don't move
 	if !paused && (c.moving_x || c.moving_y || dx != 0 || dy != 0) {
 		sx, sy := c.sx, c.sy
 		if c.run && c.seq == game.seq.walk {
@@ -417,7 +423,7 @@ creature_update_position :: proc(c: ^Creature) {
 
 	creature_hit_rect(c)
 
-	if c.in_box do return
+	if c.in_box || c.kind == .Skin do return
 	may_move := true
 	if c.kind != .Cricket || !c.web_stuck {
 		for o in game.render_list {

@@ -32,7 +32,7 @@ file_read :: proc "contextless" (name: string, dst: [^]u8) {
 
 present :: proc "contextless" (rgba: [^]u8, w, h: i32) {}
 host_mode :: proc "contextless" () -> i32 {return 0}
-host_time :: proc "contextless" () -> f64 {return 0}
+host_time :: proc "contextless" () -> f64 {return 1_000_000_000} // a fixed "now" for tests
 ui_add_anim :: proc "contextless" (name: string) {}
 ui_add_seq :: proc "contextless" (anim: i32, name: string, dir_mask: u32) {}
 ui_status :: proc "contextless" (seq, dir, frame, frames: i32) {}

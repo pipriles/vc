@@ -61,7 +61,7 @@
 0x415430 offline_catch_up      # replays the time the program was closed; the only death check
 0x404230 resurrect_creature
 0x415cc0 record_death_date
-0x403ac0 spider_growth         # per minute: size from age, moulting (TBD)
+0x403ac0 spider_growth         # per minute: size from age, moulting at start-up
 0x41f4d0 minute_tick
 0x409de0 cheat_codes           # typed codes, stored +100
 0x403210 sequence_start_rules  # running rules, chirp sound, crush/lurk loop counts
@@ -122,3 +122,12 @@
 0x452900 seq_spider_threat
 0x454a3e seq_spider_walk
 0x451740 seq_spider_web_laying
+0x408d50 spider_moult
+0x408430 add_footprint
+0x408880 add_web_piece
+0x408b70 add_corner_web
+0x408c70 draw_corner_web
+0x404490 age_corner_web
+0x404580 age_web_piece
+0x408550 redraw_footprints
+0x408af0 redraw_web_pieces
