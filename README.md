@@ -28,7 +28,7 @@ the spider's decisions. Sim speed runs the clock up to 20× faster.
 
 ## Tests
 ```sh
-./test.sh
+./test.sh   # native tests, then wasm build + Node smoke test
 ```
 Native `odin test` (about 2 s), single-threaded because tests share the
 simulation's globals. Data tests skip themselves when `data/` is missing.
@@ -39,7 +39,10 @@ simulation's globals. Data tests skip themselves when `data/` is missing.
   canvas size; frame content matches the boxes stored in the index (and
   not when flipped); plugin merge rules.
 - **Simulation:** 100k headless ticks checking invariants (bounds, valid
-  frames, sequence preconditions) and determinism for a fixed seed.
+  frames, sequence preconditions) and determinism for a fixed seed; a run
+  with every object placed; a sweep of 3000 start seeds.
+- **Browser build:** `tools/smoke.mjs` runs the real `vc.wasm` in Node with
+  both variants and both pages (needs Node), catching wasm-only failures.
 
 Not covered yet: comparison against the original program's behaviour
 (see docs/BEHAVIOR.md for how each rule was derived).

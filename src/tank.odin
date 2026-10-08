@@ -53,6 +53,16 @@ frame_buf: [MAX_W * MAX_H]u8
 view: [VIEW_W * VIEW_H]u8 // palette indices
 view_rgba: [VIEW_W * VIEW_H * 4]u8
 
+// Allocator for data that lives for the whole program. The heap allocator
+// doesn't exist on js_wasm32, where the default allocator is never reset.
+persistent_allocator :: proc() -> runtime.Allocator {
+	when ODIN_OS == .JS {
+		return context.allocator
+	} else {
+		return runtime.heap_allocator()
+	}
+}
+
 // Game data loaded once; game state is rebuilt from it by tank_reset.
 Assets :: struct {
 	loaded:      bool,
@@ -70,7 +80,7 @@ load_assets :: proc() -> bool {
 	if assets.loaded do return true
 	// assets outlive whatever allocator the caller runs with (tests use
 	// per-test allocators)
-	context.allocator = runtime.heap_allocator()
+	context.allocator = persistent_allocator()
 	tank, ok := bmp_load(load_file("bitmaps/vcg_4500.bmp"))
 	if !ok {
 		fmt.eprintln("missing tank bitmap")
@@ -105,7 +115,7 @@ tank_init :: proc() -> bool {
 // Fresh tank with a new spider (keeps the random seed going).
 tank_reset :: proc() {
 	game = {}
-	game.render_list = make([dynamic]^Creature, 0, 32, runtime.heap_allocator())
+	game.render_list = make([dynamic]^Creature, 0, 32, persistent_allocator())
 	game.tank = assets.tank
 	state.palette = assets.tank.palette
 	game.rock = assets.rock
