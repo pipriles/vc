@@ -23,7 +23,7 @@ ARROW_Y :: 0x134
 CLOSE_Y :: 0x91
 
 HELP_LINES :: 161 // 0x42dd68
-CREDIT_LINES :: 43 // 0x42d2e8 (32), plus the port's own
+CREDIT_LINES :: 41 // the port's 9, then 0x42d2e8's 32
 
 Box_Page :: enum {
 	Menu,
@@ -188,6 +188,14 @@ HELP := [HELP_LINES]Line {
 }
 
 CREDITS := [CREDIT_LINES]Line {
+	// the browser port first
+	{"Browser Port", 2, true, 0, 0, 0}, {"Oswald Capriles", 0, true, 0, 0, 0}, {},
+	{"Rescued from the original Windows release: the", 0, false, 0, 0, 0},
+	{"program and its data were reverse engineered", 0, false, 0, 0, 0},
+	{"from the old binaries and rebuilt in Odin for", 0, false, 0, 0, 0},
+	{"WebAssembly, so the spiders can live on in a", 0, false, 0, 0, 0},
+	{"web browser, behaving just as they always did.", 0, false, 0, 0, 0}, {},
+	// the original's (0x42d2e8)
 	{"VIRTUAL CREATURES", 1, true, 0, 0, 0},
 	{"CREDITS", 1, true, 0, 0, 0}, {},
 	{"Virtual Creatures have emerged directly from the", 0, false, 0, 0, 0},
@@ -204,13 +212,6 @@ CREDITS := [CREDIT_LINES]Line {
 	{"Sound FX", 2, true, 0, 0, 0}, {"Chris Ford", 0, true, 0, 0, 0}, {},
 	{"Additional Graphics", 2, true, 0, 0, 0}, {"Dan Northover", 0, true, 0, 0, 0},
 	{"Gary Ellis", 0, true, 0, 0, 0}, {"Stephen Rose", 0, true, 0, 0, 0}, {},
-	// the browser port
-	{"Browser Port", 2, true, 0, 0, 0}, {"Oswald Capriles", 0, true, 0, 0, 0}, {},
-	{"Rescued from the original Windows release: the", 0, false, 0, 0, 0},
-	{"program and its data were reverse engineered", 0, false, 0, 0, 0},
-	{"from the old binaries and rebuilt in Odin for", 0, false, 0, 0, 0},
-	{"WebAssembly, so the spiders can live on in a", 0, false, 0, 0, 0},
-	{"web browser, behaving just as they always did.", 0, false, 0, 0, 0}, {}, {}, {},
 }
 
 // Stats prognosis (0x42cde8): four ways of saying each of five states.

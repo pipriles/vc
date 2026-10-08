@@ -16,7 +16,7 @@ help_lines_match_the_original_table :: proc(t: ^testing.T) {
 	testing.expect_value(t, HELP[127].text, "SETTINGS OPTIONS")
 	testing.expect_value(t, HELP[152].text, "ADDITIONAL HELP")
 	testing.expect_value(t, HELP[159].text, "http://www.virtualcreatures.com/vc")
-	testing.expect_value(t, CREDITS[30].text, "Stephen Rose")
+	testing.expect_value(t, CREDITS[39].text, "Stephen Rose")
 	for l, i in HELP do if l.icon == 1 {
 		testing.expectf(t, l.index >= 0 && l.index < 10, "line %d: button %d", i, l.index)
 	}

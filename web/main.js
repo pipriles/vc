@@ -110,7 +110,24 @@ addEventListener("pointerdown", () => sound.unlock(), { capture: true });
 addEventListener("keydown", () => sound.unlock(), { capture: true });
 const noop = () => {};
 const tctx = $("ui-text")?.getContext("2d");
-if (tctx) { tctx.font = "bold 11px Arial, sans-serif"; tctx.textBaseline = "top"; }
+// The text canvas matches the displayed size (the view is scaled up), so
+// text stays sharp; everything draws in 640 x 480 view coordinates.
+function fitText() {
+	const c = $("ui-text");
+	if (!c || !tctx) return;
+	const r = c.getBoundingClientRect();
+	const w = Math.max(640, Math.round(r.width * devicePixelRatio));
+	if (c.width !== w) {
+		c.width = w;
+		c.height = Math.round(w * 3 / 4);
+	}
+	tctx.setTransform(c.width / 640, 0, 0, c.height / 480, 0, 0);
+	tctx.font = "bold 11px Arial, sans-serif";
+	tctx.textBaseline = "top";
+}
+fitText();
+addEventListener("resize", fitText);
+document.addEventListener("fullscreenchange", fitText);
 // Options box fonts by GDI cell height: Arial bold 18, bold 12, bold italic 16
 const BOX_FONTS = { 1: "bold 16px Arial, sans-serif", 2: "bold 10.5px Arial, sans-serif", 3: "italic bold 14px Arial, sans-serif" };
 const hex = (c) => `#${c.toString(16).padStart(6, "0")}`;
@@ -325,6 +342,7 @@ function onFloating(on) {
 		pipTimer.terminate();
 		pipTimer = null;
 	}
+	mem.exports.tank_set_floating(on ? 1 : 0); // no bottom row or logo in the small window
 	window.vcFloatingChanged?.(on);
 }
 
@@ -388,6 +406,8 @@ function setupTank() {
 	window.vcSettingsChanged = (next) => { st = next; };
 	document.addEventListener("fullscreenchange", pushState);
 	mem.exports.tank_set_variant(variant === "rk" ? 1 : 0);
+	if ($("banner")) $("banner").src = `${base}banner.jpg`;
+	if ($("plate")) $("plate").textContent = variant === "rk" ? "RED KNEE TARANTULA" : "CHILE ROSE TARANTULA";
 	$("fullscreen").onclick = toggleFullscreen;
 
 	// screensaver: UI and cursor hidden, the view follows the spider; any

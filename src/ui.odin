@@ -90,6 +90,7 @@ UI :: struct {
 	box:          Box, // the Options box
 	saver:        bool, // screensaver: no UI, the view follows the spider
 	tools_flash:  int,  // ticks the tools button shows alone while hidden (0x4514b8)
+	floating:     bool, // port: shown in the floating window, no buttons or logo
 	saver_follow: bool, // follow mode before it
 	name:         [24]u8,
 	name_len:     int,
@@ -154,6 +155,14 @@ ui_right_click :: proc(vx, vy: int) {
 		return
 	}
 	button(.Next_Tool)
+}
+
+// The floating panel (picture-in-picture) shows the tank without the
+// bottom row and the logo (the original's miniature had no controls).
+@(export)
+tank_set_floating :: proc "contextless" (on: i32) {
+	game.ui.floating = on != 0
+	game.ui.hover, game.ui.logo_hover = -1, false
 }
 
 // Screensaver mode (port of VC.SCR, which started VC.EXE full screen):
@@ -246,9 +255,9 @@ over_logo :: proc(vx, vy: int) -> bool {
 ui_pointer :: proc(ev: Pointer_Event, vx, vy: int) -> bool {
 	u := &game.ui
 	if game.input.carry != .None do return false
-	b := u.shown ? button_at(vx, vy) : -1
+	b := u.shown && !u.floating ? button_at(vx, vy) : -1
 	u.hover = b
-	u.logo_hover = over_logo(vx, vy)
+	u.logo_hover = !u.floating && over_logo(vx, vy)
 	#partial switch ev {
 	case .Down:
 		if b >= 0 {
@@ -283,7 +292,7 @@ ui_draw :: proc() {
 	// pet name, top left, in the bitmap font
 	draw_name(10, 10)
 
-	ui_draw_logo()
+	if !u.floating do ui_draw_logo()
 	if u.logo_hover && settings.help_text do ui_text(LOGO_X - 120, LOGO_Y - 16, "Toggle display of buttons and icons.")
 	// needs: mood gauge (frame = temperament), then health, water, food
 	iy := u.slide != 0 ? lerp_pos(u.from_ind, u.ind_y, 40) : u.shown ? INDICATOR_B : 0
@@ -291,6 +300,7 @@ ui_draw :: proc() {
 	if iy >= 1 do draw_indicators(iy)
 
 	// button row with the ring round the hovered button
+	if u.floating do return
 	if u.slide == 0 && u.shown {
 		for &b, i in u.buttons {
 			if i == u.hover && u.ring.w > 0 {
