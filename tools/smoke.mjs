@@ -32,10 +32,10 @@ async function run(variant, mode, saveJson = null) {
 		file_size: (p, n) => files.get(str(p, n))?.length ?? -1,
 		file_read: (p, n, dst) => { const f = files.get(str(p, n)); mem.loadBytes(dst, f.length).set(f); },
 		present: noop, host_mode: () => mode, host_time: () => Date.now() / 1000,
-		ui_add_anim: noop, ui_add_seq: noop, ui_status: noop, ui_add_object: noop,
+		ui_add_anim: noop, ui_add_seq: noop, ui_status: noop, 
 		tank_status: noop, host_sound: noop, host_loop: noop, host_save: (p, n) => { saved = str(p, n); },
-		host_message: noop, host_life: noop, host_cursor: noop, host_view: noop, host_tool: noop,
-		host_options: noop, host_open: noop, ui_begin: noop, ui_text: noop,
+		host_message: noop,  host_cursor: noop, host_view: noop, host_tool: noop,
+		host_open: noop, ui_text_ex: noop, host_set_sound: noop, host_fullscreen: noop, host_settings: noop, host_tz_offset: () => 0, ui_begin: noop, ui_text: noop,
 		debug_begin: noop, debug_rect: noop, debug_line: noop, debug_text: noop,
 		debug_panel: noop, debug_log: (p, n) => log.push(str(p, n)),
 	};

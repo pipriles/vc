@@ -58,7 +58,6 @@ Object :: struct {
 objects_init :: proc() {
 	for &o, i in game.objects {
 		def := &OBJECT_DEFS[i]
-		ui_add_object(i32(i), def.name, def.in_tank)
 		bmp, ok := assets.objects[i], assets.objects_ok[i]
 		o = {}
 		o.def = def

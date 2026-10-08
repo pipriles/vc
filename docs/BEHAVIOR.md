@@ -477,8 +477,34 @@ Crickets: random sequence with frames in the current direction.
   the spider, after idle minutes in the window or full screen from a
   button; any input ends it.
 
+## Options box **confirmed** (0x40ed40)
+- 472×167 at (84, 170) in the view, picture (200 px) on the left, page on
+  the right over a dither of palette 6 on every other pixel; frame
+  vcg_2015 at (x − 10, 144), title bar 2016 at (x + 42, 148), page title
+  (2017–2022) at (x + 67, 153), close button 2014 at (x + 445, 145).
+- Opens growing 80 × 36 px a frame (everything else drawn at its final
+  size, shifting with the centred rect), closes the same way. Each opening
+  starts at the menu; a right-click opens it on the help page.
+- Pages: menu (Settings, Help, Stats, Credits, Utilities; buttons 2002, 32
+  px apart), Settings (frame rate −/+ 2004/2005 — sic, the left one counts
+  up; Sound, Full Screen, Help Text, Freeze Simulation toggles 2003; FPS
+  badge 2001), Help (161 lines), Stats (dates, time alive, crickets eaten,
+  resurrections, health / thirst / hunger, a prognosis: picture 2012 and
+  one of four sayings for each of five temperament bands), Credits (32
+  lines, picture 2013), Utilities (Download Crickets, Resurrect Creature,
+  Version Info), Version Info. Back (2010) at y + 137.
+- Switching page: sound 418, the title bar wipes right at 80 / 60 / 40
+  px a frame (10 / 14 / 18 fps) and the picture slides half as fast; at
+  the bar's end both turn back (sound 417) showing the new page's title
+  and picture; the page appears when the wipe is back at 0.
+- Help and credits: nine 20 px rows clipped at y + 133; style 1 heading
+  (Arial bold 18, teal bar on the help page), 2 highlighted (bold italic
+  16, orange), others Arial bold 12; icons are bottom-row buttons or the
+  gauges. Holding an arrow scrolls 5 px a frame, faster the longer it's
+  held (to 20).
+- Registering added 25 crickets to the store; Download Crickets fetched
+  more from the website. The port starts every spider with 25 in store
+  and Download Crickets adds 12.
+
 ## Not yet ported
-- The in-view Options box (bitmaps 2000-2022): pages Settings, Help (161
-  lines at 0x42dd68, 0x54 bytes each: text, style, icon), Stats, Credits,
-  Utilities. The port has an HTML panel instead.
 - Freeze Simulation (not wanted).

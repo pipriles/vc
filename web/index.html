@@ -23,22 +23,23 @@
   .debug pre { margin: 0; padding: 8px 12px; background: var(--panel); border-radius: 6px;
     font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow: auto; }
   #debug-log { height: 220px; width: 520px; max-width: 100%; }
-  .objects[hidden] { display: none; }
-  .life { margin: 0; flex-basis: 100%; font: 12px/1.5 ui-monospace, Menlo, monospace; }
   .message { position: fixed; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 0.45); }
   .message[hidden] { display: none; }
   .message-box { max-width: 420px; padding: 16px 20px; background: var(--panel); border-radius: 8px; }
   .message-box p { margin: 8px 0 12px; }
-  .objects { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; margin-top: 8px;
-    padding: 8px 12px; background: var(--panel); border-radius: 6px; }
 </style>
 </head>
 <body data-mode="tank">
 <div class="bar">
   <label>Variant <select id="variant"><option value="cr">Chile Rose</option><option value="rk">Red Knee</option></select></label>
   <label>Sim speed <input id="speed" type="range" min="1" max="20" step="1" value="1"><span id="speedv">1×</span></label>
-  <label><input id="sound" type="checkbox" checked> Sound</label>
   <label>Volume <input id="volume" type="range" min="0" max="100" step="5" value="100"></label>
+  <label><input id="smooth" type="checkbox"> Smooth motion</label>
+  <button id="fullscreen">Full screen <kbd>F</kbd></button>
+  <button id="saver">Screensaver</button>
+  <label>after <select id="idle"><option value="0">never</option><option value="2">2 min</option><option value="5" selected>5 min</option><option value="10">10 min</option><option value="30">30 min</option></select></label>
+  <label>Name <input id="pet-name" maxlength="20" size="12" placeholder="ENTER PETS NAME HERE"></label>
+  <button id="new-spider">New spider</button>
   <button id="drop">Drop cricket <kbd>C</kbd></button>
   <label><input id="debug" type="checkbox"> Debug <kbd>D</kbd></label>
   <a href="viewer.html">Animation viewer →</a>
@@ -58,20 +59,6 @@
   </div>
 </div>
 <div id="status"></div>
-<div class="objects" id="options" hidden>
-  <strong>Options</strong>
-  <label>Name <input id="pet-name" maxlength="20" placeholder="ENTER PETS NAME HERE"></label>
-  <label>Frame rate <select id="fps"><option value="0">10 fps</option><option value="1" selected>14 fps</option><option value="2">18 fps</option></select></label>
-  <label><input id="smooth" type="checkbox"> Smooth motion</label>
-  <button id="fullscreen">Full screen</button>
-  <button id="saver">Screensaver</button>
-  <label>Screensaver after <select id="idle"><option value="0">never</option><option value="2">2 min</option><option value="5" selected>5 min</option><option value="10">10 min</option><option value="30">30 min</option></select></label>
-  <button id="fill">Fill bowl</button>
-  <button id="resurrect" disabled>Resurrect Creature</button>
-  <button id="new-spider">New spider</button>
-  <pre id="life" class="life"></pre>
-  <span id="objects"><strong>Objects</strong></span>
-</div>
 <div class="debug">
   <pre id="debug-panel"></pre>
   <pre id="debug-log"></pre>

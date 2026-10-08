@@ -48,7 +48,7 @@ button_tip :: proc(cmd: int) -> string {
 	case 0: return "Close up view of your creature."
 	case 1: return "View the entire tank and select tank objects."
 	case 9: return "Removes all debris from the tank."
-	case 6: return game.ui.options_open ? "Close the Options box." : "Open the Options box."
+	case 6: return game.ui.box.state == .Open || game.ui.box.state == .Opening ? "Close the Options box." : "Open the Options box."
 	case 8: return "Visit the Virtual Creatures Website."
 	case 5: return "Run Virtual Creatures as Floating Panel."
 	}
@@ -86,7 +86,7 @@ UI :: struct {
 	ring_count:   int,
 	blink:        int, // 0..10, low needs blink (0x451f30)
 	logo_frame:   int,
-	options_open: bool,
+	box:          Box, // the Options box
 	saver:        bool, // screensaver: no UI, the view follows the spider
 	tools_flash:  int,  // ticks the tools button shows alone while hidden (0x4514b8)
 	saver_follow: bool, // follow mode before it
@@ -117,6 +117,7 @@ ui_init :: proc() {
 	u.logo = assets.logo
 	u.hover, u.pressed = -1, -1
 	u.shown, u.cycle = true, 1
+	u.box.held = -1
 }
 
 // Help page top line for a right-clicked button (0x4065b0).
@@ -281,7 +282,7 @@ ui_draw :: proc() {
 	draw_name(10, 10)
 
 	ui_draw_logo()
-	if u.logo_hover do ui_text(LOGO_X - 120, LOGO_Y - 16, "Toggle display of buttons and icons.")
+	if u.logo_hover && settings.help_text do ui_text(LOGO_X - 120, LOGO_Y - 16, "Toggle display of buttons and icons.")
 	// needs: mood gauge (frame = temperament), then health, water, food
 	iy := u.slide != 0 ? u.ind_y : u.shown ? INDICATOR_B : 0
 	if u.icons_only do iy = INDICATOR_B
@@ -296,7 +297,7 @@ ui_draw :: proc() {
 					u.ring_frame * rh, rh)
 			}
 			draw_button(&b, BUTTON_Y, i == u.pressed ? PRESSED_SCALE : 100)
-			if i == u.hover do ui_text(b.x, BUTTON_Y - 16, button_tip(b.cmd))
+			if i == u.hover && settings.help_text do ui_text(b.x, BUTTON_Y - 16, button_tip(b.cmd))
 		}
 	} else if u.slide == 0 && u.tools_flash > 0 {
 		// right-clicked while hidden: the tools button alone
@@ -354,7 +355,7 @@ draw_indicators :: proc(y: int) {
 		"Food Indicator. Judge your creatures hunger levels from this.",
 	}
 	px, py := game.input.vx, game.input.vy
-	if game.input.inside && px > INDICATOR_X + 10 && px < INDICATOR_X + g.w - 10 &&
+	if settings.help_text && game.input.inside && px > INDICATOR_X + 10 && px < INDICATOR_X + g.w - 10 &&
 	   py > top + 5 && py < top + gh - 5 {
 		ui_text(INDICATOR_X, top + gh + 2, tips[0])
 	}
@@ -365,7 +366,7 @@ draw_indicators :: proc(y: int) {
 		if v < 31 && u.blink < 5 do frame = 0 // low: blink
 		frame = clamp(frame, 0, 9)
 		if v > 9 || u.blink > 4 do draw_keyed_part(b, x, top, frame * fh, fh)
-		if game.input.inside && px > x + 12 && px < x + b.w - 12 &&
+		if settings.help_text && game.input.inside && px > x + 12 && px < x + b.w - 12 &&
 		   py > top + 5 && py < top + fh - 5 {
 			ui_text(x - 200, top + fh + 2, tips[i + 1])
 		}
@@ -450,12 +451,4 @@ tank_name_char :: proc "contextless" (ch: i32) {
 		u.name[u.name_len] = u8(ch)
 		u.name_len += 1
 	}
-}
-
-// Opens help at a line of the help page. The original shows it in its
-// Options box (page 4); until that is ported, open the options panel.
-open_help :: proc(line: int) {
-	debug_logf("help at line %d", line)
-	game.ui.options_open = true
-	host_options(true)
 }

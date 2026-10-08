@@ -83,3 +83,5 @@ Not covered yet: comparison against the original program's behaviour
 - [x] Growth and moulting, webs and footprints
 - [x] Ping-pong playback and mood-based play counts; logo UI slide
 - [x] Website (archived copy) and floating panel (picture-in-picture)
+- [x] Frame rates, smooth motion, right button, full screen, screensaver
+- [x] The in-view Options box with all its pages, including help

@@ -111,6 +111,8 @@ addEventListener("keydown", () => sound.unlock(), { capture: true });
 const noop = () => {};
 const tctx = $("ui-text")?.getContext("2d");
 if (tctx) { tctx.font = "bold 11px Arial, sans-serif"; tctx.textBaseline = "top"; }
+// Options box fonts by GDI cell height: Arial bold 18, bold 12, bold italic 16
+const BOX_FONTS = { 1: "bold 16px Arial, sans-serif", 2: "bold 10.5px Arial, sans-serif", 3: "italic bold 14px Arial, sans-serif" };
 const hex = (c) => `#${c.toString(16).padStart(6, "0")}`;
 
 const imports = {
@@ -170,28 +172,50 @@ const imports = {
 		host_loop: (id, on) => sound.loop(id, !!on),
 		host_save: (p, n) => { try { localStorage.setItem(SAVE_KEY, mem.loadString(p, n)); } catch {} },
 		host_message: (tp, tn, xp, xn) => showMessage(mem.loadString(tp, tn), mem.loadString(xp, xn)),
-		host_life: (born, died, resurrections, eaten, dead) => showLife(born, died, resurrections, eaten, dead),
 		host_cursor: (set, frame) => setCursor(set, frame),
 		host_view: (view) => setView(view),
 		host_tool: noop,
-		host_options: (open) => { $("options").hidden = !open; },
 		host_open: (what) => (what === 0 ? openWebsite() : toggleFloatingPanel()),
 		ui_begin: () => tctx?.clearRect(0, 0, 640, 480),
+		// text for the Options box: font 1 Arial bold 18, 2 bold 12, 3 bold
+		// italic 16 (GDI cell heights); flags 1 centre, 2 word wrap, 4 clip
+		ui_text_ex: (x, y, w, h, p, n, font, color, flags) => {
+			if (!tctx) return;
+			const text = mem.loadString(p, n);
+			tctx.save();
+			tctx.font = BOX_FONTS[font] ?? BOX_FONTS[1];
+			tctx.fillStyle = hex(color);
+			if (flags & 4) { tctx.beginPath(); tctx.rect(x, y, w, h); tctx.clip(); }
+			let lines = [text];
+			if (flags & 2) {
+				lines = [];
+				let line = "";
+				for (const word of text.split(" ")) {
+					const t = line ? `${line} ${word}` : word;
+					if (line && tctx.measureText(t).width > w) { lines.push(line); line = word; } else line = t;
+				}
+				lines.push(line);
+			}
+			lines.forEach((l, k) => {
+				const lx = flags & 1 ? x + (w - tctx.measureText(l).width) / 2 : x;
+				tctx.fillText(l, lx, y + k * 12);
+			});
+			tctx.restore();
+		},
+		host_set_sound: (on) => setSound(!!on),
+		host_fullscreen: () => toggleFullscreen(),
+		host_settings: (rate, smooth, helpText) => {
+			const st = { rate, smooth: !!smooth, helpText: !!helpText };
+			window.vcSettingsChanged?.(st.rate, st.smooth, st.helpText);
+			try { localStorage.setItem("vc-settings", JSON.stringify(st)); } catch {}
+		},
+		host_tz_offset: () => -new Date().getTimezoneOffset(),
 		ui_text: (x, y, p, n) => {
 			const text = mem.loadString(p, n);
 			tctx.fillStyle = "#000";
 			tctx.fillText(text, x + 1, y + 1);
 			tctx.fillStyle = "#fff";
 			tctx.fillText(text, x, y);
-		},
-		ui_add_object: (id, p, n, inTank) => {
-			const label = document.createElement("label");
-			const box = document.createElement("input");
-			box.type = "checkbox";
-			box.checked = !!inTank;
-			box.onchange = () => mem.exports.tank_set_object(id, box.checked ? 1 : 0);
-			label.append(box, " " + mem.loadString(p, n));
-			$("objects")?.append(label);
 		},
 		tank_status: (food, water, health, mood, temper, p, n, dir) => {
 			$("status").textContent =
@@ -303,6 +327,20 @@ function onFloating(on) {
 	window.vcFloatingChanged?.(on);
 }
 
+// Sound on or off from the Options box (plays the click when turned on).
+function setSound(on) {
+	sound.unlock();
+	sound.setOn(on);
+	try { localStorage.setItem("vc-sound", on ? "on" : "off"); } catch {}
+}
+
+// Full screen: the stage (view and dialogs), scaled to fit.
+function toggleFullscreen() {
+	const stage = $("stage");
+	if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+	else stage.requestFullscreen?.().catch(() => {});
+}
+
 function showMessage(title, text) {
 	const box = $("message");
 	if (!box) return;
@@ -311,29 +349,8 @@ function showMessage(title, text) {
 	box.hidden = false;
 }
 
-const fmtDate = (sec) => new Date(sec * 1000).toLocaleString();
-function fmtSpan(sec) {
-	const m = Math.max(0, Math.floor(sec / 60));
-	return `Days: ${Math.floor(m / 1440)}, Hours: ${Math.floor(m / 60) % 24}, Minutes: ${m % 60}`;
-}
-let lifeShown = "";
-function showLife(born, died, resurrections, eaten, dead) {
-	if (!$("life")) return;
-	const now = Date.now() / 1000;
-	const text = [
-		`Birth Date: ${born ? fmtDate(born) : "-"}`,
-		`Time Alive: ${born ? fmtSpan((dead && died ? died : now) - born) : "-"}`,
-		dead ? `Death Date: ${fmtDate(died)}` : null,
-		`No of Resurrections: ${resurrections}`,
-		`Total No of Crickets Eaten: ${eaten}`,
-	].filter(Boolean).join("\n");
-	if (text !== lifeShown) { $("life").textContent = text; lifeShown = text; }
-	$("resurrect").disabled = !dead;
-}
-
 function setupTank() {
 	$("message-ok").onclick = () => { $("message").hidden = true; };
-	$("resurrect").onclick = () => mem.exports.tank_resurrect();
 	$("new-spider").onclick = () => {
 		if (confirm("Start again with a new spider? The current one is lost.")) mem.exports.tank_new_spider();
 	};
@@ -356,41 +373,31 @@ function setupTank() {
 		}
 	});
 
-	// sound on/off (the original's Sound menu item; plays the click)
+	// settings: sound, full screen and help text live in the Options box;
+	// the frame rate too, with smooth motion beside it in the top bar
 	let soundOn = true;
 	try { soundOn = localStorage.getItem("vc-sound") !== "off"; } catch {}
-	$("sound").checked = soundOn;
 	sound.setOn(soundOn);
-	$("sound").onchange = () => {
-		sound.unlock();
-		sound.setOn($("sound").checked);
-		sound.play(400);
-		try { localStorage.setItem("vc-sound", $("sound").checked ? "on" : "off"); } catch {}
+	let st = { rate: 1, smooth: false, helpText: true };
+	try { st = { ...st, ...JSON.parse(localStorage.getItem("vc-settings") ?? "{}") }; } catch {}
+	$("smooth").checked = st.smooth;
+	const pushState = () => mem.exports.tank_set_host_state(sound.on ? 1 : 0, document.fullscreenElement ? 1 : 0, st.helpText ? 1 : 0);
+	pushState();
+	mem.exports.tank_set_frame_rate(st.rate, st.smooth ? 1 : 0);
+	window.vcSettingsChanged = (rate, smooth, helpText) => { st = { rate, smooth, helpText }; };
+	$("smooth").onchange = () => {
+		st.smooth = $("smooth").checked;
+		mem.exports.tank_set_frame_rate(st.rate, st.smooth ? 1 : 0);
+		try { localStorage.setItem("vc-settings", JSON.stringify(st)); } catch {}
 	};
-
-	// frame rate (the original's 10 / 14 / 18 fps) and smooth motion
-	const setRate = () => {
-		mem.exports.tank_set_frame_rate(+$("fps").value, $("smooth").checked ? 1 : 0);
-		try { localStorage.setItem("vc-fps", $("fps").value + ($("smooth").checked ? "s" : "")); } catch {}
-	};
-	try {
-		const r = localStorage.getItem("vc-fps");
-		if (r) { $("fps").value = r[0]; $("smooth").checked = r.endsWith("s"); }
-	} catch {}
-	$("fps").onchange = $("smooth").onchange = setRate;
-	setRate();
-
-	// full screen: the stage (view and dialogs), scaled to fit
-	const stage = $("stage");
-	const toggleFullscreen = () => {
-		if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-		else stage.requestFullscreen?.().catch(() => {});
-	};
+	document.addEventListener("fullscreenchange", pushState);
+	mem.exports.tank_set_variant(variant === "rk" ? 1 : 0);
 	$("fullscreen").onclick = toggleFullscreen;
 
 	// screensaver: UI and cursor hidden, the view follows the spider; any
 	// input ends it. After some idle minutes in the window, or full screen
 	// from the button (browsers only allow full screen after a click).
+	const stage = $("stage");
 	let saverOn = false, saverFull = false, saverSince = 0, lastInput = Date.now();
 	const startSaver = (full) => {
 		if (saverOn || mode !== 0) return;
@@ -468,7 +475,6 @@ function setupTank() {
 	};
 	$("debug").onchange = () => setDebug($("debug").checked);
 	$("drop").onclick = () => mem.exports.tank_drop_cricket();
-	$("fill").onclick = () => mem.exports.tank_fill_bowl();
 	addEventListener("keydown", (e) => {
 		if (e.target.tagName === "INPUT" && e.target.type !== "checkbox" && e.target.type !== "range") return;
 		if (e.key === "d" || e.key === "D") setDebug(!$("debug").checked);

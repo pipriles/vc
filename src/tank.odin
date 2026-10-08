@@ -119,6 +119,7 @@ Assets :: struct {
 	cricket:     Anim,
 	objects:     [OBJECT_COUNT]Bitmap,
 	objects_ok:  [OBJECT_COUNT]bool,
+	options_box: Box_Art, // the Options box
 }
 
 assets: Assets
@@ -140,6 +141,7 @@ load_assets :: proc() -> bool {
 		assets.ui[i], _ = bmp_load(load_file(fmt.tprintf("bitmaps/vc_%d.bmp", def.bitmap)))
 	}
 	assets.ring, _ = bmp_load(load_file("bitmaps/vc_320.bmp"))
+	box_art_load(&assets.options_box)
 	for id, i in ([4]int{1000, 1003, 1002, 1001}) {
 		assets.gauges[i], _ = bmp_load(load_file(fmt.tprintf("bitmaps/vcg_%d.bmp", id)))
 	}
@@ -233,6 +235,9 @@ tank_reset :: proc() {
 
 	game.cricket_a = assets.cricket
 	crickets_init()
+	// registering added 25 crickets to the store (0x4514b2); the port counts
+	// as registered
+	game.storage = 25
 	objects_init()
 	game.skin_a = assets.skin
 	skin_init()
@@ -264,8 +269,25 @@ FRAME_MS := [3]int{100, 71, 55}
 settings := struct {
 	frame_rate: int,
 	smooth:     bool,
+	sound:      bool, // (kept by the host)
+	fullscreen: bool, // (kept by the host)
+	help_text:  bool, // flyover help (tooltips)
 } {
 	frame_rate = 1,
+	sound      = true,
+	help_text  = true,
+}
+
+data_variant := "cr"
+
+@(export)
+tank_set_variant :: proc "contextless" (rk: i32) {data_variant = rk != 0 ? "rk" : "cr"}
+
+@(export)
+tank_set_host_state :: proc "contextless" (sound, fullscreen, help_text: i32) {
+	settings.sound = sound != 0
+	settings.fullscreen = fullscreen != 0
+	settings.help_text = help_text != 0
 }
 
 tick_ms :: proc() -> int {return FRAME_MS[clamp(settings.frame_rate, 0, 2)]}
@@ -306,6 +328,8 @@ tank_tick :: proc() {
 	handle_input()
 	cursor_tick()
 	ui_tick()
+	box_tick()
+	if game.ui.box.state != .Closed do stats_mood()
 	death_notice_tick()
 	handle_pending_drops()
 	handle_pending_objects()
@@ -408,6 +432,7 @@ tank_render :: proc() {
 			copy(view[y * VIEW_W:][:VIEW_W], tank_buf[y * TANK_W + sx:][:VIEW_W])
 		}
 		ui_draw()
+		if !game.ui.saver do box_draw()
 	case .Whole:
 		whole_render()
 	case .Close:
@@ -426,7 +451,6 @@ tank_render :: proc() {
 		if game.input.view == .Tank do draw_debug()
 		else do debug_begin() // the overlay is in tank-view coordinates: clear it
 	}
-	host_life(game.life.born_at, game.life.died_at, i32(game.life.resurrections), i32(game.eaten), game.life.dead)
 	s := &game.stats
 	tank_status(
 		i32(s.food), i32(s.water), i32(s.health), i32(s.mood), i32(s.temperament),

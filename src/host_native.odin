@@ -44,12 +44,15 @@ debug_text :: proc "contextless" (x, y: i32, text: string, color: u32) {}
 debug_panel :: proc "contextless" (text: string) {}
 debug_log :: proc "contextless" (text: string) {}
 host_sound :: proc "contextless" (id: int) {}
-ui_add_object :: proc "contextless" (id: i32, name: string, in_tank: bool) {}
 host_cursor :: proc "contextless" (set, frame: i32) {}
 host_view :: proc "contextless" (view: i32) {}
 host_tool :: proc "contextless" (tool: i32, follow: bool) {}
-host_options :: proc "contextless" (open: bool) {}
 host_open :: proc "contextless" (what: i32) {}
+ui_text_ex :: proc "contextless" (x, y, w, h: int, text: string, font, color, flags: i32) {}
+host_set_sound :: proc "contextless" (on: bool) {}
+host_fullscreen :: proc "contextless" () {}
+host_settings :: proc "contextless" (frame_rate: i32, smooth, help_text: bool) {}
+host_tz_offset :: proc "contextless" () -> i32 {return 0}
 ui_begin :: proc "contextless" () {}
 ui_text :: proc "contextless" (x, y: int, text: string) {}
 host_loop :: proc "contextless" (id: int, on: bool) {}
@@ -64,4 +67,3 @@ host_message :: proc "contextless" (title, text: string) {
 }
 saved_json: string // what the last save wrote (tests read it back as save.json)
 last_message: string
-host_life :: proc "contextless" (born, died: f64, resurrections, eaten: i32, dead: bool) {}

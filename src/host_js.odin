@@ -16,7 +16,6 @@ foreign host {
 	ui_add_anim :: proc(name: string) ---
 	ui_add_seq ::  proc(anim: i32, name: string, dir_mask: u32) ---
 	ui_status ::   proc(seq, dir, frame, frames: i32) ---
-	ui_add_object :: proc(id: i32, name: string, in_tank: bool) ---
 	tank_status :: proc(food, water, health, mood, temperament: i32, seq: string, dir: i32) ---
 	// debug overlay, view coordinates; colour is 0xRRGGBB
 	debug_begin :: proc() ---
@@ -29,12 +28,15 @@ foreign host {
 	host_loop ::   proc(id: int, on: bool) ---
 	host_save ::   proc(json: string) ---
 	host_message :: proc(title, text: string) ---
-	host_life ::   proc(born, died: f64, resurrections, eaten: i32, dead: bool) ---
 	host_cursor :: proc(set, frame: i32) ---
 	host_view ::   proc(view: i32) ---
 	host_tool ::   proc(tool: i32, follow: bool) ---
-	host_options :: proc(open: bool) ---
 	host_open ::    proc(what: i32) --- // 0 = the website, 1 = floating panel
+	ui_text_ex ::   proc(x, y, w, h: int, text: string, font, color, flags: i32) --- // flags: 1 centre, 2 wrap, 4 clip
+	host_set_sound :: proc(on: bool) ---
+	host_fullscreen :: proc() ---
+	host_settings :: proc(frame_rate: i32, smooth, help_text: bool) ---
+	host_tz_offset :: proc() -> i32 --- // minutes east of UTC
 	ui_begin ::    proc() ---
 	ui_text ::     proc(x, y: int, text: string) ---
 }

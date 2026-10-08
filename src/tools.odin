@@ -120,9 +120,10 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 		return
 	case .Tank:
 		if ev == .Right {
-			ui_right_click(vx, vy)
+			if !box_covers(vx, vy) do ui_right_click(vx, vy)
 			return
 		}
+		if game.ui.box.state != .Closed && in_.carry == .None && box_pointer(ev, vx, vy) do return
 		if ui_pointer(ev, vx, vy) do return
 	case .Box:
 	}
@@ -424,8 +425,7 @@ button :: proc(b: Button) {
 		host_open(1)
 	case:
 		if int(b) == 6 {
-			game.ui.options_open = !game.ui.options_open
-			host_options(game.ui.options_open)
+			box_toggle()
 		}
 	}
 	if click do host_sound(400)

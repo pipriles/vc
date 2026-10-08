@@ -184,6 +184,18 @@ cricket_eaten :: proc(cr: ^Creature) {
 		cr.in_box = true
 		cr.web_stuck = false
 		stop_current(cr)
+		creature_update_position(cr) // into the box's bounds
+	}
+}
+
+// Empty box slots are filled from the store (the original does this when
+// it starts and after registering).
+refill_box :: proc() {
+	for &c in game.crickets do if !c.active && game.storage > 0 {
+		game.storage -= 1
+		c.active, c.in_box, c.web_stuck = true, true, false
+		stop_current(&c)
+		creature_update_position(&c)
 	}
 }
 
