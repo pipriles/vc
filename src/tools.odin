@@ -404,6 +404,13 @@ button :: proc(b: Button) {
 		}
 	case .Clear:
 		clear_debris()
+	case Button(8):
+		// the website (long gone: the host offers an archived copy)
+		host_open(0)
+		click = false
+	case Button(5):
+		// floating panel: the host shows the view in a small always-on-top window
+		host_open(1)
 	case:
 		if int(b) == 6 {
 			game.ui.options_open = !game.ui.options_open

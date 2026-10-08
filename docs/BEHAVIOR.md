@@ -262,6 +262,11 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   website, floating panel (command = icon resource id − 300). Hovered
   button: ring animation (vc_320, 14 frames) and its tooltip 16 px above;
   pressed: drawn at 70 %.
+- Website (8): asks first (the program had to close), then opened
+  virtualcreatures.com; the port offers the Wayback Machine's copy.
+- Floating panel (5): a miniature always-on-top tank window (refused while
+  the simulation is frozen); the port uses picture-in-picture of the view
+  and keeps stepping the simulation while the tab is hidden.
 - Indicators at y 13: mood gauge (1000, 8 frames = temperament) at x 342,
   then health (1003), water (1002), food (1001), 10 frames each
   ((value−1)/10); below 31 they blink on frame 0, below 10 they vanish on

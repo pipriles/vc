@@ -34,6 +34,7 @@ foreign host {
 	host_view ::   proc(view: i32) ---
 	host_tool ::   proc(tool: i32, follow: bool) ---
 	host_options :: proc(open: bool) ---
+	host_open ::    proc(what: i32) --- // 0 = the website, 1 = floating panel
 	ui_begin ::    proc() ---
 	ui_text ::     proc(x, y: int, text: string) ---
 }

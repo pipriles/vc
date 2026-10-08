@@ -166,6 +166,7 @@ const imports = {
 		host_view: (view) => setView(view),
 		host_tool: noop,
 		host_options: (open) => { $("options").hidden = !open; },
+		host_open: (what) => (what === 0 ? openWebsite() : toggleFloatingPanel()),
 		ui_begin: () => tctx?.clearRect(0, 0, 640, 480),
 		ui_text: (x, y, p, n) => {
 			const text = mem.loadString(p, n);
@@ -237,6 +238,62 @@ function setView(view) {
 	document.body.dataset.view = view === 3 ? "box" : "tank";
 }
 
+// The website button: the original site is gone, so offer the Wayback
+// Machine's copy (the original asked first, as it had to close down).
+const WEBSITE = "https://web.archive.org/web/2000/http://www.virtualcreatures.com/vc";
+function openWebsite() {
+	if (confirm("Visiting the VC Website opens an archived copy of it in a new tab.\nDo you wish to continue?")) {
+		window.open(WEBSITE, "_blank", "noopener");
+	}
+}
+
+// The floating panel: the original shrank the tank into a small window on
+// top of the others. Here the view goes into a picture-in-picture window,
+// and a worker timer keeps the simulation going while the tab is hidden
+// (animation frames stop there).
+let pipVideo = null, pipTimer = null, pipPrev = 0;
+function floating() { return pipVideo !== null && document.pictureInPictureElement === pipVideo; }
+async function toggleFloatingPanel() {
+	if (floating()) { await document.exitPictureInPicture().catch(() => {}); return; }
+	if (!document.pictureInPictureEnabled) {
+		showMessage("FLOATING PANEL", "This browser can't show the tank in a floating window.");
+		return;
+	}
+	if (!pipVideo) {
+		pipVideo = document.createElement("video");
+		pipVideo.muted = true;
+		pipVideo.playsInline = true;
+		pipVideo.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";
+		pipVideo.srcObject = canvas.captureStream(14);
+		document.body.append(pipVideo);
+		pipVideo.addEventListener("leavepictureinpicture", () => onFloating(false));
+		pipVideo.addEventListener("enterpictureinpicture", () => onFloating(true));
+	}
+	try {
+		await pipVideo.play();
+		await pipVideo.requestPictureInPicture();
+	} catch (e) {
+		showMessage("FLOATING PANEL", `The floating window could not be opened (${e.message}).`);
+	}
+}
+function onFloating(on) {
+	if (on && !pipTimer) {
+		const src = "setInterval(() => postMessage(0), 100)";
+		pipTimer = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+		const ctx = mem.exports.default_context_ptr();
+		pipPrev = performance.now();
+		pipTimer.onmessage = () => {
+			const now = performance.now();
+			if (document.hidden) mem.exports.step((now - pipPrev) / 1000, ctx);
+			pipPrev = now;
+		};
+	} else if (!on && pipTimer) {
+		pipTimer.terminate();
+		pipTimer = null;
+	}
+	window.vcFloatingChanged?.(on);
+}
+
 function showMessage(title, text) {
 	const box = $("message");
 	if (!box) return;
@@ -277,9 +334,11 @@ function setupTank() {
 	setInterval(save, 60_000);
 	addEventListener("pagehide", save);
 	let hiddenAt = 0;
+	// while floating the simulation keeps running: nothing to catch up
+	window.vcFloatingChanged = (on) => { if (document.hidden) hiddenAt = on ? 0 : Date.now(); };
 	document.addEventListener("visibilitychange", () => {
 		if (document.hidden) {
-			hiddenAt = Date.now();
+			hiddenAt = floating() ? 0 : Date.now();
 			save();
 		} else if (hiddenAt) {
 			const minutes = Math.floor((Date.now() - hiddenAt) / 60_000);

@@ -49,6 +49,7 @@ host_cursor :: proc "contextless" (set, frame: i32) {}
 host_view :: proc "contextless" (view: i32) {}
 host_tool :: proc "contextless" (tool: i32, follow: bool) {}
 host_options :: proc "contextless" (open: bool) {}
+host_open :: proc "contextless" (what: i32) {}
 ui_begin :: proc "contextless" () {}
 ui_text :: proc "contextless" (x, y: int, text: string) {}
 host_loop :: proc "contextless" (id: int, on: bool) {}
