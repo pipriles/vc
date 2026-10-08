@@ -19,12 +19,12 @@ python3 -I tools/extract.py "/path/to/installers" data
 ./build.sh
 python3 -I tools/serve.py   # no-cache dev server on :8081
 ```
-Open http://127.0.0.1:8081/ (`?v=rk` for Red Knee).
+Open http://127.0.0.1:8081/ for the tank (`?v=rk` for Red Knee), `viewer.html` for the animation viewer.
 
 ## Layout
 | path | contents |
 |------|----------|
-| `src/`   | Odin: format parser (`vcg.odin`), viewer/game (`main.odin`) |
+| `src/`   | Odin: format (`vcg.odin`, `bmp.odin`), `rng.odin`, `creature.odin`, `spider.odin`, `tank.odin`, `viewer.odin` |
 | `web/`   | HTML + JS host (file prefetch, canvas blit) |
 | `tools/` | extractor, Ghidra scripts (`decompile.sh`) |
 | `re/`    | `symbols.txt`: names for addresses in `VC.EXE` |
@@ -34,4 +34,5 @@ Open http://127.0.0.1:8081/ (`?v=rk` for Red Knee).
 - [x] Installer + resource extraction
 - [x] Animation format decoded; viewer for all sequences/directions
 - [ ] Game logic reverse engineering (in progress, see `docs/BEHAVIOR.md`)
-- [ ] Tank scene, spider AI, crickets, stats, tools, sound
+- [x] Tank scene: spider idle AI, movement, depth scale, needs (first pass)
+- [ ] Crickets, hunting, tank objects, tools, UI, sound, persistence

@@ -139,7 +139,8 @@ def main():
                     sounds.append(name)
                 elif t == RT_BITMAP:
                     write(f"{out}/bitmaps/{modname}_{name}.bmp", bmp_file(d))
-                    if modname == "vcg" and name == 1000:
+                    files.append(f"bitmaps/{modname}_{name}.bmp")
+                    if modname == "vcg" and name == 9100:  # creature buffer: tank palette
                         palette = dib_palette(d)
         write(f"{out}/palette.bin", palette)
         files.append("palette.bin")

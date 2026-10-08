@@ -2,7 +2,8 @@ package vc
 
 import "core:fmt"
 
-// Animation viewer: plays any sequence/direction of the extracted animations.
+// Entry point. The JS host picks the mode: the tank (game) or the
+// animation viewer.
 
 foreign import host "vc"
 
@@ -12,29 +13,25 @@ foreign host {
 	file_size ::   proc(name: string) -> i32 ---
 	file_read ::   proc(name: string, dst: [^]u8) ---
 	present ::     proc(rgba: [^]u8, w, h: i32) ---
+	host_mode ::   proc() -> i32 --- // 0 = tank, 1 = viewer
+	host_time ::   proc() -> f64 --- // seconds since the epoch, for srand(time(NULL))
 	ui_add_anim :: proc(name: string) ---
 	ui_add_seq ::  proc(anim: i32, name: string, dir_mask: u32) ---
 	ui_status ::   proc(seq, dir, frame, frames: i32) ---
+	tank_status :: proc(food, water, health, mood, temperament: i32, seq: string, dir: i32) ---
 }
-
-ANIM_FILES :: [?]string{"spider", "plugin_spider", "cricket", "footprints", "web", "skin", "logo"}
 
 MAX_W :: 320
 MAX_H :: 200
-TICK  :: 0.1 // seconds per frame: original uses SetTimer(hwnd, 1, 100)
+TICK  :: 0.1 // seconds per tick: original uses SetTimer(hwnd, 1, 100)
 
-BACKGROUND :: [3]u8{0x00, 0x80, 0x80} // Windows 98 desktop teal
-
-state: struct {
-	anims:                 [dynamic]Anim,
-	palette:               [256][3]u8,
-	anim, seq, dir, frame: int,
-	accum, speed:          f64,
-	paused:                bool,
+Mode :: enum {
+	Tank,
+	Viewer,
 }
 
-indices: [MAX_W * MAX_H]u8
-rgba: [MAX_W * MAX_H * 4]u8
+mode: Mode
+running: bool
 
 load_file :: proc(name: string) -> []u8 {
 	n := file_size(name)
@@ -45,98 +42,25 @@ load_file :: proc(name: string) -> []u8 {
 }
 
 main :: proc() {
-	if pal := load_file("palette.bin"); len(pal) == 768 {
-		for &c, i in state.palette do c = {pal[3 * i], pal[3 * i + 1], pal[3 * i + 2]}
+	mode = host_mode() == 1 ? .Viewer : .Tank
+	switch mode {
+	case .Tank:
+		running = tank_init()
+		if running do build_shade_table()
+	case .Viewer:
+		running = viewer_init()
 	}
-
-	for name in ANIM_FILES {
-		idx := load_file(fmt.tprintf("%s.idx", name))
-		pix := load_file(fmt.tprintf("%s.pix", name))
-		a, ok := anim_parse(idx, pix)
-		if !ok || a.w > MAX_W || a.h > MAX_H {
-			fmt.eprintln("skipping animation", name)
-			continue
-		}
-		append(&state.anims, a)
-		ai := i32(len(state.anims) - 1)
-		ui_add_anim(name)
-		for &s in a.seqs do ui_add_seq(ai, s.name, seq_dir_mask(&s))
-	}
-
-	state.speed = 1
-	viewer_select(0, 0, 0)
-}
-
-current_dir :: proc "contextless" () -> ^Dir {
-	if state.anim >= len(state.anims) do return nil
-	a := &state.anims[state.anim]
-	if state.seq >= len(a.seqs) do return nil
-	return &a.seqs[state.seq].dirs[state.dir]
-}
-
-@(export)
-viewer_select :: proc "contextless" (anim, seq, dir: i32) {
-	if int(anim) >= len(state.anims) do return
-	state.anim = int(anim)
-	a := &state.anims[state.anim]
-	state.seq = clamp(int(seq), 0, len(a.seqs) - 1)
-	s := &a.seqs[state.seq]
-	state.dir = clamp(int(dir), 0, DIR_COUNT - 1)
-	if len(s.dirs[state.dir].frames) == 0 {
-		// fall back to the first direction that has frames
-		for d, k in s.dirs do if len(d.frames) > 0 {state.dir = k; break}
-	}
-	state.frame = 0
-	state.accum = 0
-}
-
-@(export)
-viewer_set_speed :: proc "contextless" (speed: f64) {
-	state.speed = speed
-}
-
-@(export)
-viewer_set_paused :: proc "contextless" (paused: i32) {
-	state.paused = paused != 0
-}
-
-@(export)
-viewer_step_frame :: proc "contextless" (delta: i32) {
-	d := current_dir()
-	if d == nil || len(d.frames) == 0 do return
-	n := len(d.frames)
-	state.frame = ((state.frame + int(delta)) % n + n) % n
+	if !running do fmt.eprintln("initialisation failed")
 }
 
 @(export)
 step :: proc(dt: f64) -> bool {
-	if !state.paused {
-		state.accum += dt * state.speed
-		if state.accum > 1 do state.accum = TICK // don't replay a backlog after a stall
-		for state.accum >= TICK {
-			state.accum -= TICK
-			viewer_step_frame(1)
-		}
+	if !running do return false
+	switch mode {
+	case .Tank:
+		tank_step(dt)
+	case .Viewer:
+		viewer_step(dt)
 	}
-	render()
 	return true
-}
-
-render :: proc() {
-	d := current_dir()
-	if d == nil || len(d.frames) == 0 do return
-	a := &state.anims[state.anim]
-	n := a.w * a.h
-	if !frame_decode(a, d.frames[state.frame], indices[:n]) do return
-
-	for i in 0 ..< n {
-		v := indices[i]
-		c := v == a.key ? BACKGROUND : state.palette[v]
-		rgba[4 * i + 0] = c[0]
-		rgba[4 * i + 1] = c[1]
-		rgba[4 * i + 2] = c[2]
-		rgba[4 * i + 3] = 255
-	}
-	present(&rgba[0], i32(a.w), i32(a.h))
-	ui_status(i32(state.seq), i32(state.dir), i32(state.frame), i32(len(d.frames)))
 }

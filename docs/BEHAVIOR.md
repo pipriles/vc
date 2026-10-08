@@ -51,21 +51,88 @@ internet/website links, floppy-disk cricket "download", screensaver config.
   - Rejected while creature not active (`+0x92 == 0`) or anim not loaded.
   - p4 looks like a repeat count (walk uses `rand()*4/0x7fff + 4`).
 
+## Creature tick (`creature_tick`, every 100 ms) **confirmed**
+1. Bump counters tick down.
+2. Frame hold: if the frame has a hold flag, hold for `hold` ticks
+   (negative = `rand()*hold/0x7fff`).
+3. Advance `frame += step`; past the end → one play done; after all plays
+   pop the queue (turning first with CIRCLE steps if the queued direction
+   differs) or run the idle chooser, then `start_sequence`.
+4. Move if the sequence moves (`move_x` 60% per play, `move_y` always) or
+   the frame has dx/dy: dirs 0/1/7 up, 3/4/5 down, 5/6/7 left, 1/2/3 right.
+   x step = `sx`; y step = `sx` straight up/down, `sy` on diagonals.
+   Running doubles speeds while walking.
+5. `creature_update_position`: clamp x to [130, 1070] (walls) and y to
+   [170 + h/3, 480 - h/2]; hitting a side marks the 3 directions into it as
+   bumped for 5 ticks. Then
+   `scale% = min(100, trunc(y/480 * size + 35))`,
+   `sx = trunc(base_sx / (100/scale))`, `sy` likewise.
+   Spider: base 5×3, size 40 when new (grows; SKIN = moult, TBD).
+
+## Rendering **confirmed**
+- Scene is composed into an 8-bit 1200×480 surface; the 640×480 view is a
+  window at `scroll_x` (panning moves 20 px per tick).
+- Creatures drawn in render-list order with `blit_creature`: the frame
+  canvas scaled to scale% (StretchBlt COLORONCOLOR = nearest), centred on
+  the creature's centre; skips the key colour and `key2` (dir header byte,
+  0x31 = 49 = shadow colour). Shadows come from another pass (TBD).
+- Tank and creature buffer share a palette (bitmaps 4500/9100); the other
+  bitmaps differ only at index 71.
+
+## Idle behaviour **confirmed**
+`creature_idle` (queue empty): spider turns one step (random cw/ccw) with
+probability (rand_n(5)+4)/10 unless it just turned; otherwise `spider_idle`:
+1. food ≤ rand_n(10)+25 and 50%: queue WALK random dir, 4–8 plays.
+2. food ≤ rand_n(10)+25 and 20%: queue LURK, 2–4 plays.
+3. temperament < 4 and `rand()*temperament*10/0x7fff < 2`: queue CRUSH.
+4. Else pick: WALK with prob temperament/20, else a random sequence; must
+   pass `spider_wants_seq` (WALK by temperament, CRUSH ≥30 s apart, THREAT/
+   HAIR only after interaction, CLEAN `rand_n(15) < 2*temperament`,
+   WEB_LAYING when food < 36), not repeat, not CIRCLE, have frames, and its
+   precondition if flagged (GLASS near the front glass, LOG_HIDE at the log
+   x 630–650 y < 174). Gives up after 8 tries → LURK 60% / WALK.
+5. 1/51 chance (≥12 min apart) walk to the log and hide; 30% (≥3 min apart)
+   walk to the glass (needs `move_to_then_anim`, TBD).
+Crickets: random sequence with frames in the current direction.
+
+## Needs **confirmed** (`spider_stats_tick`, every second)
+- health = (food+water)/2, or min+1 when either < 41; below 50 each pulls
+  it down; mood adds +10 (|mood|<30), 0, −10 (≥50), −20 (≥80). Clamp ≤100.
+- temperament = floor(((100−|mood|)/2 + health/2) × 0.07), +1 if the
+  fraction ≥ 0.7 → 0..7.
+- water −2 every 2.5 h, food −2 every 2 h (real time), mood −1 per minute
+  (wraps −101 → 100, a bug in the original), interaction flag cleared.
+- Hungry (food < 26) with a cricket in the tank: every 5th minute stalk it.
+
 ## Creature struct (partial)
 | off | type | meaning |
 |-----|------|---------|
 | 0x40  | ptr | animation index blob |
-| 0x48  | i16 | *tentative* state (`2` = special) |
+| 0x48  | i16 | hiding state (log) 0 = out, 1..3 |
 | 0x4c  | i16 | current player tool / interaction (1..5) |
 | 0x4e  | i16 | previous interaction |
 | 0x50  | i16 | mood step for current interaction (±3) |
 | 0x54  | u32 | last reaction time (ms) |
 | 0x92  | i16 | active / alive flag |
-| 0x9a  | i16 | facing direction 0..7 |
-| 0xa6  | i16 | *tentative* x position |
-| 0xa8  | i16 | *tentative* y position (thresholds 170 = 0xaa, 325 = 0x145) |
-| 0x158 | i16 | mood, clamped −100..100 |
-| 0x15a | i16 | *tentative* irritation / agitation level (compared to 2, 4) |
+| 0x98  | i16 | current sequence |
+| 0x9a  | i16 | facing direction 0..7 (0 = up, clockwise) |
+| 0x9c  | i16 | scale percent |
+| 0x9e, 0xa0 | i16 | base speed x, y |
+| 0xa2, 0xa4 | i16 | current speed x, y |
+| 0xa6, 0xa8 | i16 | centre x, y in the tank |
+| 0xae, 0xb0 | i16 | draw x, y (centre − canvas/2) |
+| 0xb2, 0xb4 | i16 | frame, frame step |
+| 0xba  | i16 | plays left |
+| 0xbc  | i16 | previous sequence |
+| 0xc4, 0xc6 | i16 | moving x/y this play |
+| 0xf4  | i16 | creature kind / location (0 spider floor, 2 cricket, 4, 6) |
+| 0xfa + 8d | i16 | bumped-wall counter for direction d |
+| 0x152 | i16 | run (double speed) |
+| 0x158 | i16 | mood −100..100 |
+| 0x15a | i16 | temperament 0..7 |
+| 0x15c, 0x15e, 0x160 | i16 | health, food, water |
+| 0x174 + 4s | u32 | time sequence s last played |
+| 0x1e6 | i16 | size / growth (40 new) |
 | 0x1ec..| | animation queue (above) |
 
 ## Spider reaction to tools (`spider_react_tool`) — partial
@@ -80,9 +147,6 @@ internet/website links, floppy-disk cricket "download", screensaver config.
 
 ## Open questions
 - Remaining tool cases, idle behaviour loop, hunting (CATCH/KILL/cricket AI).
-- Movement: per-direction speed, tank bounds, walls, depth scaling (StretchBlt).
-- Stat decay rates; death conditions; what the real-time clock affects.
-- Shadow rendering (dark palette range — darken blend?).
-- Seq record fields `u32@0x24` (1 = ambient behaviour?) and `u32@0x28`.
-- Meaning of per-direction flag bytes and `u16` at record `+0x46 + dir*0x924`
-  (checked by `enqueue_anim` when `DAT_0044dc5a` is set).
+- Shadow pass; `move_to_then_anim` (walk to a point, then play); growth
+  and moulting; death and resurrection; hiding under the log.
+- Tank objects, crickets and hunting (CATCH/KILL), player tools and UI.

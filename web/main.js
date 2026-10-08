@@ -1,10 +1,12 @@
 // Host for the Odin wasm module: prefetches data files, exposes them through
-// the "vc" foreign import, and blits frames to a canvas.
+// the "vc" foreign import, and blits frames to a canvas. The page picks the
+// mode with <body data-mode="tank|viewer">.
 
-const SCALE = 3;
-const DIR_NAMES = ["0", "1", "2", "3", "4", "5", "6", "7"];
+const SCALE = 3; // viewer zoom
+const DIR_NAMES = ["0 ↑", "1 ↗", "2 →", "3 ↘", "4 ↓", "5 ↙", "6 ←", "7 ↖"];
 
 const $ = (id) => document.getElementById(id);
+const mode = document.body.dataset.mode === "viewer" ? 1 : 0;
 const params = new URLSearchParams(location.search);
 const variant = params.get("v") ?? "cr";
 const base = `data/${variant}/`;
@@ -19,7 +21,7 @@ await Promise.all(manifest.files.map(async (name) => {
 const mem = new odin.WasmMemoryInterface();
 const canvas = $("view");
 const ctx = canvas.getContext("2d");
-const seqs = []; // per animation: [{name, mask}]
+const seqs = []; // viewer: per animation [{name, mask}]
 
 const imports = {
 	vc: {
@@ -32,11 +34,13 @@ const imports = {
 			if (canvas.width !== w || canvas.height !== h || !canvas.style.width) {
 				canvas.width = w;
 				canvas.height = h;
-				canvas.style.width = `${w * SCALE}px`;
+				if (mode === 1) canvas.style.width = `${w * SCALE}px`;
 			}
 			const px = new Uint8ClampedArray(mem.memory.buffer, ptr, w * h * 4);
 			ctx.putImageData(new ImageData(px, w, h), 0, 0);
 		},
+		host_mode: () => mode,
+		host_time: () => Date.now() / 1000,
 		ui_add_anim: (p, n) => {
 			$("anim").add(new Option(mem.loadString(p, n), seqs.length));
 			seqs.push([]);
@@ -46,43 +50,69 @@ const imports = {
 			$("status").textContent = `frame ${frame + 1} / ${frames}`;
 			if ($("dir").value != dir) $("dir").value = dir;
 		},
+		tank_status: (food, water, health, mood, temper, p, n, dir) => {
+			$("status").textContent =
+				`food ${food}  water ${water}  health ${health}  mood ${mood}  temperament ${temper}` +
+				`  ·  ${mem.loadString(p, n)} ${DIR_NAMES[dir]}`;
+		},
 	},
 };
 
-function fillSeqs() {
-	const list = seqs[$("anim").value] ?? [];
-	$("seq").replaceChildren(...list.map((s, i) => new Option(s.name, i)));
-	fillDirs();
+function setupViewer() {
+	const fillDirs = () => {
+		const s = seqs[$("anim").value]?.[$("seq").value];
+		$("dir").replaceChildren(...DIR_NAMES.map((name, k) => {
+			const o = new Option(name, k);
+			o.disabled = !s || !(s.mask & (1 << k));
+			return o;
+		}));
+	};
+	const fillSeqs = () => {
+		const list = seqs[$("anim").value] ?? [];
+		$("seq").replaceChildren(...list.map((s, i) => new Option(s.name, i)));
+		fillDirs();
+	};
+	const select = () => mem.exports.viewer_select(+$("anim").value, +$("seq").value, +$("dir").value);
+
+	$("anim").onchange = () => { fillSeqs(); select(); };
+	$("seq").onchange = () => { fillDirs(); select(); };
+	$("dir").onchange = select;
+	$("speed").oninput = () => {
+		$("speedv").textContent = `${$("speed").value}×`;
+		mem.exports.viewer_set_speed(+$("speed").value);
+	};
+	let paused = false;
+	$("play").onclick = () => {
+		paused = !paused;
+		$("play").textContent = paused ? "Play" : "Pause";
+		mem.exports.viewer_set_paused(paused ? 1 : 0);
+	};
+	$("prev").onclick = () => mem.exports.viewer_step_frame(-1);
+	$("next").onclick = () => mem.exports.viewer_step_frame(1);
+	fillSeqs();
 }
 
-function fillDirs() {
-	const s = seqs[$("anim").value]?.[$("seq").value];
-	$("dir").replaceChildren(...DIR_NAMES.map((name, k) => {
-		const o = new Option(name, k);
-		o.disabled = !s || !(s.mask & (1 << k));
-		return o;
-	}));
+function setupTank() {
+	$("follow").onchange = () => mem.exports.tank_set_follow($("follow").checked ? 1 : 0);
+	$("speed").oninput = () => {
+		$("speedv").textContent = `${$("speed").value}×`;
+		mem.exports.tank_set_speed(+$("speed").value);
+	};
+	// drag to pan the viewfinder (scan mode)
+	let dragX = null;
+	canvas.onpointerdown = (e) => { dragX = e.clientX; canvas.setPointerCapture(e.pointerId); };
+	canvas.onpointerup = () => { dragX = null; };
+	canvas.onpointermove = (e) => {
+		if (dragX === null) return;
+		const k = canvas.width / canvas.getBoundingClientRect().width;
+		mem.exports.tank_scroll(Math.round((dragX - e.clientX) * k));
+		dragX = e.clientX;
+		$("follow").checked = false;
+	};
 }
-
-const select = () => mem.exports.viewer_select(+$("anim").value, +$("seq").value, +$("dir").value);
 
 $("variant").value = variant;
 $("variant").onchange = () => { location.search = `?v=${$("variant").value}`; };
-$("anim").onchange = () => { fillSeqs(); select(); };
-$("seq").onchange = () => { fillDirs(); select(); };
-$("dir").onchange = select;
-$("speed").oninput = () => {
-	$("speedv").textContent = `${$("speed").value}×`;
-	mem.exports.viewer_set_speed(+$("speed").value);
-};
-let paused = false;
-$("play").onclick = () => {
-	paused = !paused;
-	$("play").textContent = paused ? "Play" : "Pause";
-	mem.exports.viewer_set_paused(paused ? 1 : 0);
-};
-$("prev").onclick = () => mem.exports.viewer_step_frame(-1);
-$("next").onclick = () => mem.exports.viewer_step_frame(1);
 
 await odin.runWasm("vc.wasm", null, imports, mem);
-fillSeqs();
+if (mode === 1) setupViewer(); else setupTank();

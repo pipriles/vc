@@ -19,8 +19,8 @@ even id = **index**, odd id = **pixels** (e.g. 9000/9001 spider, 9002/9003 crick
 |-----|------|-------|
 | 0    | char[32] | sequence name (`WALK`, `CIRCLE`, `LURK`, `THREAT`, ...) |
 | 32   | u32 | 0 |
-| 36   | u32 | 1 on ambient behaviours (CIRCLE, WALK, LURK, THREAT, CLEAN...), 0 on scripted ones |
-| 40   | u32 | small int 2..7, meaning unknown (weight?) |
+| 36   | u32 | random repeats: plays = rand()*max/0x7fff + 1 |
+| 40   | u32 | max repeats |
 | 0x48 + k*0x924 | Dir[8] | one block per facing direction k=0..7 (base b below) |
 
 Each Dir block really starts 0x14 bytes before b (its flag bytes sit at
@@ -30,12 +30,26 @@ b-0x14); the last block of a record is cut short, so never slice a fixed
 ## Dir block (0x924 bytes, base b)
 | off | type | field |
 |-----|------|-------|
-| b-0x14  | u8[8] | flags; (1,0,1,0,...) on moving sequences (WALK, CATCH, JUMP, LOG_HIDE) |
+| b-0x14  | u16 | move_x: moves while playing (60% chance per play) |
+| b-0x12  | u16 | move_y: moves while playing |
+| b-0x10  | u16 | ping-pong (random) |
+| b-0x0e  | u16 | no floor clamp |
+| b-0x0c  | u32 | ping-pong |
+| b-0x08  | u32 | random hold |
+| b-0x04  | u16 | hold |
+| b-0x02  | u16 | needs precondition check |
+| b+2     | u16 | hold max |
 | b+4     | u16 | frame count F (0 = direction unused) |
-| b+6     | u16 | unknown (0x31 for spider) |
+| b+6     | u8  | key2: second skipped colour = shadow (0x31) |
 | b+8     | {u32 x0,y0,x1,y1}[64] | per-frame bounding box in canvas |
 | b+0x408 | u32[64] | per-frame offset into pixel blob |
 | b+0x508 | u32[64] | per-frame byte length |
+| b+0x708 | i8[64]  | per-frame dx |
+| b+0x748 | i8[64]  | per-frame dy |
+| b+0x788 | u8[64]  | reverse dx/dy when playing backward |
+| b+0x7c8 | i16[64] | hold flag |
+| b+0x848 | i16[64] | hold ticks (negative = random) |
+| b+0x8c8 | u8[64]  | keep previous scale (not present in the last block) |
 
 ## Pixel blob
 Each frame = RLE `(u8 count, u8 palette_index)` pairs, row-major **bottom-up**
