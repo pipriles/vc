@@ -20,10 +20,13 @@ python3 -I tools/extract.py "/path/to/installers" data
 python3 -I tools/serve.py   # no-cache dev server on :8081
 ```
 Open http://127.0.0.1:8081/ for the tank (`?v=rk` for Red Knee), `viewer.html` for the animation viewer.
-Controls are the original's: the hand button cycles the tools (or keys
-1–5: tap on the glass, pick up, prod, stroke, follow), feed opens the
-cricket box (click a cricket to carry it into the tank), the tap fills
-the water bowl, the broom clears debris. Move the pointer to the left or
+Controls are the original's, in the view: the hand button cycles the tools
+(or keys 1–5: tap on the glass, pick up, prod, stroke, follow), feed opens
+the cricket box (click a cricket to carry it into the tank), the tap fills
+the water bowl, the magnifiers show the close-up and the whole tank (drag
+objects between the tank and the panel there), the broom clears debris,
+options opens the settings panel (pet name), and the logo hides or shows
+the buttons and icons. Move the pointer to the left or
 right edge to scroll in scan mode (right-drag also pans). `C` drops a
 cricket straight into the tank (debug). The Objects bar places or removes objects (only the bowl starts in the tank)
 and "Fill bowl" refills the water. Press `D` (or tick Debug) for the overlay: tank limits, drawn box, facing,

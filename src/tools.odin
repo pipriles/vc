@@ -13,8 +13,10 @@ Tool :: enum {
 TOOL_COUNT :: 5
 
 View :: enum {
-	Tank = 0,
-	Box  = 3, // the cricket box (feed)
+	Tank  = 0,
+	Whole = 1, // whole tank and object panel (zoom out)
+	Close = 2, // close-up of the spider (zoom in)
+	Box   = 3, // the cricket box (feed)
 }
 
 // Cursor sets (RT_GROUP_CURSOR 200 + 10*set): 0 pointer, 1 open hand,
@@ -108,7 +110,17 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 	in_ := &game.input
 	in_.inside = ev != .Leave
 	in_.vx, in_.vy = vx, vy
-	if in_.view == .Tank && ui_pointer(ev, vx, vy) do return
+	switch in_.view {
+	case .Whole:
+		whole_pointer(ev, vx, vy)
+		return
+	case .Close:
+		if ev == .Down do leave_view()
+		return
+	case .Tank:
+		if ui_pointer(ev, vx, vy) do return
+	case .Box:
+	}
 	if in_.view == .Tank {
 		in_.x, in_.y = vx + game.scroll_x, vy
 		game.cursor_x = in_.x
@@ -366,6 +378,12 @@ button :: proc(b: Button) {
 		game.follow = !game.follow
 	case .Feed:
 		in_.view = .Box
+	case Button(0):
+		in_.view = .Close
+	case Button(1):
+		game.saved_tool = in_.tool
+		in_.tool = .Pickup
+		in_.view = .Whole
 	case .Tank:
 		in_.view = .Tank
 	case .Next_Tool:

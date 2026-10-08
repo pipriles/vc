@@ -45,6 +45,7 @@ Game :: struct {
 	pending_buttons_len: int,
 	box_bg:   Bitmap, // vcg_4501: the cricket box
 	ui:       UI,
+	saved_tool: Tool, // restored when leaving the whole-tank view
 	scroll_left, scroll_right: int, // edge scrolling ticks left
 	stats:    Spider_Stats,
 	seq:      Seq_Ids,
@@ -62,6 +63,17 @@ debug_enabled: bool
 frame_buf: [MAX_W * MAX_H]u8
 view: [VIEW_W * VIEW_H]u8 // palette indices
 view_rgba: [VIEW_W * VIEW_H * 4]u8
+tank_buf: [TANK_W * VIEW_H]u8 // the whole scene, like the original's tank surface
+
+// Draw target for the blitters.
+Surface :: struct {
+	px:   []u8,
+	w, h: int,
+}
+dst: Surface
+
+view_surface :: proc() -> Surface {return {view[:], VIEW_W, VIEW_H}}
+tank_surface :: proc() -> Surface {return {tank_buf[:], TANK_W, VIEW_H}}
 
 // Allocator for data that lives for the whole program. The heap allocator
 // doesn't exist on js_wasm32, where the default allocator is never reset.
@@ -81,7 +93,8 @@ Assets :: struct {
 	ui:          [10]Bitmap, // button icons, in row order
 	ring:        Bitmap,
 	gauges:      [4]Bitmap,
-	exit, font:  Bitmap,
+	corners:     Bitmap,
+	font:        Bitmap,
 	logo:        Anim,
 	remains:     Bitmap,
 	spider:      Anim,
@@ -112,7 +125,7 @@ load_assets :: proc() -> bool {
 	for id, i in ([4]int{1000, 1003, 1002, 1001}) {
 		assets.gauges[i], _ = bmp_load(load_file(fmt.tprintf("bitmaps/vcg_%d.bmp", id)))
 	}
-	assets.exit, _ = bmp_load(load_file("bitmaps/vcg_2011.bmp"))
+	assets.corners, _ = bmp_load(load_file("bitmaps/vcg_2009.bmp"))
 	assets.font, _ = bmp_load(load_file("bitmaps/vcg_2008.bmp"))
 	assets.logo, _ = anim_parse(load_file("logo.idx"), load_file("logo.pix"))
 	assets.remains, _ = bmp_load(load_file("bitmaps/vcg_4004.bmp"))
@@ -269,25 +282,36 @@ tank_render :: proc() {
 		box_render()
 		return
 	}
-	t := &game.tank
-	for y in 0 ..< VIEW_H {
-		copy(view[y * VIEW_W:][:VIEW_W], t.pixels[y * t.w + game.scroll_x:][:VIEW_W])
-	}
+
+	// compose the whole tank, then show part of it
+	dst = tank_surface()
+	copy(tank_buf[:], game.tank.pixels[:TANK_W * VIEW_H])
 
 	// cricket remains on the sand (0x40ca70)
 	rb := &game.remains_bmp
 	for r in game.remains do if r.used && rb.w > 0 {
-		draw_keyed_part(rb, r.x - game.scroll_x - rb.w / 2, r.y, r.kind * rb.h / 6, rb.h / 6)
+		draw_keyed_part(rb, r.x - rb.w / 2, r.y, r.kind * rb.h / 6, rb.h / 6)
 	}
-
 	// shadows of every creature first, then bodies (0x417390, 0x417180)
 	update_render_list()
-	for c in game.render_list do draw_creature(c, .Shadow, game.scroll_x)
-	for c in game.render_list do draw_creature(c, .Body, game.scroll_x)
+	for c in game.render_list do draw_creature(c, .Shadow, 0)
+	for c in game.render_list do draw_creature(c, .Body, 0)
 	if game.spider.y < FLOOR_TOP && game.rock.w > 0 {
-		draw_keyed(&game.rock, ROCK_DRAW_X - game.scroll_x, ROCK_DRAW_Y)
+		draw_keyed(&game.rock, ROCK_DRAW_X, ROCK_DRAW_Y)
 	}
-	ui_draw()
+
+	dst = view_surface()
+	#partial switch game.input.view {
+	case .Tank:
+		for y in 0 ..< VIEW_H {
+			copy(view[y * VIEW_W:][:VIEW_W], tank_buf[y * TANK_W + game.scroll_x:][:VIEW_W])
+		}
+		ui_draw()
+	case .Whole:
+		whole_render()
+	case .Close:
+		close_render()
+	}
 
 	for i in 0 ..< VIEW_W * VIEW_H {
 		col := state.palette[view[i]]
@@ -297,7 +321,7 @@ tank_render :: proc() {
 		view_rgba[4 * i + 3] = 255
 	}
 	present(&view_rgba[0], VIEW_W, VIEW_H)
-	if debug_enabled do draw_debug()
+	if debug_enabled && game.input.view == .Tank do draw_debug()
 	s := &game.stats
 	tank_status(
 		i32(s.food), i32(s.water), i32(s.health), i32(s.mood), i32(s.temperament),
@@ -332,35 +356,37 @@ draw_creature :: proc(c: ^Creature, pass: Draw_Pass, scroll: int) {
 	y0 := c.y - dh / 2
 	for j in 0 ..< dh {
 		vy := y0 + j
-		if vy < 0 || vy >= VIEW_H do continue
+		if vy < 0 || vy >= dst.h do continue
 		sy := j * a.h / dh
 		for i in 0 ..< dw {
 			vx := x0 + i
-			if vx < 0 || vx >= VIEW_W do continue
+			if vx < 0 || vx >= dst.w do continue
 			p := frame_buf[sy * a.w + i * a.w / dw]
 			if p == a.key || (p == d.key2) != (pass == .Shadow) do continue
-			view[vy * VIEW_W + vx] = p
+			dst.px[vy * dst.w + vx] = p
 		}
 	}
 }
 
 // Objects: frame scaled to scale% centred on the object (0x416e40), shadow
 // colour (49) in the shadow pass.
-draw_object :: proc(o: ^Object, pass: Draw_Pass) {
-	dw, dh := x87_scale_trunc(o.fw, o.scale), x87_scale_trunc(o.fh, o.scale)
+draw_object :: proc(o: ^Object, pass: Draw_Pass, cx := min(int), cy := 0, scale := 0) {
+	sc := scale > 0 ? scale : o.scale
+	dw, dh := x87_scale_trunc(o.fw, sc), x87_scale_trunc(o.fh, sc)
 	if dw <= 0 || dh <= 0 do return
-	x0, y0 := o.x - game.scroll_x - dw / 2, o.y - dh / 2
+	x0, y0 := o.x - dw / 2, o.y - dh / 2
+	if cx != min(int) do x0, y0 = cx - dw / 2, cy - dh / 2
 	base := o.frame * o.fh * o.fw
 	for j in 0 ..< dh {
 		vy := y0 + j
-		if vy < 0 || vy >= VIEW_H do continue
+		if vy < 0 || vy >= dst.h do continue
 		row := base + (j * o.fh / dh) * o.fw
 		for i in 0 ..< dw {
 			vx := x0 + i
-			if vx < 0 || vx >= VIEW_W do continue
+			if vx < 0 || vx >= dst.w do continue
 			p := o.bmp.pixels[row + i * o.fw / dw]
 			if p == o.key || (p == 49) != (pass == .Shadow) do continue
-			view[vy * VIEW_W + vx] = p
+			dst.px[vy * dst.w + vx] = p
 		}
 	}
 }
@@ -368,6 +394,7 @@ draw_object :: proc(o: ^Object, pass: Draw_Pass) {
 // The cricket box view: wicker room with the crickets still in the box.
 box_render :: proc() {
 	b := &game.box_bg
+	dst = view_surface()
 	copy(view[:], b.pixels[:VIEW_W * VIEW_H])
 	in_box: [CRICKET_COUNT]^Creature
 	n := 0
@@ -396,11 +423,11 @@ draw_keyed_part :: proc(b: ^Bitmap, x0, y0, sy, h: int) {
 	key := b.pixels[0]
 	for y in 0 ..< h {
 		vy := y0 + y
-		if vy < 0 || vy >= VIEW_H do continue
+		if vy < 0 || vy >= dst.h do continue
 		for x in 0 ..< b.w {
 			vx := x0 + x
-			if vx < 0 || vx >= VIEW_W do continue
-			if p := b.pixels[(sy + y) * b.w + x]; p != key do view[vy * VIEW_W + vx] = p
+			if vx < 0 || vx >= dst.w do continue
+			if p := b.pixels[(sy + y) * b.w + x]; p != key do dst.px[vy * dst.w + vx] = p
 		}
 	}
 }

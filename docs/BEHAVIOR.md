@@ -235,6 +235,27 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   calm ones lurk, come to the glass where it was tapped, or crush (stroke
   with temperament ≥ 6).
 
+## UI and views **confirmed**
+- Button row at y 420 from x 20, each button 4 px after the previous one:
+  tools, feed, water, scan/follow, close-up, whole tank, clear, options,
+  website, floating panel (command = icon resource id − 300). Hovered
+  button: ring animation (vc_320, 14 frames) and its tooltip 16 px above;
+  pressed: drawn at 70 %.
+- Indicators at y 13: mood gauge (1000, 8 frames = temperament) at x 342,
+  then health (1003), water (1002), food (1001), 10 frames each
+  ((value−1)/10); below 31 they blink on frame 0, below 10 they vanish on
+  alternate blinks. Pet name at (10, 10) in the bitmap font vcg_2008
+  (white glyphs on black, A–Z 0–9, offsets at 0x431248). The logo (bottom
+  right) toggles the buttons and icons.
+- Close-up (button 0): the spider's 320×200 canvas box, clamped to the
+  tank, stretched to the view; any click returns.
+- Whole tank (button 1, switches to the pick-up tool): the tank scaled to
+  640×256; below it a panel of 96×96 cells (5 per row from x 60, y 260)
+  with the objects not in the tank (dithered background, colour 1, 2 when
+  hovered; corners vcg_2009; names). Drag objects between the panel and
+  the tank; a click elsewhere returns and restores the tool. (The
+  unregistered original allowed 3 objects in the tank.)
+
 ## Offline catch-up (for saving) **found**
 `offline_catch_up` (0x415430) replays the time the program was closed:
 water −2 per 150 min, food −2 per 120 min, the spider drinks from the bowl
@@ -327,4 +348,4 @@ Crickets: random sequence with frames in the current direction.
 - Tank objects (kind 1), webs, player tools and UI, the cricket box view.
 - Bell ringing (what sets the swing count), yucca growth start state,
   fountain as a water source.
-- Views: whole tank (zoom out, object placement panel) and close-up.
+- The UI sliding in/out when toggled (the port toggles instantly).

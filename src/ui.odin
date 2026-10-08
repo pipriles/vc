@@ -1,7 +1,7 @@
 package vc
 
-// The in-view UI: button row, needs indicators, exit button, pet name and
-// logo, drawn into the view like the original (main update 0x40ca70,
+// The in-view UI: button row, needs indicators, pet name and logo (the
+// logo toggles the rest; the original's exit button isn't needed here), drawn into the view like the original (main update 0x40ca70,
 // buttons 0x41bc..: table, 0x4060b0 draw, indicators 0x40e990).
 
 BUTTON_Y      :: 420 // 0x1a4
@@ -9,7 +9,6 @@ BUTTON_X0     :: 20  // (640 - 0x208) / 2 - 40
 BUTTON_GAP    :: 4
 INDICATOR_X   :: 342 // 0x156
 INDICATOR_Y   :: 13  // 0x55 minus the mood gauge's frame height
-EXIT_X        :: 608 // 0x260
 RING_FRAMES   :: 14
 PRESSED_SCALE :: 70
 
@@ -67,7 +66,9 @@ UI :: struct {
 	buttons:      [10]UI_Button,
 	ring:         Bitmap, // vc_320: spins round the hovered button
 	gauges:       [4]Bitmap, // mood (1000), health (1003), water (1002), food (1001)
-	exit_bmp:     Bitmap, // vcg_2011: 3 states
+	cell_corners: Bitmap, // vcg_2009: object panel cell corners
+	hidden:       bool,   // buttons and indicators off (toggled by the logo)
+	logo_hover:   bool,
 	font:         Bitmap, // vcg_2008: A-Z, 0-9
 	logo:         Anim,
 	hover:        int, // button index, -1 none
@@ -76,7 +77,6 @@ UI :: struct {
 	ring_count:   int,
 	blink:        int, // 0..10, low needs blink (0x451f30)
 	logo_frame:   int,
-	exit_hover:   bool,
 	options_open: bool,
 	name:         [24]u8,
 	name_len:     int,
@@ -100,7 +100,7 @@ ui_init :: proc() {
 	}
 	u.ring = assets.ring
 	u.gauges = assets.gauges
-	u.exit_bmp = assets.exit
+	u.cell_corners = assets.corners
 	u.font = assets.font
 	u.logo = assets.logo
 	u.hover, u.pressed = -1, -1
@@ -130,18 +130,20 @@ button_at :: proc(vx, vy: int) -> int {
 	return -1
 }
 
-over_exit :: proc(vx, vy: int) -> bool {
-	e := &game.ui.exit_bmp
-	return vx >= EXIT_X && vx < EXIT_X + e.w && vy >= 0 && vy < e.h / 3
+LOGO_X :: VIEW_W - 96 - 10
+LOGO_Y :: VIEW_H - 72 - 8
+
+over_logo :: proc(vx, vy: int) -> bool {
+	return vx >= LOGO_X && vx < LOGO_X + 96 && vy >= LOGO_Y && vy < LOGO_Y + 72
 }
 
 // Pointer handling for the UI; returns true when the UI took the event.
 ui_pointer :: proc(ev: Pointer_Event, vx, vy: int) -> bool {
 	u := &game.ui
 	if game.input.carry != .None do return false
-	b := button_at(vx, vy)
+	b := u.hidden ? -1 : button_at(vx, vy)
 	u.hover = b
-	u.exit_hover = over_exit(vx, vy)
+	u.logo_hover = over_logo(vx, vy)
 	#partial switch ev {
 	case .Down:
 		if b >= 0 {
@@ -149,15 +151,20 @@ ui_pointer :: proc(ev: Pointer_Event, vx, vy: int) -> bool {
 			button(Button(u.buttons[b].cmd))
 			return true
 		}
-		if u.exit_hover do return true
+		if u.logo_hover {
+			// the logo toggles the buttons and icons
+			u.hidden = !u.hidden
+			host_sound(400)
+			return true
+		}
 	case .Up:
 		was := u.pressed
 		u.pressed = -1
 		if was >= 0 do return true
 	case .Leave:
-		u.hover, u.pressed, u.exit_hover = -1, -1, false
+		u.hover, u.pressed, u.logo_hover = -1, -1, false
 	}
-	if b >= 0 || u.exit_hover {
+	if b >= 0 || u.logo_hover {
 		set_cursor(0)
 		return true
 	}
@@ -171,6 +178,10 @@ ui_draw :: proc() {
 
 	// pet name, top left, in the bitmap font
 	draw_name(10, 10)
+
+	ui_draw_logo()
+	if u.logo_hover do ui_text(LOGO_X - 120, LOGO_Y - 16, "Toggle display of buttons and icons.")
+	if u.hidden do return
 
 	// needs: mood gauge (frame = temperament), then health, water, food
 	st := &game.stats
@@ -207,27 +218,6 @@ ui_draw :: proc() {
 	}
 	_ = tip_x
 
-	// exit button, top right
-	e := &u.exit_bmp
-	eh := e.h / 3
-	draw_keyed_part(e, EXIT_X, 0, (u.exit_hover ? 1 : 0) * eh, eh)
-	if u.exit_hover do ui_text(EXIT_X - 220, eh + 2, "Click here to exit Virtual Creatures.")
-
-	// logo, bottom right
-	if n := logo_frames(); n > 0 {
-		a := &u.logo
-		s := &a.seqs[0]
-		f := s.dirs[0].frames[u.logo_frame % n]
-		buf := frame_buf[:a.w * a.h]
-		if frame_decode(a, s, f, buf) {
-			x0, y0 := VIEW_W - a.w - 10, VIEW_H - a.h - 8
-			for j in 0 ..< a.h do for i in 0 ..< a.w {
-				p := buf[j * a.w + i]
-				if p != a.key do view[(y0 + j) * VIEW_W + x0 + i] = p
-			}
-		}
-	}
-
 	// button row with the ring round the hovered button
 	for &b, i in u.buttons {
 		if i == u.hover && u.ring.w > 0 {
@@ -243,6 +233,22 @@ ui_draw :: proc() {
 		scale := i == u.pressed ? PRESSED_SCALE : 100
 		draw_scaled_part(&b.bmp, b.x, BUTTON_Y, b.fw, b.fh, frame * b.fh, scale)
 		if i == u.hover do ui_text(b.x, BUTTON_Y - 16, button_tip(b.cmd))
+	}
+}
+
+// Animated VC logo, bottom right (logo creature 0x455ac0).
+ui_draw_logo :: proc() {
+	u := &game.ui
+	n := logo_frames()
+	if n == 0 do return
+	a := &u.logo
+	s := &a.seqs[0]
+	f := s.dirs[0].frames[u.logo_frame % n]
+	buf := frame_buf[:a.w * a.h]
+	if !frame_decode(a, s, f, buf) do return
+	for j in 0 ..< a.h do for i in 0 ..< a.w {
+		p := buf[j * a.w + i]
+		if p != a.key do dst.px[(LOGO_Y + j) * dst.w + LOGO_X + i] = p
 	}
 }
 
@@ -264,11 +270,11 @@ draw_name :: proc(x0, y0: int) {
 			continue
 		}
 		gx, gw := FONT_X[g], FONT_X[g + 1] - FONT_X[g] - 1
-		key := f.pixels[0]
+		key: u8 = 0 // white glyphs on black
 		for j in 0 ..< f.h do for i in 0 ..< gw {
 			p := f.pixels[j * f.w + gx + i]
 			vx, vy := x + i, y0 + j
-			if p != key && vx >= 0 && vx < VIEW_W && vy >= 0 && vy < VIEW_H do view[vy * VIEW_W + vx] = p
+			if p != key && vx >= 0 && vx < dst.w && vy >= 0 && vy < dst.h do dst.px[vy * dst.w + vx] = p
 		}
 		x += gw + 1
 	}
@@ -282,13 +288,13 @@ draw_scaled_part :: proc(b: ^Bitmap, x0, y0, w, h, sy, scale: int) {
 	key := b.pixels[0]
 	for j in 0 ..< dh {
 		vy := oy + j
-		if vy < 0 || vy >= VIEW_H do continue
+		if vy < 0 || vy >= dst.h do continue
 		row := (sy + j * h / dh) * b.w
 		for i in 0 ..< dw {
 			vx := ox + i
-			if vx < 0 || vx >= VIEW_W do continue
+			if vx < 0 || vx >= dst.w do continue
 			p := b.pixels[row + i * w / dw]
-			if p != key do view[vy * VIEW_W + vx] = p
+			if p != key do dst.px[vy * dst.w + vx] = p
 		}
 	}
 }

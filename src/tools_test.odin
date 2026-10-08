@@ -90,3 +90,47 @@ feed_from_the_box :: proc(t: ^testing.T) {
 	testing.expectf(t, crickets_in_tank() == 1, "cricket released into the tank (eaten %d)", game.eaten)
 	testing.expect(t, c.carried == 0, "cricket finished dropping")
 }
+
+@(test)
+whole_tank_and_close_up :: proc(t: ^testing.T) {
+	if !sim_setup(t, 11) do return
+	game.pending_buttons[0] = Button(1)
+	game.pending_buttons_len = 1
+	tank_tick()
+	testing.expect(t, game.input.view == .Whole && game.input.tool == .Pickup, "zoom out: whole tank with the pick-up tool")
+	for _ in 0 ..< 3 do tank_render()
+
+	// drag the bell (cell 1) from the panel into the tank
+	cx, cy := cell_rect(BELL)
+	press(.Down, cx + 40, cy + 40)
+	press(.Move, 400, 200)
+	press(.Up, 400, 200)
+	tank_tick()
+	bell := &game.objects[BELL]
+	testing.expect(t, !bell.in_box, "bell placed in the tank")
+	tx, ty := whole_to_tank(400, 200)
+	testing.expectf(t, abs(bell.x - tx) < 2 && bell.y >= FLOOR_TOP, "bell near (%d, %d): (%d, %d)", tx, ty, bell.x, bell.y)
+
+	// and the bowl back into the panel
+	bowl := &game.objects[BOWL]
+	bx, by := bowl.x * VIEW_W / TANK_W, bowl.y * WHOLE_H / VIEW_H
+	press(.Down, bx, by)
+	press(.Move, bx, 300)
+	press(.Up, bx, 300)
+	tank_tick()
+	testing.expect(t, bowl.in_box, "bowl dragged back into the panel")
+
+	// a click on empty space returns to the tank and restores the tool
+	press(.Down, 5, 470)
+	tank_tick()
+	testing.expect(t, game.input.view == .Tank && game.input.tool == .Tap, "back to the tank")
+
+	game.pending_buttons[0] = Button(0)
+	game.pending_buttons_len = 1
+	tank_tick()
+	testing.expect(t, game.input.view == .Close, "zoom in: close-up")
+	tank_render()
+	press(.Down, 100, 100)
+	tank_tick()
+	testing.expect(t, game.input.view == .Tank, "click leaves the close-up")
+}
