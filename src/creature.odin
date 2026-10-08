@@ -104,6 +104,7 @@ Creature :: struct {
 	anchor_x, anchor_y: int,
 	anchor_ms:          u32,
 	squeeze_until:      u32,
+	waiting_for:        int, // cricket the spider is waiting to come within reach, -1 none
 	pause:              int,         // ticks frozen (+0xf8)
 	tool:               Interaction, // pending player interaction (+0x4c)
 	prev_tool:          Interaction, // (+0x4e)
@@ -121,6 +122,7 @@ creature_init :: proc(c: ^Creature, a: ^Anim, x, y, base_sx, base_sy, size: int)
 	c.anim = a
 	c.active = true
 	c.target_id = -1
+	c.waiting_for = -1
 	c.x, c.y = x, y
 	c.prev_x, c.prev_y = x, y
 	c.base_sx, c.base_sy = base_sx, base_sy
@@ -343,9 +345,19 @@ next_sequence :: proc(c: ^Creature) {
 		c.plays = q.plays
 		c.run = q.run
 		if !seq_has_frames(c, c.seq, c.dir) || (c.can_play != nil && !c.can_play(c, c.seq)) {
-			debug_logf("%s can't play %s now, lurking instead", c.name, seq_name(c, c.seq))
+			if c.kind == .Spider && c.seq == game.seq.catch_ {
+				// out of reach: wait (lurking, facing it) for it to come closer
+				if c.waiting_for != c.target_id {
+					debug_logf("%s waits for cricket %d to come within reach", c.name, c.target_id)
+				}
+				c.waiting_for = c.target_id
+			} else {
+				debug_logf("%s can't play %s now, lurking instead", c.name, seq_name(c, c.seq))
+			}
 			c.seq = game.seq.lurk
 			c.plays = 1
+		} else if c.seq == game.seq.catch_ {
+			c.waiting_for = -1
 		}
 	} else {
 		c.run = false
@@ -610,7 +622,7 @@ collide_respond :: proc(a, b: ^Creature) -> bool {
 			already := a.queue_len > 0 && a.queue[0].seq == game.seq.catch_ && a.queue[0].dir == s
 			enqueue_anim(a, game.seq.catch_, s, 1, flush = true, run = true)
 			a.target_id = b.id
-			if !already do debug_logf("%s touched cricket %d: catch facing %d", a.name, b.id, s)
+			if !already && a.waiting_for != b.id do debug_logf("%s touched cricket %d: catch facing %d", a.name, b.id, s)
 			return true
 		}
 	} else if a.kind == .Cricket && b.kind == .Spider && rand_n(10) < 5 && a.queue_len == 0 {

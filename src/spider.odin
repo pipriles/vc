@@ -118,8 +118,13 @@ spider_precondition :: proc(c: ^Creature, seq: int) -> bool {
 		// the target cricket must be within half the spider's hit rect
 		if c.target_id < 0 do return false
 		cr := &game.crickets[c.target_id]
-		return abs(c.x - cr.x) <= (c.hit.right - c.hit.left) / 2 &&
-			abs(c.y - cr.y) <= (c.hit.bottom - c.hit.top) / 2
+		if abs(c.x - cr.x) <= (c.hit.right - c.hit.left) / 2 &&
+		   abs(c.y - cr.y) <= (c.hit.bottom - c.hit.top) / 2 {
+			return true
+		}
+		// port: touching it but held back by a wall from getting closer
+		// (crickets go 50 px nearer the side walls than the spider can)
+		return rects_intersect(c.hit, cr.hit) && against_wall_towards(c, cr.x, cr.y)
 	}
 	return false
 }
@@ -135,21 +140,39 @@ spider_can_play :: proc(c: ^Creature, seq: int) -> bool {
 	return !b.active && b.kind != BLOCK_WALL
 }
 
-// Port: a spider that hasn't got anywhere for 45 s while objects block at
-// least half of its directions may walk through objects for 10 s. Lurking
-// in the open never triggers it; no random numbers are drawn.
+// Whether the spider is held at a wall in the direction of (x, y).
+against_wall_towards :: proc(c: ^Creature, x, y: int) -> bool {
+	dh := x87_scale_trunc(c.anim.h, c.scale)
+	return (x < c.x && c.x <= WALL_MARGIN + 2) || (x > c.x && c.x >= TANK_W - WALL_MARGIN - 2) ||
+		(y < c.y && c.y <= FLOOR_TOP + 2) || (y > c.y && c.y + dh / 3 >= VIEW_H - 2)
+}
+
+// Port: a spider that hasn't got anywhere for 15 s while objects and walls
+// block at least five of its directions (one an object) walks out through
+// the objects, away from the walls, and may cross objects for 10 s.
+// Lurking in the open never triggers it; no random numbers are drawn.
 spider_unstick :: proc(c: ^Creature) {
-	if abs(c.x - c.anchor_x) > 20 || abs(c.y - c.anchor_y) > 20 || c.hide != 0 || c.carried != 0 {
+	if abs(c.x - c.anchor_x) > 20 || abs(c.y - c.anchor_y) > 20 || c.hide != 0 || c.carried != 0 || c.eating {
 		c.anchor_x, c.anchor_y, c.anchor_ms = c.x, c.y, now_ms
 		return
 	}
-	if now_ms < c.anchor_ms + 45_000 || now_ms < c.squeeze_until do return
-	n := 0
-	for b in c.blocks[:8] do if b.active && b.kind == int(Kind.Object) do n += 1
-	if n < 4 do return
+	if now_ms < c.anchor_ms + 15_000 || now_ms < c.squeeze_until do return
+	objects, walls := 0, 0
+	for b in c.blocks[:8] {
+		if b.active && b.kind == int(Kind.Object) do objects += 1
+		else if b.kind == BLOCK_WALL do walls += 1
+	}
+	if objects < 1 || objects + walls < 5 do return
 	c.squeeze_until = now_ms + 10_000
 	c.anchor_ms = now_ms
-	debug_logf("boxed in (%d directions blocked): squeezing through for 10 s", n)
+	// out the way with no wall, preferring up (away from the glass)
+	for d in ([?]int{0, 1, 7, 2, 6, 3, 5, 4}) {
+		if c.blocks[d].kind == BLOCK_WALL do continue
+		clear_goal(c)
+		enqueue_anim(c, game.seq.walk, d, 6, flush = true)
+		debug_logf("boxed in (%d objects, %d walls): squeezing out facing %d", objects, walls, d)
+		break
+	}
 }
 
 ROCK_X      :: 0x1a6 // 422: hiding spot behind the rock (minus a size margin)

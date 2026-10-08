@@ -208,8 +208,13 @@ Table built on the stack at startup (recovered by tracing the stores):
   spider's body counts (the middle 60 % of its frame box) and a cell needs
   a third of its size overlapped (the original: an eighth, a third only
   while walking to a goal); and a spider that hasn't moved 20 px in 45 s
-  with objects blocking at least 4 of its 8 directions may walk through
+  with objects and walls blocking at least 5 of its 8 directions (one an
+  object) walks out away from the walls (preferring up) and may cross
   objects for 10 s.
+- Port: CATCH needs the cricket's centre within half the spider's box in
+  x and y; a cricket touching a corner is out of reach. The spider then
+  waits (lurking, facing it) for it to come closer, and at a wall or the
+  glass, where it can't get closer, it may catch any cricket touching it.
 - New spider: random facing, then the free-spot search (`place_free`:
   random point, step 50 px right / down until the position update leaves
   it unchanged), then faces the first free direction.

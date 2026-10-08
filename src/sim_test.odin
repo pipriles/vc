@@ -163,3 +163,56 @@ spider_gets_out_of_a_ring_of_objects :: proc(t: ^testing.T) {
 	log.infof("got %d px from the start", max_d)
 	testing.expectf(t, max_d > 150, "still boxed in (%d px at most)", max_d)
 }
+
+@(test)
+spider_gets_away_from_the_glass_when_boxed_in :: proc(t: ^testing.T) {
+	if !sim_setup(t, 21) do return
+	s := &game.spider
+	s.size = 80
+	s.x, s.y = 600, 470 // clamped onto the front glass
+	s.prev_x, s.prev_y = s.x, s.y
+	clear_queue(s)
+	creature_update_position(s)
+	y0 := s.y
+	ring := [?]struct {id, x, y: int}{{BOWL, 600, y0 - 70}, {2, 470, y0}, {3, 730, y0}}
+	for r in ring {
+		o := &game.objects[r.id]
+		o.active, o.in_box = true, false
+		o.x, o.y = r.x, r.y
+		object_update_position(o)
+	}
+	moved := 0
+	for _ in 0 ..< 1200 { // two minutes
+		tank_step(TICK)
+		moved = max(moved, abs(s.x - 600) + abs(s.y - y0))
+	}
+	testing.expectf(t, moved > 100, "still stuck at the glass (%d px at most)", moved)
+}
+
+@(test)
+spider_catches_a_cricket_it_cant_get_closer_to :: proc(t: ^testing.T) {
+	if !sim_setup(t, 22) do return
+	s := &game.spider
+	s.x, s.y = 600, 480 // onto the front glass
+	creature_update_position(s)
+	cr := &game.crickets[0]
+	cr.in_box, cr.active = false, true
+	cr.x, cr.y = 0, 480 // crickets get nearer the glass than the spider
+	creature_update_position(cr)
+	// diagonally below-left, overlapping the corner of the spider's box
+	cr.x = s.hit.left - (cr.hit.right - cr.hit.left) / 2 + 6
+	creature_update_position(cr)
+	s.target_id = 0
+	log.infof("spider %d,%d hit %v; cricket %d,%d hit %v", s.x, s.y, s.hit, cr.x, cr.y, cr.hit)
+	testing.expect(t, rects_intersect(s.hit, cr.hit), "touching")
+	testing.expect(t, abs(s.x - cr.x) > (s.hit.right - s.hit.left) / 2, "beyond the usual reach")
+	testing.expect(t, spider_precondition(s, game.seq.catch_), "catchable from the glass")
+	s.y = 330 // the same, away from the glass
+	creature_update_position(s)
+	cr.y = s.y + 20
+	creature_update_position(cr)
+	cr.x = s.hit.left - (cr.hit.right - cr.hit.left) / 2 + 6
+	creature_update_position(cr)
+	testing.expect(t, rects_intersect(s.hit, cr.hit), "touching in the open")
+	testing.expect(t, !spider_precondition(s, game.seq.catch_), "not in the open: it waits instead")
+}

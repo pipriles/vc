@@ -42,7 +42,14 @@ debug_rect :: proc "contextless" (x, y, w, h: i32, color: u32) {}
 debug_line :: proc "contextless" (x0, y0, x1, y1: i32, color: u32) {}
 debug_text :: proc "contextless" (x, y: i32, text: string, color: u32) {}
 debug_panel :: proc "contextless" (text: string) {}
-debug_log :: proc "contextless" (text: string) {}
+debug_print := false // tests may turn this on to see the debug log
+debug_log :: proc "contextless" (text: string) {
+	if debug_print {
+		context = runtime.default_context()
+		os.write_string(os.stdout, text)
+		os.write_string(os.stdout, "\n")
+	}
+}
 host_sound :: proc "contextless" (id: int) {}
 host_cursor :: proc "contextless" (set, frame: i32) {}
 host_view :: proc "contextless" (view: i32) {}
