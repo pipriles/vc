@@ -197,6 +197,49 @@ Table built on the stack at startup (recovered by tracing the stores):
 - Hungry (food < 26) with the bell in the tank: every 5th minute go and
   wait at the bell (in front of or behind it, by where the spider is).
 
+## Player tools **confirmed**
+Hand tools (cycled by the hand button, icon strip vc_304): 0 tap on the
+glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
+- Cursor sets (RT_GROUP_CURSOR 200 + 10·set, frames 240/241 …): 0 pointer,
+  1 open hand, 2 hand over something grabbable, 3 grabbing, 4 prod ×2,
+  5 knock ×2, 6 tap hover, 7 stroke ×2. A cursor frame lasts 4 ticks.
+  Each time the knock / prod / stroke cursor loops back to frame 0 it plays
+  its sound (404 / 410 / 411) and sets the spider's interaction to tap (2)
+  / prod (1) / stroke (3).
+- Tap: holding the button anywhere in the tank. Prod / stroke: holding it
+  on the spider (if it could be picked up). Pick up: the spider (PICKUP,
+  sound 405; carried it plays PICKUP and counts as interaction 5, released
+  it plays DROP), a cricket in the tank (sound 407) or an object (dragged;
+  dropped below the tank it is put away). Follow: the spider walks after
+  the pointer (goal type 10, LURK_D on arrival, interaction 4).
+- The spider can be picked up unless something is carried, it is eating,
+  hiding, above the floor line or dead. Hit test: hit rect shrunk by 1/8.
+- Pointer within 20 px of the left/right edge scrolls the viewfinder 20 px
+  a tick for 8 ticks; follow mode re-centres on the spider every frame.
+- Buttons: feed opens the cricket box (click a cricket, < 8 in the tank,
+  to carry it into the tank); water raises the bowl one level (sound 402;
+  water < 35 sends the spider to the bowl); clear removes remains,
+  footprints and webs. Every button click plays 400.
+
+## Reactions to the tools **confirmed**
+`spider_react_tool` (every tick while an interaction is pending):
+- Ignored (except tap) while eating or above the floor; at most every
+  2.5 s; not while heading for the rock.
+- Mood step on a new kind of interaction: prod, tap, carry push mood
+  away from 0 by 3, stroke and follow pull it back by 3; repeated
+  interactions keep the step. Mood clamped to ±100.
+- Hiding: a tap may bring it out (temperament > 2, rand_n(8) < temperament).
+- Then a decision tree by interaction and temperament (ported line by line
+  in `src/spider_react.odin`): grumpy spiders walk off and crush, threaten
+  or flick hairs (from the glass if far back) or flee under the rock;
+  calm ones lurk, come to the glass where it was tapped, or crush (stroke
+  with temperament ≥ 6).
+
+## Offline catch-up (for saving) **found**
+`offline_catch_up` (0x415430) replays the time the program was closed:
+water −2 per 150 min, food −2 per 120 min, the spider drinks from the bowl
+when water < 80 and eats crickets in the tank when food < 26.
+
 ## Rendering **confirmed**
 - Scene is composed into an 8-bit 1200×480 surface; the 640×480 view is a
   window at `scroll_x` (panning moves 20 px per tick).
@@ -284,3 +327,4 @@ Crickets: random sequence with frames in the current direction.
 - Tank objects (kind 1), webs, player tools and UI, the cricket box view.
 - Bell ringing (what sets the swing count), yucca growth start state,
   fountain as a water source.
+- Views: whole tank (zoom out, object placement panel) and close-up.

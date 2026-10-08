@@ -11,7 +11,7 @@
   .bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 12px; background: var(--panel); border-radius: 6px; }
   label { display: flex; gap: 6px; align-items: center; }
   .stage { position: relative; margin-top: 16px; width: 640px; max-width: 100%; }
-  #view { display: block; width: 100%; image-rendering: pixelated; touch-action: none; cursor: grab; }
+  #view { display: block; width: 100%; image-rendering: pixelated; touch-action: none; }
   #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   #status { font-variant-numeric: tabular-nums; margin-top: 8px; }
   .debug { display: none; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
@@ -19,6 +19,12 @@
   .debug pre { margin: 0; padding: 8px 12px; background: var(--panel); border-radius: 6px;
     font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow: auto; }
   #debug-log { height: 220px; width: 520px; max-width: 100%; }
+  .toolbar { display: flex; gap: 6px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  .toolbar button { padding: 0; border: 0; background: none; cursor: pointer; line-height: 0; }
+  .toolbar button#btn-back { padding: 4px 10px; line-height: normal; background: var(--panel); border-radius: 4px; color: var(--fg); }
+  .toolbar img { width: 48px; height: 48px; object-fit: none; object-position: 0 0; image-rendering: pixelated; }
+  .tool-name { min-width: 120px; }
+  body[data-view="box"] .tank-only, body:not([data-view="box"]) .box-only { display: none; }
   .objects { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; margin-top: 8px;
     padding: 8px 12px; background: var(--panel); border-radius: 6px; }
 </style>
@@ -26,11 +32,21 @@
 <body data-mode="tank">
 <div class="bar">
   <label>Variant <select id="variant"><option value="cr">Chile Rose</option><option value="rk">Red Knee</option></select></label>
-  <label><input id="follow" type="checkbox" checked> Follow spider</label>
   <label>Sim speed <input id="speed" type="range" min="1" max="20" step="1" value="1"><span id="speedv">1×</span></label>
   <button id="drop">Drop cricket <kbd>C</kbd></button>
   <label><input id="debug" type="checkbox"> Debug <kbd>D</kbd></label>
   <a href="viewer.html">Animation viewer →</a>
+</div>
+<div class="toolbar">
+  <span class="tank-only">
+    <button id="btn-tool" title="Change tool (1-5)"><img id="tool-icon" data-icon="vc_304.bmp" alt="tool"></button>
+    <span id="tool-name" class="tool-name"></span>
+    <button id="btn-follow" title="Scan Mode : In this mode, the viewfinder can be moved freely. / Follow Mode : In this mode, your spider remains in the centre of the viewfinder."><img id="follow-icon" data-icon="vc_302.bmp" alt="follow"></button>
+    <button id="btn-feed" title="Feed your creature here."><img data-icon="vc_303.bmp" alt="feed"></button>
+    <button id="btn-water" title="Water your creature here."><img data-icon="vc_307.bmp" alt="water"></button>
+    <button id="btn-clear" title="Removes all debris from the tank."><img data-icon="vc_309.bmp" alt="clear"></button>
+  </span>
+  <span class="box-only"><button id="btn-back">← Back to the tank</button> Click a cricket to carry it into the tank.</span>
 </div>
 <div class="stage">
   <canvas id="view" width="640" height="480"></canvas>

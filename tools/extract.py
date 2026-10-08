@@ -20,9 +20,12 @@ import os
 import struct
 import sys
 import zipfile
+import zlib
 
+RT_CURSOR = 1
 RT_BITMAP = 2
 RT_RCDATA = 10
+RT_GROUP_CURSOR = 12
 
 
 def u16(d, o):
@@ -94,6 +97,44 @@ def dib_palette(dib):
     return bytes(out)
 
 
+def png(w, h, rgba):
+    """Minimal RGBA PNG encoder."""
+    def chunk(tag, data):
+        c = tag + data
+        return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+    raw = b"".join(b"\0" + rgba[y * w * 4 : (y + 1) * w * 4] for y in range(h))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
+def cursor_png(cur):
+    """RT_CURSOR (hotspot + 1-bit DIB with XOR/AND masks) -> (png, hx, hy).
+    Inverting pixels (AND 1, XOR 1) become black."""
+    hx, hy = struct.unpack_from("<HH", cur, 0)
+    dib = cur[4:]
+    hs = u32(dib, 0)
+    w = u32(dib, 4)
+    h = u32(dib, 8) // 2
+    pal = [dib[hs + 4 * i : hs + 4 * i + 3][::-1] for i in range(2)]
+    stride = ((w + 31) // 32) * 4
+    xor = hs + 8
+    andm = xor + stride * h
+    out = bytearray()
+    for y in range(h):
+        row = h - 1 - y  # bottom-up
+        for x in range(w):
+            bit = 0x80 >> (x % 8)
+            a = dib[andm + row * stride + x // 8] & bit
+            c = dib[xor + row * stride + x // 8] & bit
+            if a and not c:
+                out += b"\0\0\0\0"
+            elif a:
+                out += b"\0\0\0\xff"
+            else:
+                out += pal[1 if c else 0] + b"\xff"
+    return png(w, h, bytes(out)), hx, hy
+
+
 def write(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
@@ -131,6 +172,21 @@ def main():
             vcg2 = zipfile.ZipFile(plugin).read("VCG2.DLL")
             anims += extract_anims(vcg2, "plugin_", out, files)
 
+        # cursor sets: groups 200 + 10*set + frame (set 4 = 240, 241, ...)
+        cursors = {}
+        res = list(pe_resources(vc))
+        curs = {name: d for t, name, d in res if t == RT_CURSOR}
+        for t, name, d in res:
+            if t != RT_GROUP_CURSOR:
+                continue
+            cur_id = u16(d, 6 + 12)  # first entry's RT_CURSOR id
+            img, hx, hy = cursor_png(curs[cur_id])
+            cset, frame = (name - 200) // 10, (name - 200) % 10
+            fname = f"cursors/{cset}_{frame}.png"
+            write(f"{out}/{fname}", img)
+            files.append(fname)
+            cursors.setdefault(cset, []).append({"file": fname, "hotspot": [hx, hy]})
+
         palette = None
         for modname, mod in (("vc", vc), ("vcg", vcg)):
             for t, name, d in pe_resources(mod):
@@ -145,7 +201,8 @@ def main():
         write(f"{out}/palette.bin", palette)
         files.append("palette.bin")
 
-        manifest = {"files": files, "anims": anims, "sounds": sorted(sounds)}
+        manifest = {"files": files, "anims": anims, "sounds": sorted(sounds),
+                    "cursors": {k: cursors[k] for k in sorted(cursors)}}
         write(f"{out}/manifest.json", json.dumps(manifest, indent=1).encode())
         print(variant, "anims:", anims, "sounds:", len(sounds))
 

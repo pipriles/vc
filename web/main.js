@@ -82,6 +82,9 @@ const imports = {
 			log.scrollTop = log.scrollHeight;
 		},
 		host_sound: (id) => {}, // sound comes later
+		host_cursor: (set, frame) => setCursor(set, frame),
+		host_view: (view) => setView(view),
+		host_tool: (tool, follow) => setTool(tool, follow),
 		ui_add_object: (id, p, n, inTank) => {
 			const label = document.createElement("label");
 			const box = document.createElement("input");
@@ -133,7 +136,43 @@ function setupViewer() {
 	fillSeqs();
 }
 
+// Original cursors (manifest.cursors[set][frame] = {file, hotspot}).
+const cursorCss = Object.fromEntries(Object.entries(manifest.cursors ?? {}).map(([set, frames]) =>
+	[set, frames.map((f) => `url(${base}${f.file}) ${f.hotspot[0]} ${f.hotspot[1]}, auto`)]));
+function setCursor(set, frame) {
+	const css = cursorCss[set]?.[frame] ?? cursorCss[set]?.[0];
+	if (css && canvas.style.cursor !== css) canvas.style.cursor = css;
+}
+
+const TOOL_NAMES = ["Tap on the glass", "Pick up and move", "Prod", "Stroke", "Follow the cursor"];
+function setTool(tool, follow) {
+	const icon = $("tool-icon");
+	if (icon) icon.style.objectPosition = `0 ${-48 * tool}px`;
+	if ($("tool-name")) $("tool-name").textContent = TOOL_NAMES[tool];
+	const f = $("follow-icon");
+	if (f) f.style.objectPosition = `0 ${follow ? 0 : -48}px`;
+}
+function setView(view) {
+	document.body.dataset.view = view === 3 ? "box" : "tank";
+}
+
 function setupTank() {
+	const icons = `${base}bitmaps/`;
+	for (const img of document.querySelectorAll("img[data-icon]")) img.src = icons + img.dataset.icon;
+	const press = (id) => () => mem.exports.tank_button(id);
+	$("btn-tool").onclick = press(4);
+	$("btn-follow").onclick = press(2);
+	$("btn-feed").onclick = press(3);
+	$("btn-water").onclick = press(7);
+	$("btn-clear").onclick = press(9);
+	$("btn-back").onclick = press(100);
+
+	// pointer events in canvas pixels
+	const toCanvas = (e) => {
+		const r = canvas.getBoundingClientRect();
+		return [Math.floor((e.clientX - r.left) * canvas.width / r.width),
+			Math.floor((e.clientY - r.top) * canvas.height / r.height)];
+	};
 	const setDebug = (on) => {
 		$("debug").checked = on;
 		document.body.classList.toggle("show-debug", on);
@@ -148,27 +187,40 @@ function setupTank() {
 		if (e.target.tagName === "INPUT" && e.target.type !== "checkbox") return;
 		if (e.key === "d" || e.key === "D") setDebug(!$("debug").checked);
 		if (e.key === "c" || e.key === "C") mem.exports.tank_drop_cricket();
+		if (e.key >= "1" && e.key <= "5") { mem.exports.tank_set_tool(+e.key - 1); setTool(+e.key - 1, true); }
 	});
 	let saved = false;
 	try { saved = localStorage.getItem("vc-debug") === "1"; } catch {}
 	setDebug(saved);
 
-	$("follow").onchange = () => mem.exports.tank_set_follow($("follow").checked ? 1 : 0);
 	$("speed").oninput = () => {
 		$("speedv").textContent = `${$("speed").value}×`;
 		mem.exports.tank_set_speed(+$("speed").value);
 	};
-	// drag to pan the viewfinder (scan mode)
-	let dragX = null;
-	canvas.onpointerdown = (e) => { dragX = e.clientX; canvas.setPointerCapture(e.pointerId); };
-	canvas.onpointerup = () => { dragX = null; };
-	canvas.onpointermove = (e) => {
-		if (dragX === null) return;
-		const k = canvas.width / canvas.getBoundingClientRect().width;
-		mem.exports.tank_scroll(Math.round((dragX - e.clientX) * k));
-		dragX = e.clientX;
-		$("follow").checked = false;
+	// left button: the current tool; right (or middle) drag pans the viewfinder
+	let panX = null;
+	canvas.oncontextmenu = (e) => e.preventDefault();
+	canvas.onpointerdown = (e) => {
+		canvas.setPointerCapture(e.pointerId);
+		if (e.button !== 0) { panX = e.clientX; return; }
+		mem.exports.tank_pointer(1, ...toCanvas(e));
 	};
+	canvas.onpointerup = (e) => {
+		if (panX !== null) { panX = null; return; }
+		mem.exports.tank_pointer(2, ...toCanvas(e));
+	};
+	canvas.onpointermove = (e) => {
+		if (panX !== null) {
+			const k = canvas.width / canvas.getBoundingClientRect().width;
+			mem.exports.tank_scroll(Math.round((panX - e.clientX) * k));
+			panX = e.clientX;
+			return;
+		}
+		mem.exports.tank_pointer(0, ...toCanvas(e));
+	};
+	canvas.onpointerleave = (e) => mem.exports.tank_pointer(3, ...toCanvas(e));
+	setTool(0, true);
+	setView(0);
 }
 
 $("variant").value = variant;

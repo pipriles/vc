@@ -40,3 +40,6 @@ debug_panel :: proc "contextless" (text: string) {}
 debug_log :: proc "contextless" (text: string) {}
 host_sound :: proc "contextless" (id: int) {}
 ui_add_object :: proc "contextless" (id: i32, name: string, in_tank: bool) {}
+host_cursor :: proc "contextless" (set, frame: i32) {}
+host_view :: proc "contextless" (view: i32) {}
+host_tool :: proc "contextless" (tool: i32, follow: bool) {}

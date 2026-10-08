@@ -31,7 +31,7 @@ async function run(variant, mode) {
 		file_read: (p, n, dst) => { const f = files.get(str(p, n)); mem.loadBytes(dst, f.length).set(f); },
 		present: noop, host_mode: () => mode, host_time: () => Date.now() / 1000,
 		ui_add_anim: noop, ui_add_seq: noop, ui_status: noop, ui_add_object: noop,
-		tank_status: noop, host_sound: noop,
+		tank_status: noop, host_sound: noop, host_cursor: noop, host_view: noop, host_tool: noop,
 		debug_begin: noop, debug_rect: noop, debug_line: noop, debug_text: noop,
 		debug_panel: noop, debug_log: (p, n) => log.push(str(p, n)),
 	};
@@ -49,6 +49,15 @@ async function run(variant, mode) {
 	}
 	for (let t = 0; t < ticks; t++) {
 		if (mode === 0 && t % 200 === 0) ex.tank_drop_cricket();
+		if (mode === 0 && t % 50 === 0) {
+			// poke at the tank with every tool, the buttons and the box
+			ex.tank_set_tool((t / 50) % 5);
+			const x = (t * 37) % 640, y = 150 + (t * 53) % 330;
+			ex.tank_pointer(1, x, y);
+			ex.tank_pointer(0, x + 20, y + 10);
+			if (t % 100 === 0) ex.tank_pointer(2, x + 20, y + 10);
+			ex.tank_button([2, 3, 4, 7, 9, 100][(t / 50) % 6]);
+		}
 		if (!ex.step(0.1, ctx)) throw new Error("step returned false");
 	}
 	return log.length;

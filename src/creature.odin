@@ -94,6 +94,10 @@ Creature :: struct {
 	goal:               Goal,
 	hide:               int, // hiding state (+0x48): 0 out, 1 hidden, 2..3 coming out
 	web_stuck:          bool, // cricket caught in a web (+0x166)
+	tool:               Interaction, // pending player interaction (+0x4c)
+	prev_tool:          Interaction, // (+0x4e)
+	mood_step:          int,         // (+0x50)
+	last_react:         u32,         // (+0x54)
 	last_played:        []u32, // now_ms when each seq last finished (+0x174 + seq*4)
 	idle:               proc(c: ^Creature), // picks a sequence when the queue is empty
 	finished:           proc(c: ^Creature), // sequence-finished hook (0x403520 for the spider)
@@ -255,7 +259,10 @@ next_sequence :: proc(c: ^Creature) {
 
 // Per-tick creature step (0x406780): frame advance, then movement.
 creature_tick :: proc(c: ^Creature) {
-	if !c.active || c.in_box do return
+	if !c.active do return
+	// crickets in the box only move while the box is on screen
+	if c.in_box && !(c.kind == .Cricket && game.input.view == .Box) do return
+	if c.kind == .Spider && c.tool != .None do spider_react_tool(c)
 	d := creature_dir(c)
 	if len(d.frames) == 0 {
 		next_sequence(c)
@@ -330,6 +337,16 @@ creature_update_position :: proc(c: ^Creature) {
 
 	margin, floor := WALL_MARGIN, FLOOR_TOP
 	if c.kind == .Cricket do margin, floor = 80, 180
+	if c.kind == .Cricket && c.in_box {
+		// the cricket box has its own bounds and depth scale (0x406df0)
+		c.x = clamp(c.x, 50, 590)
+		c.y = clamp(c.y, 286, 460)
+		c.scale = int(min(25 + f64(c.y) / 460 * 100, 100))
+		c.sx = x87_scale_trunc(c.base_sx, c.scale)
+		c.sy = x87_scale_trunc(c.base_sy, c.scale)
+		creature_hit_rect(c)
+		return
+	}
 	if c.no_clamp {
 		c.y = max(c.y, HIDE_Y)
 		c.x = clamp(c.x, margin, TANK_W - margin)
@@ -362,17 +379,7 @@ creature_update_position :: proc(c: ^Creature) {
 	c.sx = x87_scale_trunc(c.base_sx, c.scale)
 	c.sy = x87_scale_trunc(c.base_sy, c.scale)
 
-	// hit rect: the frame's stored box, scaled, at the drawn position
-	dw, dh := x87_scale_trunc(c.anim.w, c.scale), x87_scale_trunc(c.anim.h, c.scale)
-	d := creature_dir(c)
-	if len(d.frames) > 0 {
-		b := d.frames[clamp(c.frame, 0, len(d.frames) - 1)].box
-		ox, oy := c.x - dw / 2, c.y - dh / 2
-		c.hit = {
-			x87_scale_trunc(int(b[0]), c.scale) + ox, x87_scale_trunc(int(b[1]), c.scale) + oy,
-			x87_scale_trunc(int(b[2]), c.scale) + ox, x87_scale_trunc(int(b[3]), c.scale) + oy,
-		}
-	}
+	creature_hit_rect(c)
 
 	if c.in_box do return
 	may_move := true
@@ -397,6 +404,19 @@ creature_update_position :: proc(c: ^Creature) {
 	fb := c.blocks[c.dir]
 	if (fb.active || (fb.kind != 0 && fb.kind != int(Kind.Cricket))) && (c.moving_x || c.moving_y) {
 		c.plays = min(c.plays, 1)
+	}
+}
+
+// Hit rect: the frame's stored box, scaled, at the drawn position.
+creature_hit_rect :: proc(c: ^Creature) {
+	dw, dh := x87_scale_trunc(c.anim.w, c.scale), x87_scale_trunc(c.anim.h, c.scale)
+	d := creature_dir(c)
+	if len(d.frames) == 0 do return
+	b := d.frames[clamp(c.frame, 0, len(d.frames) - 1)].box
+	ox, oy := c.x - dw / 2, c.y - dh / 2
+	c.hit = {
+		x87_scale_trunc(int(b[0]), c.scale) + ox, x87_scale_trunc(int(b[1]), c.scale) + oy,
+		x87_scale_trunc(int(b[2]), c.scale) + ox, x87_scale_trunc(int(b[3]), c.scale) + oy,
 	}
 }
 

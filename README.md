@@ -20,8 +20,12 @@ python3 -I tools/extract.py "/path/to/installers" data
 python3 -I tools/serve.py   # no-cache dev server on :8081
 ```
 Open http://127.0.0.1:8081/ for the tank (`?v=rk` for Red Knee), `viewer.html` for the animation viewer.
-`C` / "Drop cricket" releases a cricket from the box into the tank (until
-the feed tool exists). The Objects bar places or removes objects (only the bowl starts in the tank)
+Controls are the original's: the hand button cycles the tools (or keys
+1–5: tap on the glass, pick up, prod, stroke, follow), feed opens the
+cricket box (click a cricket to carry it into the tank), the tap fills
+the water bowl, the broom clears debris. Move the pointer to the left or
+right edge to scroll in scan mode (right-drag also pans). `C` drops a
+cricket straight into the tank (debug). The Objects bar places or removes objects (only the bowl starts in the tank)
 and "Fill bowl" refills the water. Press `D` (or tick Debug) for the overlay: tank limits, drawn box, facing,
 blocked directions, goal target and tolerance, a state panel and a log of
 the spider's decisions. Sim speed runs the clock up to 20× faster.
@@ -65,4 +69,6 @@ Not covered yet: comparison against the original program's behaviour
 - [x] Debug overlay
 - [x] Crickets: collisions, chase, catch, eat, remains (debug "Drop cricket")
 - [x] Tank objects: rendering, animation, blocking, drinking at the bowl
-- [ ] Crickets, hunting, tank objects, tools, UI, sound, persistence
+- [x] Player tools with the original cursors, reactions, cricket box, buttons
+- [ ] Sound, saving with offline catch-up, whole-tank and close-up views,
+      object placement panel, growth and moulting, webs, death

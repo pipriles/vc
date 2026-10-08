@@ -142,6 +142,20 @@ spider_idle :: proc(c: ^Creature) {
 	ids := &game.seq
 	s := &game.stats
 
+	// being carried / just dropped (0x407830)
+	if c.carried == 1 {
+		c.seq = ids.pickup
+		c.dir = 4
+		c.tool = .Carry
+		return
+	}
+	if c.carried == 2 {
+		c.dir = 4
+		c.seq = ids.drop
+		if c.prev_seq != ids.drop do return
+		c.carried = 0
+	}
+
 	if c.hide != 0 {
 		spider_idle_hidden(c)
 		return

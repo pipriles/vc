@@ -52,6 +52,14 @@
 0x403c90 object_slow_anim      # yucca growth (1 frame/day), skin crumbling
 0x41c2e0 object_content_bounds # non-key bounds of an object bitmap
 0x416e40 blit_object           # bitmap frame scaled to scale%, keyed
+0x41c4b0 button_click          # 0 close-up, 1 whole tank, 2 scan/follow, 3 box, 4 next tool, 5 panel, 6 objects, 7 water, 8 web, 9 clear
+0x41c890 set_cursor_set
+0x416be0 hit_test              # point in hit rect shrunk by 1/8 (crickets: full)
+0x403a60 spider_pickable
+0x408140 force_sequence        # (c, seq, now)
+0x41f710 clear_debris
+0x415430 offline_catch_up      # replays the time the program was closed
+0x409de0 cheat_codes           # typed codes, stored +100
 0x417390 blit_shadow           # copies only key2 (shadow colour) pixels, before bodies
 0x412600 blit_keyed            # bitmap blit skipping its top-left colour
 
@@ -68,6 +76,12 @@
 0x4514dc crickets_in_storage
 0x4549a0 render_list           # 24 creature pointers, drawn in order
 0x45601a scroll_x              # viewfinder x in the 1200 px tank
+0x4514e0 current_tool          # 0 tap, 1 pick up, 2 prod, 3 stroke, 4 follow
+0x4526fe current_view          # 0 tank, 1 whole tank, 2 close-up, 3 cricket box
+0x451e00 cursor_set
+0x451748 follow_mode
+0x4526fc pointer_x             # tank coordinates
+0x4526f8 pointer_y
 0x4514b4 view_h
 0x4514b6 view_w
 0x44f780 tank_surface          # 8-bit DIB the scene is composed into

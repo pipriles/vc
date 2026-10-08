@@ -72,6 +72,11 @@ cricket_drop :: proc(x, y: int) -> bool {
 // Cricket idle (0x407830, cricket branches).
 cricket_idle :: proc(c: ^Creature) {
 	ids := &game.cseq
+	if c.carried == 1 {
+		c.seq = ids.pickup
+		c.dir = 4
+		return
+	}
 	if c.carried == 2 {
 		c.seq = ids.drop
 		c.dir = 4

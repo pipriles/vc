@@ -36,6 +36,15 @@ Game :: struct {
 	pending_objects: [OBJECT_COUNT]int, // 1 = place, 2 = remove (from the UI)
 	thirst_count, hunger_count: int, // cycle 0..4: act on every 5th check
 	fountain_wait: int,
+	input:    Input,
+	cursor_x: int, // tank x of the pointer (DAT_004526fc)
+	release_mouse: bool,
+	pending_pointer: [32]Pending_Pointer,
+	pending_pointer_len: int,
+	pending_buttons: [8]Button,
+	pending_buttons_len: int,
+	box_bg:   Bitmap, // vcg_4501: the cricket box
+	scroll_left, scroll_right: int, // edge scrolling ticks left
 	stats:    Spider_Stats,
 	seq:      Seq_Ids,
 	scroll_x: int,
@@ -67,6 +76,7 @@ persistent_allocator :: proc() -> runtime.Allocator {
 Assets :: struct {
 	loaded:      bool,
 	tank, rock:  Bitmap,
+	box:         Bitmap,
 	remains:     Bitmap,
 	spider:      Anim,
 	cricket:     Anim,
@@ -88,6 +98,7 @@ load_assets :: proc() -> bool {
 	}
 	assets.tank = tank
 	assets.rock, _ = bmp_load(load_file("bitmaps/vcg_4005.bmp"))
+	assets.box, _ = bmp_load(load_file("bitmaps/vcg_4501.bmp"))
 	assets.remains, _ = bmp_load(load_file("bitmaps/vcg_4004.bmp"))
 	base, ok1 := anim_parse(load_file("spider.idx"), load_file("spider.pix"))
 	if !ok1 do return false
@@ -119,6 +130,7 @@ tank_reset :: proc() {
 	game.tank = assets.tank
 	state.palette = assets.tank.palette
 	game.rock = assets.rock
+	game.box_bg = assets.box
 	game.remains_bmp = assets.remains
 	game.spider_a = assets.spider
 	a := &game.spider_a
@@ -176,6 +188,8 @@ update_render_list :: proc() {
 
 tank_tick :: proc() {
 	now_ms += 100
+	handle_input()
+	cursor_tick()
 	handle_pending_drops()
 	handle_pending_objects()
 	for &o in game.objects do if o.active && !o.in_box do object_tick(&o)
@@ -186,9 +200,18 @@ tank_tick :: proc() {
 		game.sec_ms = now_ms
 		spider_stats_tick(&game.stats)
 	}
-	if game.follow {
-		target := clamp(game.spider.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
-		game.scroll_x += clamp(target - game.scroll_x, -SCROLL_STEP, SCROLL_STEP)
+	// edge scrolling, 20 px a tick (wnd_proc_main timer)
+	if game.scroll_left > 0 {
+		game.scroll_left -= 1
+		game.scroll_x = max(game.scroll_x - SCROLL_STEP, 0)
+	}
+	if game.scroll_right > 0 {
+		game.scroll_right -= 1
+		game.scroll_x = min(game.scroll_x + SCROLL_STEP, TANK_W - VIEW_W)
+	}
+	// follow mode keeps the spider centred
+	if game.follow && game.input.carry == .None {
+		game.scroll_x = clamp(game.spider.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
 	}
 }
 
@@ -224,6 +247,10 @@ tank_set_debug :: proc "contextless" (on: i32) {
 }
 
 tank_render :: proc() {
+	if game.input.view == .Box {
+		box_render()
+		return
+	}
 	t := &game.tank
 	for y in 0 ..< VIEW_H {
 		copy(view[y * VIEW_W:][:VIEW_W], t.pixels[y * t.w + game.scroll_x:][:VIEW_W])
@@ -237,8 +264,8 @@ tank_render :: proc() {
 
 	// shadows of every creature first, then bodies (0x417390, 0x417180)
 	update_render_list()
-	for c in game.render_list do draw_creature(c, .Shadow)
-	for c in game.render_list do draw_creature(c, .Body)
+	for c in game.render_list do draw_creature(c, .Shadow, game.scroll_x)
+	for c in game.render_list do draw_creature(c, .Body, game.scroll_x)
 	if game.spider.y < FLOOR_TOP && game.rock.w > 0 {
 		draw_keyed(&game.rock, ROCK_DRAW_X - game.scroll_x, ROCK_DRAW_Y)
 	}
@@ -266,7 +293,7 @@ Draw_Pass :: enum {
 
 // Draws the frame scaled to scale% (StretchBlt, nearest) with its canvas
 // centred on the creature (0x417390 shadow pass, 0x417180 body pass).
-draw_creature :: proc(c: ^Creature, pass: Draw_Pass) {
+draw_creature :: proc(c: ^Creature, pass: Draw_Pass, scroll: int) {
 	if c.kind == .Object {
 		draw_object((^Object)(c), pass)
 		return
@@ -282,7 +309,7 @@ draw_creature :: proc(c: ^Creature, pass: Draw_Pass) {
 	dw := x87_scale_trunc(a.w, c.scale)
 	dh := x87_scale_trunc(a.h, c.scale)
 	if dw <= 0 || dh <= 0 do return
-	x0 := c.x - game.scroll_x - dw / 2
+	x0 := c.x - scroll - dw / 2
 	y0 := c.y - dh / 2
 	for j in 0 ..< dh {
 		vy := y0 + j
@@ -317,6 +344,27 @@ draw_object :: proc(o: ^Object, pass: Draw_Pass) {
 			view[vy * VIEW_W + vx] = p
 		}
 	}
+}
+
+// The cricket box view: wicker room with the crickets still in the box.
+box_render :: proc() {
+	b := &game.box_bg
+	copy(view[:], b.pixels[:VIEW_W * VIEW_H])
+	in_box: [CRICKET_COUNT]^Creature
+	n := 0
+	for &c in game.crickets do if c.active && c.in_box {in_box[n] = &c; n += 1}
+	list := in_box[:n]
+	slice.sort_by(list, proc(a, b: ^Creature) -> bool {return a.y < b.y})
+	for c in list do draw_creature(c, .Shadow, 0)
+	for c in list do draw_creature(c, .Body, 0)
+	for i in 0 ..< VIEW_W * VIEW_H {
+		col := b.palette[view[i]]
+		view_rgba[4 * i + 0] = col[0]
+		view_rgba[4 * i + 1] = col[1]
+		view_rgba[4 * i + 2] = col[2]
+		view_rgba[4 * i + 3] = 255
+	}
+	present(&view_rgba[0], VIEW_W, VIEW_H)
 }
 
 // Blits a bitmap, skipping its top-left colour (0x412600).
