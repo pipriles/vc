@@ -221,6 +221,6 @@ creature_update_position :: proc(c: ^Creature) {
 	v := f64(c.y) / f64(VIEW_H) * f64(c.size) + 35
 	c.scale = int(min(v, 100))
 	// speeds shrink with distance: base / (100 / scale), truncated
-	c.sx = int(f64(c.base_sx) / (100 / f64(c.scale)))
-	c.sy = int(f64(c.base_sy) / (100 / f64(c.scale)))
+	c.sx = x87_scale_trunc(c.base_sx, c.scale)
+	c.sy = x87_scale_trunc(c.base_sy, c.scale)
 }

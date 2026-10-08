@@ -162,8 +162,8 @@ draw_creature :: proc(c: ^Creature) {
 	n := a.w * a.h
 	if !frame_decode(a, s, f, frame_buf[:n]) do return
 
-	dw := int(f64(a.w) / (100 / f64(c.scale)))
-	dh := int(f64(a.h) / (100 / f64(c.scale)))
+	dw := x87_scale_trunc(a.w, c.scale)
+	dh := x87_scale_trunc(a.h, c.scale)
 	if dw <= 0 || dh <= 0 do return
 	x0 := c.x - game.scroll_x - dw / 2
 	y0 := c.y - dh / 2

@@ -18,7 +18,7 @@ MAX_FRAMES        :: 64
 
 Frame :: struct {
 	offset, length: u32,    // RLE data in Seq.pix
-	box:            [4]i32, // x0, y0, x1, y1 inside the canvas, y bottom-up as stored
+	box:            [4]i32, // content bounds x0, y0, x1, y1 (top-down)
 	dx, dy:         i8,     // per-frame displacement (usually 0)
 	hold_flag:      i16,    // nonzero: hold this frame for hold ticks
 	hold:           i16,    // ticks to hold; negative = random up to -hold

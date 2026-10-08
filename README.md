@@ -21,12 +21,30 @@ python3 -I tools/serve.py   # no-cache dev server on :8081
 ```
 Open http://127.0.0.1:8081/ for the tank (`?v=rk` for Red Knee), `viewer.html` for the animation viewer.
 
+## Tests
+```sh
+./test.sh
+```
+Native `odin test` (about 2 s), single-threaded because tests share the
+simulation's globals. Data tests skip themselves when `data/` is missing.
+- **Unit:** `rand` vs known MSVC output; x87 rounding vs an exact-fraction
+  oracle (`tools/gen_x87_fixture.py`); needs/temperament, depth scale,
+  speeds and wall bumps vs values worked out by hand from the disassembly.
+- **Data:** every frame of every animation (both variants) decodes to the
+  canvas size; frame content matches the boxes stored in the index (and
+  not when flipped); plugin merge rules.
+- **Simulation:** 100k headless ticks checking invariants (bounds, valid
+  frames, sequence preconditions) and determinism for a fixed seed.
+
+Not covered yet: comparison against the original program's behaviour
+(see docs/BEHAVIOR.md for how each rule was derived).
+
 ## Layout
 | path | contents |
 |------|----------|
 | `src/`   | Odin: format (`vcg.odin`, `bmp.odin`), `rng.odin`, `creature.odin`, `spider.odin`, `tank.odin`, `viewer.odin` |
 | `web/`   | HTML + JS host (file prefetch, canvas blit) |
-| `tools/` | extractor, Ghidra scripts (`decompile.sh`) |
+| `tools/` | extractor, Ghidra scripts (`decompile.sh`), dev server, fixture generator |
 | `re/`    | `symbols.txt`: names for addresses in `VC.EXE` |
 | `docs/`  | `FORMAT.md` (animation format), `BEHAVIOR.md` (game logic notes) |
 

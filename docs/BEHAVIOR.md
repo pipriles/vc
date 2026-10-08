@@ -27,6 +27,10 @@ Gameplay (from UI strings, **confirmed** text, mechanics TBD):
   tap on the glass. "Remove all debris" (skins, cricket remains, footprints?).
 - Name your pet. Sound on/off. Frame-rate display (`FPS:%02d`).
 
+Port decision: needs keep changing in real time while the page is closed
+(like the original, which stored timestamps), so state will be saved with
+wall-clock timestamps and caught up on load.
+
 Out of scope for the port: registration / trial limits, registry storage,
 internet/website links, floppy-disk cricket "download", screensaver config.
 
