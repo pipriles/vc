@@ -357,56 +357,12 @@ function toggleFullscreen() {
 	else stage.requestFullscreen?.().catch(() => {});
 }
 
-// The status strip: needs as meters, mood, temperament as pips, and the
-// animation playing. Built once, then only values change.
-const MOOD_FACES = [[50, "😄"], [10, "🙂"], [-10, "😐"], [-50, "🙁"], [-101, "😠"]];
+// The creature's state as text (shown with the debug tools).
 const ARROWS = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"];
-let statusParts = null, statusLast = "";
 function showStatus(food, water, health, mood, temper, seq, dir) {
-	const key = [food, water, health, mood, temper, seq, dir].join();
-	if (key === statusLast || !$("status")) return;
-	statusLast = key;
-	if (!statusParts) {
-		const chip = (ico, label, inner) => {
-			const el = document.createElement("span");
-			el.className = "chip";
-			el.title = label;
-			el.innerHTML = `<span class="ico">${ico}</span>${label}${inner}<b></b>`;
-			$("status").append(el);
-			return el;
-		};
-		const meter = (mid) => `<span class="meter${mid ? " mid" : ""}"><i></i></span>`;
-		statusParts = {
-			food: chip("🦗", "Food", meter()),
-			water: chip("💧", "Water", meter()),
-			health: chip("❤️", "Health", meter()),
-			mood: chip("😐", "Mood", meter(true)),
-			temper: chip("🕷️", "Temperament", `<span class="pips">${"<i></i>".repeat(7)}</span>`),
-			anim: chip("🎞️", "", ""),
-		};
-		statusParts.anim.classList.add("anim");
-		statusParts.anim.title = "Animation playing";
-	}
-	const level = (v) => (v > 60 ? "#5fd35f" : v > 30 ? "#f0b030" : "#ff4a3a");
-	const setMeter = (el, v) => {
-		const bar = el.querySelector(".meter i");
-		bar.style.width = `${Math.max(0, Math.min(100, v))}%`;
-		bar.style.background = level(v);
-		el.querySelector("b").textContent = v;
-	};
-	setMeter(statusParts.food, food);
-	setMeter(statusParts.water, water);
-	setMeter(statusParts.health, health);
-	const m = Math.max(-100, Math.min(100, mood));
-	const mb = statusParts.mood.querySelector(".meter i");
-	mb.style.left = `${m < 0 ? 50 + m / 2 : 50}%`;
-	mb.style.width = `${Math.abs(m) / 2}%`;
-	mb.style.background = m >= 0 ? "#5fd35f" : "#ff7a3a";
-	statusParts.mood.querySelector(".ico").textContent = MOOD_FACES.find(([t]) => m >= t)[1];
-	statusParts.mood.querySelector("b").textContent = m > 0 ? `+${m}` : m;
-	statusParts.temper.querySelectorAll(".pips i").forEach((p, i) => p.classList.toggle("on", i < temper));
-	statusParts.temper.querySelector("b").textContent = `${temper}/7`;
-	statusParts.anim.querySelector("b").textContent = `${seq} ${ARROWS[dir] ?? ""}`;
+	const text = `Food ${food} · Water ${water} · Health ${health} · Mood ${mood} · ` +
+		`Temperament ${temper} · ${seq} ${ARROWS[dir] ?? ""}`;
+	if ($("status") && $("status").textContent !== text) $("status").textContent = text;
 }
 
 function showMessage(title, text) {
