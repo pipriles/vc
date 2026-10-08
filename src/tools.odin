@@ -41,6 +41,7 @@ Input :: struct {
 	tool:            Tool,
 	view:            View,
 	x, y:            int, // pointer in tank (or box) coordinates
+	vx, vy:          int, // pointer in view coordinates
 	inside:          bool,
 	down:            bool,
 	cursor_set:      int,
@@ -106,6 +107,8 @@ spider_pickable :: proc(s: ^Creature) -> bool {
 pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 	in_ := &game.input
 	in_.inside = ev != .Leave
+	in_.vx, in_.vy = vx, vy
+	if in_.view == .Tank && ui_pointer(ev, vx, vy) do return
 	if in_.view == .Tank {
 		in_.x, in_.y = vx + game.scroll_x, vy
 		game.cursor_x = in_.x
@@ -288,10 +291,15 @@ box_cricket_at :: proc(x, y: int) -> int {
 	return -1
 }
 
-// Clicking a cricket in the box takes it out and carries it into the tank.
+// Clicking a cricket in the box takes it out and carries it into the tank;
+// clicking anywhere else goes back to the tank.
 box_pick :: proc(x, y: int) {
 	id := box_cricket_at(x, y)
-	if id < 0 do return
+	if id < 0 {
+		game.input.view = .Tank
+		host_view(i32(game.input.view))
+		return
+	}
 	c := &game.crickets[id]
 	in_ := &game.input
 	in_.view = .Tank
@@ -376,6 +384,11 @@ button :: proc(b: Button) {
 		}
 	case .Clear:
 		game.remains = {}
+	case:
+		if int(b) == 6 {
+			game.ui.options_open = !game.ui.options_open
+			host_options(game.ui.options_open)
+		}
 	}
 	if click do host_sound(400)
 	host_view(i32(in_.view))

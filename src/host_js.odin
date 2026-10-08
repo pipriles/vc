@@ -29,4 +29,7 @@ foreign host {
 	host_cursor :: proc(set, frame: i32) ---
 	host_view ::   proc(view: i32) ---
 	host_tool ::   proc(tool: i32, follow: bool) ---
+	host_options :: proc(open: bool) ---
+	ui_begin ::    proc() ---
+	ui_text ::     proc(x, y: int, text: string) ---
 }

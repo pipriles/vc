@@ -44,6 +44,7 @@ Game :: struct {
 	pending_buttons: [8]Button,
 	pending_buttons_len: int,
 	box_bg:   Bitmap, // vcg_4501: the cricket box
+	ui:       UI,
 	scroll_left, scroll_right: int, // edge scrolling ticks left
 	stats:    Spider_Stats,
 	seq:      Seq_Ids,
@@ -77,6 +78,11 @@ Assets :: struct {
 	loaded:      bool,
 	tank, rock:  Bitmap,
 	box:         Bitmap,
+	ui:          [10]Bitmap, // button icons, in row order
+	ring:        Bitmap,
+	gauges:      [4]Bitmap,
+	exit, font:  Bitmap,
+	logo:        Anim,
 	remains:     Bitmap,
 	spider:      Anim,
 	cricket:     Anim,
@@ -99,6 +105,16 @@ load_assets :: proc() -> bool {
 	assets.tank = tank
 	assets.rock, _ = bmp_load(load_file("bitmaps/vcg_4005.bmp"))
 	assets.box, _ = bmp_load(load_file("bitmaps/vcg_4501.bmp"))
+	for def, i in BUTTON_DEFS {
+		assets.ui[i], _ = bmp_load(load_file(fmt.tprintf("bitmaps/vc_%d.bmp", def.bitmap)))
+	}
+	assets.ring, _ = bmp_load(load_file("bitmaps/vc_320.bmp"))
+	for id, i in ([4]int{1000, 1003, 1002, 1001}) {
+		assets.gauges[i], _ = bmp_load(load_file(fmt.tprintf("bitmaps/vcg_%d.bmp", id)))
+	}
+	assets.exit, _ = bmp_load(load_file("bitmaps/vcg_2011.bmp"))
+	assets.font, _ = bmp_load(load_file("bitmaps/vcg_2008.bmp"))
+	assets.logo, _ = anim_parse(load_file("logo.idx"), load_file("logo.pix"))
 	assets.remains, _ = bmp_load(load_file("bitmaps/vcg_4004.bmp"))
 	base, ok1 := anim_parse(load_file("spider.idx"), load_file("spider.pix"))
 	if !ok1 do return false
@@ -172,6 +188,7 @@ tank_reset :: proc() {
 	objects_init()
 	update_render_list()
 
+	ui_init()
 	game.follow = true
 	game.speed = 1
 	game.scroll_x = clamp(game.spider.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
@@ -190,6 +207,7 @@ tank_tick :: proc() {
 	now_ms += 100
 	handle_input()
 	cursor_tick()
+	ui_tick()
 	handle_pending_drops()
 	handle_pending_objects()
 	for &o in game.objects do if o.active && !o.in_box do object_tick(&o)
@@ -269,6 +287,7 @@ tank_render :: proc() {
 	if game.spider.y < FLOOR_TOP && game.rock.w > 0 {
 		draw_keyed(&game.rock, ROCK_DRAW_X - game.scroll_x, ROCK_DRAW_Y)
 	}
+	ui_draw()
 
 	for i in 0 ..< VIEW_W * VIEW_H {
 		col := state.palette[view[i]]

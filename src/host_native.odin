@@ -43,3 +43,6 @@ ui_add_object :: proc "contextless" (id: i32, name: string, in_tank: bool) {}
 host_cursor :: proc "contextless" (set, frame: i32) {}
 host_view :: proc "contextless" (view: i32) {}
 host_tool :: proc "contextless" (tool: i32, follow: bool) {}
+host_options :: proc "contextless" (open: bool) {}
+ui_begin :: proc "contextless" () {}
+ui_text :: proc "contextless" (x, y: int, text: string) {}

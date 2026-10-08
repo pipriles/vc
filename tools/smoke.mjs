@@ -32,6 +32,7 @@ async function run(variant, mode) {
 		present: noop, host_mode: () => mode, host_time: () => Date.now() / 1000,
 		ui_add_anim: noop, ui_add_seq: noop, ui_status: noop, ui_add_object: noop,
 		tank_status: noop, host_sound: noop, host_cursor: noop, host_view: noop, host_tool: noop,
+		host_options: noop, ui_begin: noop, ui_text: noop,
 		debug_begin: noop, debug_rect: noop, debug_line: noop, debug_text: noop,
 		debug_panel: noop, debug_log: (p, n) => log.push(str(p, n)),
 	};
@@ -45,6 +46,7 @@ async function run(variant, mode) {
 
 	if (mode === 0) {
 		ex.tank_set_debug(1);
+		for (const ch of "ICK4 7") ex.tank_name_char(ch.charCodeAt(0));
 		for (let i = 0; i < 10; i++) ex.tank_set_object(i, 1);
 	}
 	for (let t = 0; t < ticks; t++) {
@@ -56,7 +58,11 @@ async function run(variant, mode) {
 			ex.tank_pointer(1, x, y);
 			ex.tank_pointer(0, x + 20, y + 10);
 			if (t % 100 === 0) ex.tank_pointer(2, x + 20, y + 10);
-			ex.tank_button([2, 3, 4, 7, 9, 100][(t / 50) % 6]);
+			ex.tank_button([2, 3, 4, 7, 9, 100, 0, 1, 5, 6, 8][(t / 50) % 11]);
+			// and the in-view buttons by pointer
+			ex.tank_pointer(0, 20 + ((t / 50) % 10) * 52 + 20, 440);
+			ex.tank_pointer(1, 20 + ((t / 50) % 10) * 52 + 20, 440);
+			ex.tank_pointer(2, 20 + ((t / 50) % 10) * 52 + 20, 440);
 		}
 		if (!ex.step(0.1, ctx)) throw new Error("step returned false");
 	}

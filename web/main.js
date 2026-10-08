@@ -26,6 +26,9 @@ const overlay = $("overlay");
 const octx = overlay?.getContext("2d");
 if (octx) { octx.font = "12px ui-monospace, Menlo, monospace"; octx.lineWidth = 1; }
 const debugLines = [];
+const noop = () => {};
+const tctx = $("ui-text")?.getContext("2d");
+if (tctx) { tctx.font = "bold 11px Arial, sans-serif"; tctx.textBaseline = "top"; }
 const hex = (c) => `#${c.toString(16).padStart(6, "0")}`;
 
 const imports = {
@@ -84,7 +87,16 @@ const imports = {
 		host_sound: (id) => {}, // sound comes later
 		host_cursor: (set, frame) => setCursor(set, frame),
 		host_view: (view) => setView(view),
-		host_tool: (tool, follow) => setTool(tool, follow),
+		host_tool: noop,
+		host_options: (open) => { $("options").hidden = !open; },
+		ui_begin: () => tctx?.clearRect(0, 0, 640, 480),
+		ui_text: (x, y, p, n) => {
+			const text = mem.loadString(p, n);
+			tctx.fillStyle = "#000";
+			tctx.fillText(text, x + 1, y + 1);
+			tctx.fillStyle = "#fff";
+			tctx.fillText(text, x, y);
+		},
 		ui_add_object: (id, p, n, inTank) => {
 			const label = document.createElement("label");
 			const box = document.createElement("input");
@@ -144,28 +156,22 @@ function setCursor(set, frame) {
 	if (css && canvas.style.cursor !== css) canvas.style.cursor = css;
 }
 
-const TOOL_NAMES = ["Tap on the glass", "Pick up and move", "Prod", "Stroke", "Follow the cursor"];
-function setTool(tool, follow) {
-	const icon = $("tool-icon");
-	if (icon) icon.style.objectPosition = `0 ${-48 * tool}px`;
-	if ($("tool-name")) $("tool-name").textContent = TOOL_NAMES[tool];
-	const f = $("follow-icon");
-	if (f) f.style.objectPosition = `0 ${follow ? 0 : -48}px`;
-}
 function setView(view) {
 	document.body.dataset.view = view === 3 ? "box" : "tank";
 }
 
 function setupTank() {
-	const icons = `${base}bitmaps/`;
-	for (const img of document.querySelectorAll("img[data-icon]")) img.src = icons + img.dataset.icon;
-	const press = (id) => () => mem.exports.tank_button(id);
-	$("btn-tool").onclick = press(4);
-	$("btn-follow").onclick = press(2);
-	$("btn-feed").onclick = press(3);
-	$("btn-water").onclick = press(7);
-	$("btn-clear").onclick = press(9);
-	$("btn-back").onclick = press(100);
+	// pet name (kept in this browser until saving exists)
+	const setName = (name) => {
+		mem.exports.tank_name_clear();
+		for (const ch of name.toUpperCase()) mem.exports.tank_name_char(ch.charCodeAt(0));
+		try { localStorage.setItem("vc-name", name); } catch {}
+	};
+	let savedName = "";
+	try { savedName = localStorage.getItem("vc-name") ?? ""; } catch {}
+	$("pet-name").value = savedName;
+	setName(savedName);
+	$("pet-name").oninput = () => setName($("pet-name").value);
 
 	// pointer events in canvas pixels
 	const toCanvas = (e) => {
@@ -184,10 +190,10 @@ function setupTank() {
 	$("drop").onclick = () => mem.exports.tank_drop_cricket();
 	$("fill").onclick = () => mem.exports.tank_fill_bowl();
 	addEventListener("keydown", (e) => {
-		if (e.target.tagName === "INPUT" && e.target.type !== "checkbox") return;
+		if (e.target.tagName === "INPUT" && e.target.type !== "checkbox" && e.target.type !== "range") return;
 		if (e.key === "d" || e.key === "D") setDebug(!$("debug").checked);
 		if (e.key === "c" || e.key === "C") mem.exports.tank_drop_cricket();
-		if (e.key >= "1" && e.key <= "5") { mem.exports.tank_set_tool(+e.key - 1); setTool(+e.key - 1, true); }
+		if (e.key >= "1" && e.key <= "5") mem.exports.tank_set_tool(+e.key - 1);
 	});
 	let saved = false;
 	try { saved = localStorage.getItem("vc-debug") === "1"; } catch {}
@@ -219,7 +225,6 @@ function setupTank() {
 		mem.exports.tank_pointer(0, ...toCanvas(e));
 	};
 	canvas.onpointerleave = (e) => mem.exports.tank_pointer(3, ...toCanvas(e));
-	setTool(0, true);
 	setView(0);
 }
 
