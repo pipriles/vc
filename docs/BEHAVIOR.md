@@ -55,6 +55,25 @@ internet/website links, floppy-disk cricket "download", screensaver config.
   - Rejected while creature not active (`+0x92 == 0`) or anim not loaded.
   - p4 looks like a repeat count (walk uses `rand()*4/0x7fff + 4`).
 
+## Playback: repeats and ping-pong **confirmed** (0x404830, 0x404600, 0x403210)
+- A play counts its frames (`+0xb6`); when they run out:
+  - tail bounces left (`+0xca`) → reverse and play the last `loop_len`
+    frames (direction header +0x14);
+  - else a pending back pass (`+0xb8` = 2) → reverse and play the whole
+    thing back (n − 1 frames);
+  - else plays (`+0xba`) − 1: another play restarts the sequence
+    (re-rolling everything), none left → the sequence is done.
+- At start, per direction: back pass always (+0x08) or 50 % (+0x04);
+  tail bounces always (+0x10) or 50 % (+0x0c): K = loop_count rounded up
+  to even, bounces = K + 1 + 2·rand_n(K) (K + 2 + … with a back pass, so
+  it ends facing forward).
+- Start rules (t = temperament): CRUSH one play, bounces (rand_n(t)+t)·8+8;
+  LURK plays (rand_n(t)+t)/3; LURK_D rand_n(t)+t; THREAT rand_n(2)+1 plays,
+  bounces rand_n(2)·2+2; GLASS one play, bounces (rand_n(t)+4+2t)·2; HAIR
+  rand_n(2)+1; CLEAN rand_n(3)+2; KILL_RESET sound 457. Play counts only
+  when not already given.
+- Stopping early keeps the bounce parity (1 or 0 left).
+
 ## Creature tick (`creature_tick`, every 100 ms) **confirmed**
 1. Bump counters tick down.
 2. Frame hold: if the frame has a hold flag, hold for `hold` ticks

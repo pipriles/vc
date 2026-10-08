@@ -32,6 +32,12 @@ Dir :: struct {
 	move_y:      bool, // creature moves while playing (always)
 	no_clamp:    bool, // skip tank-floor clamping (+0xc2)
 	needs_check: bool, // only valid if its precondition holds (0x403000)
+	// Ping-pong playback (0x404830): the whole play backward once at the end
+	// (always or 50 %), and/or bouncing over the last loop_len frames a
+	// random number of times around loop_count (always or 50 %).
+	pp_always, pp_rand:     bool,
+	tail_always, tail_rand: bool,
+	loop_len, loop_count:   int,
 	key2:        u8,   // second skipped palette index: the shadow colour
 }
 
@@ -92,6 +98,12 @@ anim_parse :: proc(idx, pix: []u8) -> (a: Anim, ok: bool) {
 			d.move_y = le_u16(h, 0x02) != 0
 			d.no_clamp = le_u16(h, 0x06) != 0
 			d.needs_check = le_u16(h, 0x12) != 0
+			d.pp_rand = le_u16(h, 0x04) != 0
+			d.pp_always = le_u32(h, 0x08) != 0
+			d.tail_rand = le_u32(h, 0x0c) != 0
+			d.tail_always = le_u16(h, 0x10) != 0
+			d.loop_len = int(i16(le_u16(b, 0)))
+			d.loop_count = int(i16(le_u16(b, 2)))
 			d.key2 = b[6]
 			d.frames = make([]Frame, min(int(le_u16(b, 4)), MAX_FRAMES))
 			for &f, j in d.frames {

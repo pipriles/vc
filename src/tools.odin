@@ -292,6 +292,7 @@ force_sequence :: proc(c: ^Creature, seq: int) {
 	c.dir = 4
 	c.plays = 1
 	c.step = 1
+	c.back_pass = 0
 	if c.kind == .Spider && seq == game.seq.pickup do c.tool = .Carry
 	start_sequence(c)
 }

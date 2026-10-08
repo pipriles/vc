@@ -79,6 +79,9 @@ Creature :: struct {
 	seq, prev_seq:      int,  // (+0x98, +0xbc)
 	frame, step:        int,  // (+0xb2, +0xb4)
 	plays:              int,  // remaining plays of seq (+0xba)
+	left:               int,  // frames left in this pass (+0xb6)
+	bounces:            int,  // tail reversals left (+0xca)
+	back_pass:          int,  // 2 = play the whole thing backward at the end (+0xb8)
 	hold:               int,  // frame hold countdown, -1 = none (+0xf6)
 	moving_x, moving_y: bool, // (+0xc4, +0xc6)
 	no_clamp:           bool, // floor clamp off: hiding behind the rock (+0xc2)
@@ -174,37 +177,106 @@ stop_current :: proc(c: ^Creature) {
 	c.plays = 1
 	c.turn_target = -1
 	c.run = false
+	// keep the bounce parity so the play still ends the right way round
+	c.bounces = c.bounces % 2 != 0 ? 1 : 0
 }
 
 // Starts c.seq in the current direction (0x404830).
 start_sequence :: proc(c: ^Creature) {
 	d := creature_dir(c)
 	n := len(d.frames)
+	if c.seq != game.seq.circle do c.step = 1
 	c.frame = c.step < 0 ? n - 1 : 0
 	s := &c.anim.seqs[c.seq]
 	if c.plays < 1 && s.rand_repeat do c.plays = rand_n(s.max_repeat) + 1
-	if c.plays < 1 do c.plays = 1
+	if c.seq != game.seq.circle {
+		if d.pp_always || (d.pp_rand && rand_n(10) < 5) do c.back_pass = 2
+		if d.tail_always || (d.tail_rand && rand_n(10) < 5) {
+			k := max(d.loop_count, 1)
+			if k % 2 != 0 do k += 1
+			c.bounces = k + (c.back_pass < 1 ? 1 : 2) + rand_n(k) * 2
+		} else {
+			c.bounces = 0
+		}
+	}
 	c.moving_x = d.move_x && rand_n(10) < 6
 	c.moving_y = d.move_y
 	c.no_clamp = d.no_clamp
 	c.hold = -1
 	sequence_start_rules(c)
+	if c.plays < 1 do c.plays = 1
+	c.left = n
+	if c.run && abs(c.step) > 1 do c.left = n / abs(c.step)
+}
+
+// The current pass has run out of frames (0x404600): bounce over the tail,
+// play backward, repeat, or report the sequence done.
+sequence_play_done :: proc(c: ^Creature) -> bool {
+	d := creature_dir(c)
+	n := len(d.frames)
+	c.bounces -= 1
+	if c.bounces >= 0 {
+		c.step = -c.step
+		c.left = d.loop_len
+		// (a direction without a tail would show frame n: stay on the last)
+		c.frame = clamp(c.step < 0 ? n - 1 : n - d.loop_len, 0, n - 1)
+		return false
+	}
+	c.back_pass -= 1
+	if c.back_pass < 1 {
+		c.plays -= 1
+		c.bounces, c.back_pass = 0, 0
+		if c.plays > 0 {
+			start_sequence(c)
+			return false
+		}
+		c.plays = 0
+		return true
+	}
+	c.bounces = 0
+	c.step = -c.step
+	c.left = n - 1
+	c.frame = c.step < 0 ? n - 1 : 0
+	return false
 }
 
 // Per-sequence start rules (0x403210): cricket chirps; a weak spider
-// doesn't run; a running walk also plays at double frame speed.
+// doesn't run; a running walk also plays at double frame speed; play and
+// bounce counts for the spider's moods (t = temperament).
 sequence_start_rules :: proc(c: ^Creature) {
 	if c.kind == .Cricket {
 		if c.seq == game.cseq.chirp && c.in_box == (game.input.view == .Box) do host_sound(401)
 		return
 	}
 	if c.kind != .Spider do return
+	ids := &game.seq
 	health := game.stats.health
-	if c.seq == game.seq.circle {
+	t := game.stats.temperament
+	switch c.seq {
+	case ids.circle:
 		if health < 30 do c.run = false
-	} else if c.seq == game.seq.walk {
+	case ids.walk:
 		if health < 15 || c.blocks[c.dir].active do c.run = false
 		if c.run do c.step *= 2
+	case ids.crush:
+		c.plays = 0
+		c.bounces = (rand_n(t) + t) * 8 + 8
+	case ids.lurk:
+		if c.plays < 1 do c.plays = (rand_n(t) + t) / 3
+	case ids.lurk_d:
+		if c.plays < 1 do c.plays = rand_n(t) + t
+	case ids.threat:
+		if c.plays < 1 do c.plays = rand_n(2) + 1
+		c.bounces = rand_n(2) * 2 + 2
+	case ids.glass:
+		c.plays = 0
+		c.bounces = (rand_n(t) + 4 + t * 2) * 2
+	case ids.hair:
+		if c.plays < 1 do c.plays = rand_n(2) + 1
+	case ids.clean:
+		if c.plays < 1 do c.plays = rand_n(3) + 2
+	case ids.kill_reset:
+		host_sound(457)
 	}
 }
 
@@ -231,6 +303,7 @@ next_sequence :: proc(c: ^Creature) {
 	if c.turn_dir > 0 do c.dir = (c.dir + 1) % 8
 	c.turn_dir = 0
 	c.step = 1
+	c.bounces, c.back_pass = 0, 0
 	c.last_played[c.seq] = now_ms
 	if c.finished != nil do c.finished(c)
 
@@ -309,16 +382,13 @@ creature_tick :: proc(c: ^Creature) {
 		if c.hold < 0 {
 			c.hold = -1
 			c.frame += c.step
-			ended := c.frame < 0 || c.frame >= len(d.frames)
-			if c.goal.active && goal_check(c) do ended, c.plays = true, 1 // arrived: cut short
-			if ended {
-				c.plays -= 1
-				if c.plays > 0 {
-					c.frame = c.step < 0 ? len(d.frames) - 1 : 0
-				} else {
-					next_sequence(c)
-				}
+			if c.frame < 0 || c.frame >= len(d.frames) do c.left = 0
+			c.left -= 1
+			if c.goal.active && goal_check(c) {
+				// arrived: cut short
+				c.left, c.plays, c.bounces, c.back_pass = 0, 1, 0, 0
 			}
+			if c.left < 1 && sequence_play_done(c) do next_sequence(c)
 			creature_post_frame(c)
 		}
 	}

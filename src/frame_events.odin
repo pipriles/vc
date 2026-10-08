@@ -37,8 +37,7 @@ spider_frame_events :: proc(c: ^Creature) {
 		}
 	case ids.clean:
 		if c.dir == 6 || c.dir == 7 {
-			// (also frame 8 while ping-ponging, which the port doesn't model)
-			if f == 6 do host_sound(461)
+			if f == 6 || (f == 8 && c.back_pass != 0) do host_sound(461)
 		} else if (c.dir >= 3 && c.dir <= 5) && (f == 8 || f == 11) {
 			host_sound(462)
 		}
