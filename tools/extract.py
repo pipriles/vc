@@ -12,7 +12,6 @@ Output per variant (cr = Chile Rose, rk = Red Knee):
   <out>/<variant>/sounds/<id>.wav     sound effects from VC.EXE
   <out>/<variant>/bitmaps/<mod>_<id>.bmp
   <out>/<variant>/vc.dat
-  <out>/<variant>/banner.jpg        the installer's banner (VCBANNER.JPG)
   <out>/<variant>/manifest.json
 """
 import io
@@ -166,8 +165,6 @@ def main():
         vc = setup.read("VC.EXE")
         vcg = setup.read("VCG.DLL")
         write(f"{out}/vc.dat", setup.read("VC.DAT"))
-        # the installer's banner, for the page around the tank
-        write(f"{out}/banner.jpg", setup.read("VCBANNER.JPG"))
 
         anims += extract_anims(vcg, "", out, files)
         plugin = f"{src}/plugin_{variant}.exe"
