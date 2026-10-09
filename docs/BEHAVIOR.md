@@ -528,6 +528,13 @@ Crickets: random sequence with frames in the current direction.
   more from the website. The port starts every spider with 25 in store
   and Download Crickets adds 12.
 
+## Held spider (port change)
+While carried the original's idle sets PICKUP facing 4 and the "being
+carried" interaction (5); the reaction to it queues THREAT, HAIR, CRUSH,
+LURK or LURK_D (with turns) that play in mid-air. The port keeps the
+mood change but queues nothing while it's held, so it stays on PICKUP
+until dropped.
+
 ## Glass trips (port change)
 The original's idle trip to the glass (30 %, 3 min after GLASS last
 finished) doesn't check the size, but GLASS needs size > 49: a younger

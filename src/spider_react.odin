@@ -92,6 +92,12 @@ spider_react_tool :: proc(c: ^Creature) {
 		return
 	}
 	debug_logf("spider reacts to %v (temperament %d, mood %d)", tool, t, s.mood)
+	if tool == .Carry && c.carried == 1 {
+		// port: while held it stays on PICKUP (the original queued its
+		// threat / crush / lurk reactions in mid-air); the mood still changes
+		// and it reacts once it's put down
+		return
+	}
 
 	switch tool {
 	case .None:

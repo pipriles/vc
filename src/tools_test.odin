@@ -146,3 +146,17 @@ edges_dont_scroll_unless_carrying :: proc(t: ^testing.T) {
 	for _ in 0 ..< 10 do tank_tick()
 	testing.expect_value(t, game.scroll_x, 300)
 }
+
+@(test)
+held_spider_stays_on_pickup :: proc(t: ^testing.T) {
+	if !sim_setup(t, 12) do return
+	s := &game.spider
+	pickup_at(s.x, s.y)
+	other := 0
+	for i in 0 ..< 1200 { // two minutes in the hand
+		carry_move(400 + (i * 7) % 400, 300)
+		tank_advance(TICK)
+		if s.carried == 1 && s.seq != game.seq.pickup do other += 1
+	}
+	testing.expectf(t, other == 0, "%d ticks on other animations while held", other)
+}
