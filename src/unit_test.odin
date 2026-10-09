@@ -140,3 +140,17 @@ goal_times_out_while_detouring :: proc(t: ^testing.T) {
 	goal_check(s)
 	testing.expect(t, !s.goal.active, "a detour that gets nowhere still times out")
 }
+
+@(test)
+small_spider_waits_between_glass_trips :: proc(t: ^testing.T) {
+	if !sim_setup(t, 6) do return
+	s := &game.spider
+	s.size = 40 // too small to climb
+	trips := 0
+	for _ in 0 ..< 1800 { // three minutes
+		g := s.goal
+		tank_advance(TICK)
+		if s.goal.active && s.goal.seq == game.seq.glass && !(g.active && g.seq == game.seq.glass) do trips += 1
+	}
+	testing.expectf(t, trips <= 2, "%d glass trips in three minutes", trips)
+}

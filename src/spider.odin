@@ -260,6 +260,10 @@ spider_idle :: proc(c: ^Creature) {
 	if rand_n(10) > 6 && now_ms > c.last_played[ids.glass] + 180_000 {
 		debug_logf("idle: go to the glass")
 		move_to(c, .Y_Band, c.x, (100 - c.size) / 2 + GLASS_Y, 4, ids.glass, 60)
+		// port: the 3 minutes count from the trip, not only from GLASS
+		// finishing, which a spider too small to climb (size < 50) never
+		// does: the original sends it back to stare every idle pick
+		c.last_played[ids.glass] = now_ms
 	}
 }
 

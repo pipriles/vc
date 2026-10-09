@@ -528,6 +528,13 @@ Crickets: random sequence with frames in the current direction.
   more from the website. The port starts every spider with 25 in store
   and Download Crickets adds 12.
 
+## Glass trips (port change)
+The original's idle trip to the glass (30 %, 3 min after GLASS last
+finished) doesn't check the size, but GLASS needs size > 49: a younger
+spider arrives, is refused, lurks facing the viewer, and since GLASS never
+finishes the 3 minutes never start, so it goes back at nearly every idle
+pick. The port counts the 3 minutes from the trip as well.
+
 ## Senses, hunting, routes, exploring (port additions)
 The original knows where the bowl is wherever it is, notices crickets only
 when one is dropped near it (350 × 175 px) or stuck in a web close by
