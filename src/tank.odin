@@ -35,7 +35,7 @@ Game :: struct {
 	objects:  [OBJECT_COUNT]Object,
 	pending_objects: [OBJECT_COUNT]int, // 1 = place, 2 = remove (from the UI)
 	thirst_count, hunger_count: int, // cycle 0..4: act on every 5th check
-	fountain_wait: int,
+	windpump_wait: int,
 	input:    Input,
 	cursor_x: int, // tank x of the pointer (DAT_004526fc)
 	release_mouse: bool,

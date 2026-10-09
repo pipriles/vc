@@ -8,7 +8,8 @@ OBJECT_COUNT :: 10 // the 11th table row is the shed skin (kind 6), handled with
 BOWL         :: 0  // DAT_00455846: the drinking object
 BELL         :: 1  // DAT_00454a38: where a hungry spider waits
 YUCCA        :: 7  // DAT_0044def4: grows one frame per day
-FOUNTAIN     :: 8  // plays its sound now and then
+FOUNTAIN     :: 8  // running water while in the tank (loop 465)
+WINDPUMP     :: 9  // DAT_00451f2a: creaks now and then (419)
 
 Anim_Mode :: enum {
 	None      = 0,
@@ -146,11 +147,12 @@ object_tick :: proc(o: ^Object) {
 			host_sound(466)
 		}
 	}
-	if o.id == FOUNTAIN && o.frame == 0 {
-		game.fountain_wait -= 1
-		if game.fountain_wait < 1 {
+	// the windpump creaks every 18-35 turns of its wheel
+	if o.id == WINDPUMP && o.frame == 0 {
+		game.windpump_wait -= 1
+		if game.windpump_wait < 1 {
 			if game.input.view != .Box do host_sound(419)
-			game.fountain_wait = rand_n(18) + 18
+			game.windpump_wait = rand_n(18) + 18
 		}
 	}
 	object_update_position(o)

@@ -190,8 +190,8 @@ Table built on the stack at startup (recovered by tracing the stores):
 | 5 | Cactus #2 | 3004 | 2 | 0 | no | |
 | 6 | Rock #3 | 3001 | 1 | 0 | no | |
 | 7 | Yucca Plant | 3006 | 10 | 2 | no | 1 frame per day (slow anim) |
-| 8 | Water Fountain | 3007 | 8 | 1 | no | loop, sound 419 every 18–36 ticks |
-| 9 | Windpump | 3009 | 4 | 2 | no | loop, every tick |
+| 8 | Water Fountain | 3007 | 8 | 1 | no | loop; running water (465) while in the tank |
+| 9 | Windpump | 3009 | 4 | 2 | no | loop, every tick; creak 419 every 18–35 turns |
 | 10 | Skin (kind 6) | – | 6 | – | – | crumbles, then gone |
 
 - Objects are creature structs of kind 1 without animation data. Depth
@@ -341,7 +341,7 @@ the fountain is in the tank (not in the box view, channel 1) and scraping
 | 408 | cricket dropped | 465 | fountain water (loop) |
 | 409 | cricket lands a jump | 466 | bell |
 | 410 | prod | 411 | stroke / crawling under the rock |
-| 412, 413 | laying a web | 419 | fountain splash |
+| 412, 413 | laying a web | 419 | windpump creak |
 
 - Output (0x415f00, 0x416680): no DirectSound or PlaySound; one 8-bit
   mono waveOut stream at 11025 Hz, double-buffered in blocks of 2048
