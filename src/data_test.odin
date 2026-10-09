@@ -103,3 +103,22 @@ plugin_merge_is_last_wins :: proc(t: ^testing.T) {
 	testing.expect(t, seq_find(&m, "GLASS") >= len(base.seqs), "plugin-only sequence found")
 	testing.expect(t, seq_find(&m, "WALK") < len(base.seqs))
 }
+
+@(test)
+glass_frames_draw_without_their_green_background :: proc(t: ^testing.T) {
+	if !sim_setup(t, 1) do return
+	s := &game.spider
+	s.seq, s.dir, s.size, s.scale = game.seq.glass, 4, 100, 100
+	n := len(creature_dir(s).frames)
+	testing.expect(t, n > 0, "GLASS faces 4")
+	for f in 0 ..< n {
+		s.frame = f
+		dst = tank_surface()
+		for &p in tank_buf do p = 0
+		draw_creature(s, .Body, 0)
+		green := 0
+		for p in tank_buf do if p == 250 do green += 1
+		testing.expectf(t, green < 50, "frame %d drew %d green pixels", f, green)
+		if green >= 50 do break
+	}
+}

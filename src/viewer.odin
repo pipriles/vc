@@ -113,10 +113,11 @@ viewer_render :: proc() {
 	s := &a.seqs[state.seq]
 	n := a.w * a.h
 	if !frame_decode(a, s, d.frames[state.frame], indices[:n]) do return
+	clear := frame_key(a, indices[:n])
 
 	for i in 0 ..< n {
 		v := indices[i]
-		c := v == a.key ? BACKGROUND : state.palette[v]
+		c := v == clear ? BACKGROUND : state.palette[v]
 		rgba[4 * i + 0] = c[0]
 		rgba[4 * i + 1] = c[1]
 		rgba[4 * i + 2] = c[2]

@@ -532,6 +532,7 @@ draw_creature :: proc(c: ^Creature, pass: Draw_Pass, scroll: int) {
 	f := d.frames[clamp(c.frame, 0, len(d.frames) - 1)]
 	n := a.w * a.h
 	if !frame_decode(a, s, f, frame_buf[:n]) do return
+	key := frame_key(a, frame_buf[:n])
 
 	dw := x87_scale_trunc(a.w, c.scale)
 	dh := x87_scale_trunc(a.h, c.scale)
@@ -547,7 +548,7 @@ draw_creature :: proc(c: ^Creature, pass: Draw_Pass, scroll: int) {
 			if vx < 0 || vx >= dst.w do continue
 			fx := i * a.w / dw
 			p := frame_buf[sy * a.w + fx]
-			if p == a.key || (p == d.key2) != (pass == .Shadow) do continue
+			if p == key || (p == d.key2) != (pass == .Shadow) do continue
 			if cmd.logo_skin && pass == .Body && c == &game.spider && a.w == LOGO_TEX_W && a.h == LOGO_TEX_H {
 				p = logo_tex[sy * LOGO_TEX_W + fx] // GLOBALBEACH
 			}

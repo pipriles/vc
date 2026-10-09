@@ -45,6 +45,7 @@ floor_decal :: proc(a: ^Anim, seq, dir, frame, x, y, scale: int) {
 	if frame < 0 || frame >= len(d.frames) do return
 	buf := frame_buf[:a.w * a.h]
 	if !frame_decode(a, s, d.frames[frame], buf) do return
+	key := frame_key(a, buf)
 	dw, dh := x87_scale_trunc(a.w, scale), x87_scale_trunc(a.h, scale)
 	if dw <= 0 || dh <= 0 do return
 	ox, oy := x + (a.w - dw) / 2, y + (a.h - dh) / 2
@@ -56,7 +57,7 @@ floor_decal :: proc(a: ^Anim, seq, dir, frame, x, y, scale: int) {
 			fx := ox + i
 			if fx < 0 || fx >= TANK_W do continue
 			p := buf[row + i * a.w / dw]
-			if p != a.key do floor_buf[fy * TANK_W + fx] = p
+			if p != key do floor_buf[fy * TANK_W + fx] = p
 		}
 	}
 }

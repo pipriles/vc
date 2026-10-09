@@ -178,3 +178,10 @@ seq_dir_mask :: proc "contextless" (s: ^Seq) -> (mask: u32) {
 	for d, k in s.dirs do if len(d.frames) > 0 do mask |= 1 << u32(k)
 	return
 }
+
+// The transparent colour of a decoded frame: the original takes the first
+// byte of the frame's bitmap, which (stored bottom-up) is the bottom-left
+// pixel. Most sequences share one, but the plugin's GLASS uses green.
+frame_key :: #force_inline proc "contextless" (a: ^Anim, buf: []u8) -> u8 {
+	return buf[(a.h - 1) * a.w]
+}

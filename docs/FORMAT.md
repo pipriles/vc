@@ -67,3 +67,8 @@ Palettes differ per variant (Chile Rose vs Red Knee); take it from VCG
 bitmap 1000. Index 7 = 0x808080 (spider key), 0xFA = 0x00FF00.
 
 See BEHAVIOR.md for runtime behaviour.
+
+## Transparent colour
+The original takes each decoded frame's first bitmap byte as transparent:
+the bottom-left pixel (frames are stored bottom-up). The spider's own
+sequences use palette 7, the plugin's GLASS uses 250 (green).

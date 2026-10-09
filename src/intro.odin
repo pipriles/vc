@@ -100,7 +100,7 @@ intro_render :: proc() {
 		f := d.frames[in_.frame % len(d.frames)]
 		buf := frame_buf[:a.w * a.h]
 		if frame_decode(a, s, f, buf) {
-			key := a.key
+			key := frame_key(a, buf)
 			for j in 0 ..< a.h do for i in 0 ..< a.w {
 				p := buf[j * a.w + i]
 				// signed byte compare, as the original: 128..255 always show

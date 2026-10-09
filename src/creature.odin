@@ -452,7 +452,7 @@ creature_post_frame :: proc(c: ^Creature) {
 		c.no_clamp = true
 		return
 	}
-	if c.hide != 0 do debug_logf("%s back out on the floor", c.name)
+	if c.hide != 0 && c.seq != game.seq.log_hide do debug_logf("%s back out on the floor", c.name)
 	c.no_clamp = false
 	c.hide = 0
 }
