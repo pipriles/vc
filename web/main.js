@@ -41,26 +41,64 @@ const debugLines = [];
 // (first free one; skipped when all are busy or the same sound is already
 // playing, except the bell), and two looping sounds the game switches on
 // and off: running water (465, channel 1) and scraping (403, channel 2).
+// Sound. "gritty" and "smooth" run the original's own mixer (mixer.js:
+// 8-bit, 11025 Hz, double-buffered, clipped), the first holding each sample
+// at the output rate, the second letting the browser resample it smoothly;
+// "modern" plays each sound directly with the same channel rules.
 const sound = {
+	mode: "gritty",
 	ctx: null,
-	buffers: new Map(),
-	ch: [null, null, null, null], // {id, src, end, loop}
+	node: null, // the mixer, in the original modes
+	buffers: new Map(), // modern: decoded sounds
+	ch: [null, null, null, null], // modern: {id, src, end, loop}
 	loops: new Map(), // id -> wanted on
 	on: true,
 	volume: 1,
 	gain: null,
 	unlock() {
 		if (this.ctx) return;
-		this.ctx = new AudioContext();
+		const original = this.mode !== "modern";
+		this.ctx = this.mode === "smooth" ? new AudioContext({ sampleRate: 11025 }) : new AudioContext();
 		this.gain = this.ctx.createGain();
 		this.gain.gain.value = this.volume;
 		this.gain.connect(this.ctx.destination);
-		for (const id of manifest.sounds ?? []) {
-			fetch(`${base}sounds/${id}.wav`).then((r) => r.arrayBuffer())
-				.then((b) => this.ctx.decodeAudioData(b))
-				.then((buf) => { this.buffers.set(id, buf); if (this.loops.get(id)) this.loop(id, true); })
-				.catch(() => {});
-		}
+		const ctx = this.ctx;
+		const ready = original
+			? ctx.audioWorklet.addModule("mixer.js").then(() => {
+				if (ctx !== this.ctx) return;
+				this.node = new AudioWorkletNode(ctx, "vc-mixer", { outputChannelCount: [1] });
+				this.node.connect(this.gain);
+			})
+			: Promise.resolve();
+		ready.then(() => {
+			for (const id of manifest.sounds ?? []) {
+				fetch(`${base}sounds/${id}.wav`).then((r) => r.arrayBuffer()).then((b) => {
+					if (ctx !== this.ctx) return;
+					if (original) {
+						// the original copies the bytes after the 44-byte header (0x415f00)
+						const v = new DataView(b);
+						const len = Math.min(v.getUint32(40, true), b.byteLength - 44);
+						this.node.port.postMessage({ type: "sound", id, data: new Uint8Array(b.slice(44, 44 + len)) });
+						if (this.loops.get(id) && this.on) this.loop(id, true);
+					} else {
+						return ctx.decodeAudioData(b).then((buf) => {
+							this.buffers.set(id, buf);
+							if (this.loops.get(id)) this.loop(id, true);
+						});
+					}
+				}).catch(() => {});
+			}
+		}).catch(() => {});
+	},
+	setMode(mode) {
+		if (mode === this.mode) return;
+		const was = !!this.ctx;
+		if (this.ctx) this.ctx.close().catch(() => {});
+		this.ctx = this.node = this.gain = null;
+		this.buffers.clear();
+		this.ch = [null, null, null, null];
+		this.mode = mode;
+		if (was) this.unlock();
 	},
 	busy(c) { return c && (c.loop || c.end > this.ctx.currentTime); },
 	start(chan, id, loop) {
@@ -81,6 +119,8 @@ const sound = {
 	},
 	play(id) {
 		if (!this.on || !this.ctx) return;
+		if (this.node) return this.node.port.postMessage({ type: "play", id });
+		if (this.mode !== "modern") return; // the mixer is still loading
 		if (id >= 450 && id <= 456) return this.start(0, id, false);
 		if (id !== 466 && this.ch.some((c) => this.busy(c) && c.id === id)) return;
 		for (let chan = 1; chan <= 3; chan++) {
@@ -90,6 +130,8 @@ const sound = {
 	loop(id, on) {
 		this.loops.set(id, on);
 		if (!this.ctx) return;
+		if (this.node) return this.node.port.postMessage({ type: "loop", id, on: on && this.on });
+		if (this.mode !== "modern") return;
 		const chan = id === 465 ? 1 : 2;
 		if (on && this.on) this.start(chan, id, true);
 		else if (this.ch[chan]?.id === id) this.stop(chan);
@@ -101,10 +143,12 @@ const sound = {
 	setOn(on) {
 		this.on = on;
 		if (!this.ctx) return;
+		if (this.node) this.node.port.postMessage({ type: "stop" });
 		for (let chan = 0; chan < 4; chan++) this.stop(chan);
 		if (on) for (const [id, want] of this.loops) if (want) this.loop(id, true);
 	},
 };
+try { sound.mode = localStorage.getItem("vc-audio") ?? "gritty"; } catch {}
 window.vcSound = sound; // for debugging in the console
 addEventListener("pointerdown", () => sound.unlock(), { capture: true });
 addEventListener("keydown", () => sound.unlock(), { capture: true });
@@ -489,6 +533,16 @@ function setupTank() {
 		try { localStorage.setItem("vc-volume", $("volume").value); } catch {}
 	};
 	$("volume").onchange = () => { sound.unlock(); sound.play(400); };
+
+	// how the sound is produced (to compare with the original by ear)
+	if ($("audio")) {
+		$("audio").value = sound.mode;
+		$("audio").onchange = () => {
+			sound.setMode($("audio").value);
+			sound.unlock();
+			try { localStorage.setItem("vc-audio", $("audio").value); } catch {}
+		};
+	}
 
 	// pet name (kept in this browser until saving exists)
 	const setName = (name) => {

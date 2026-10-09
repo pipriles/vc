@@ -343,6 +343,17 @@ the fountain is in the tank (not in the box view, channel 1) and scraping
 | 410 | prod | 411 | stroke / crawling under the rock |
 | 412, 413 | laying a web | 419 | fountain splash |
 
+- Output (0x415f00, 0x416680): no DirectSound or PlaySound; one 8-bit
+  mono waveOut stream at 11025 Hz, double-buffered in blocks of 2048
+  samples. A sound's bytes (after a fixed 44-byte header; all 37 are
+  11025 Hz 8-bit mono) are copied into its channel; when a buffer comes
+  back the next block is mixed: each channel's next 2048 bytes (loops wrap
+  once), summed as (sample − 128) and clipped to 0..255. A sound starts in
+  the next mixed block, up to ~0.37 s after the event unless the output
+  was idle. The port runs that mixer (`web/mixer.js`) with the 11 kHz
+  samples held at the output rate ("Original, gritty") or resampled by the
+  browser ("Original, smooth"); "Modern" plays each sound directly.
+
 ## Time away, death and resurrection **confirmed**
 `offline_catch_up` (0x415430) runs when the program starts and replays the
 minutes M since it was closed (the port also runs it when a hidden page

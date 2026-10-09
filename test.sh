@@ -30,4 +30,5 @@ odin test src -o:speed -define:ODIN_TEST_THREADS=1 -define:ODIN_TEST_TRACK_MEMOR
 if [ $# -eq 0 ] && [ -d data ] && command -v node >/dev/null 2>&1; then
 	./build.sh
 	node tools/smoke.mjs
+	node tools/mixer_test.mjs
 fi
