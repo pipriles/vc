@@ -528,5 +528,33 @@ Crickets: random sequence with frames in the current direction.
   more from the website. The port starts every spider with 25 in store
   and Download Crickets adds 12.
 
+## Senses, hunting, routes, exploring (port additions)
+The original knows where the bowl is wherever it is, notices crickets only
+when one is dropped near it (350 × 175 px) or stuck in a web close by
+(200 × 140), and otherwise finds them by bumping into them; its walks steer
+straight at the target with one-obstacle detours. The port adds
+(`senses.odin`, `path.odin`), drawing no random numbers except in the new
+decisions:
+- Noticing area: an ellipse 220 × 110 px round the spider, 330 × 165 when
+  food < 50, 440 × 220 when food < 25; the bowl is noticed at twice that.
+  Checked once a second while the spider is out, awake and not handled.
+- Hunting a noticed cricket: not when too full (the original's
+  food ≥ 65 + rand_n(25)), else a 30 / 60 / 90 % chance (food ≥ 50 / < 50 /
+  < 30). Stalk: walk (no running) to a point at striking distance (half its
+  box + 30 px), following the cricket; freeze 0.4–1.5 s; pounce: the chase
+  goal (running) ending in CATCH. Gives up when the cricket leaves 1.5× the
+  area, goes back to the box or is carried, or after 60 s of stalking; that
+  cricket is then ignored for 15 s. Touching crickets out of reach are
+  waited for (see above).
+- Bowl: thirst only sends the spider to a bowl it has seen; it forgets it
+  when it looks where it saw it and it's gone or moved. Walks to an object
+  that's been taken away are abandoned.
+- Routes: walks to a target follow a breadth-first route over a 20 px grid
+  of the squares where the spider's body fits between objects, heading 4
+  squares ahead; an unreachable target is approached as near as possible.
+- Exploring: after 4 minutes within 200 × 120 px of one spot, or 1 minute
+  when hungry with no cricket in sight or thirsty with no bowl known, the
+  spider walks to a random reachable point at least 350 px away.
+
 ## Not yet ported
 - Freeze Simulation (not wanted).

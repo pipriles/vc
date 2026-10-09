@@ -251,6 +251,7 @@ spider_idle :: proc(c: ^Creature) {
 		}
 	}
 
+	if hunting() do return // port: busy hunting
 	if rand_n(50) == 25 && now_ms > c.last_played[ids.log_hide] + 720_000 {
 		debug_logf("idle: go hide under the rock")
 		move_to(c, .Point, LOG_X, FLOOR_TOP, 7, ids.log_hide, 120)

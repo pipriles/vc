@@ -157,7 +157,7 @@ spider_gets_out_of_a_ring_of_objects :: proc(t: ^testing.T) {
 	}
 	max_d := 0
 	for _ in 0 ..< 6000 { // ten minutes
-		tank_step(TICK)
+		tank_advance(TICK)
 		max_d = max(max_d, abs(s.x - 600) + abs(s.y - 320))
 	}
 	log.infof("got %d px from the start", max_d)
@@ -183,7 +183,7 @@ spider_gets_away_from_the_glass_when_boxed_in :: proc(t: ^testing.T) {
 	}
 	moved := 0
 	for _ in 0 ..< 1200 { // two minutes
-		tank_step(TICK)
+		tank_advance(TICK)
 		moved = max(moved, abs(s.x - 600) + abs(s.y - y0))
 	}
 	testing.expectf(t, moved > 100, "still stuck at the glass (%d px at most)", moved)

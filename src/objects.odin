@@ -228,7 +228,8 @@ spider_thirst :: proc(s: ^Creature) {
 		debug_logf("spider drinks (water %d, bowl level %d)", st.water, bowl.frame)
 		return
 	}
-	if game.thirst_count == 0 {
+	// port: only to a bowl it has seen, and not in the middle of a hunt
+	if game.thirst_count == 0 && game.senses.bowl_known && !hunting() {
 		debug_logf("thirsty (water %d): go to the bowl", st.water)
 		move_to(s, .Creature_A, -1, -1, -1, game.seq.lurk, 120, target = BOWL)
 	}

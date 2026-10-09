@@ -688,6 +688,12 @@ goal_check :: proc(c: ^Creature) -> bool {
 	}
 	if g.type == .Creature_A && g.target >= 0 {
 		t := &game.objects[g.target]
+		if !t.active || t.in_box {
+			// port: it's been taken away
+			debug_logf("%s: %s is gone, giving up", c.name, t.name)
+			clear_goal(c)
+			return false
+		}
 		g.x, g.y = t.x, t.y
 		if g.target == BELL {
 			// wait in front of or behind the bell
@@ -765,10 +771,16 @@ goal_step :: proc(c: ^Creature) {
 	g := &c.goal
 	if !g.active do return
 
-	right := g.type != .Y_Band && c.x < g.x - 4 * c.sx
-	left := g.type != .Y_Band && c.x > g.x + 4 * c.sx
-	down := g.type != .X_Band && c.y < g.y - 3 * c.sy
-	up := g.type != .X_Band && c.y > g.y + 3 * c.sy
+	// port: head for the next point of a planned route rather than straight
+	// at the target (the bands and detours work as before)
+	tx, ty := g.x, g.y
+	if c.kind == .Spider && !g.detouring && g.type != .Y_Band && g.type != .X_Band {
+		if wx, wy, _, _, ok := plan_route(c, g.x, g.y); ok do tx, ty = wx, wy
+	}
+	right := g.type != .Y_Band && c.x < tx - 4 * c.sx
+	left := g.type != .Y_Band && c.x > tx + 4 * c.sx
+	down := g.type != .X_Band && c.y < ty - 3 * c.sy
+	up := g.type != .X_Band && c.y > ty + 3 * c.sy
 	if g.type == .Y_Band && !g.detouring &&
 	   ((up && c.blocks[0].active) || (down && c.blocks[4].active)) {
 		if c.x < TANK_W / 2 do right = true

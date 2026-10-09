@@ -70,6 +70,7 @@ Game :: struct {
 	accum:    f64,
 	speed:    f64,
 	sec_ms:   u32,
+	senses:   Senses, // port: what the spider notices (senses.odin)
 }
 
 game: Game
@@ -235,6 +236,7 @@ tank_reset :: proc() {
 
 	game.cricket_a = assets.cricket
 	crickets_init()
+	senses_init()
 	// registering added 25 crickets to the store (0x4514b2); the port counts
 	// as registered
 	game.storage = 25
@@ -347,6 +349,7 @@ tank_tick :: proc() {
 	update_render_list()
 	creature_tick(&game.spider)
 	if !game.life.dead do spider_unstick(&game.spider)
+	senses_tick()
 	for &c in game.crickets do creature_tick(&c)
 	spider_hide_crawl(&game.spider)
 	sound_loops()
@@ -380,6 +383,13 @@ tank_tick :: proc() {
 }
 
 tank_step :: proc(dt: f64) {
+	tank_advance(dt)
+	tank_render()
+}
+
+// Runs the ticks due after dt seconds without drawing (tests that only
+// watch the sim skip the render).
+tank_advance :: proc(dt: f64) {
 	tick := f64(tick_ms()) / 1000
 	game.accum += dt * game.speed
 	if game.accum > 1 do game.accum = tick
@@ -388,7 +398,6 @@ tank_step :: proc(dt: f64) {
 		tank_tick()
 	}
 	game.alpha = clamp(game.accum / tick, 0, 1)
-	tank_render()
 }
 
 @(export)
