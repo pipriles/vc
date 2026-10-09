@@ -225,3 +225,44 @@ handle_pending_drops :: proc() {
 		if !cricket_drop(x, y) do debug_logf("no cricket to drop (box empty or %d in tank)", MAX_IN_TANK)
 	}
 }
+
+// Port: a cricket somewhere the spider can't get to (dropped between
+// objects, behind one, or pushed out of bounds) walks to the nearest spot it
+// can reach; if it's still not there after 10 s (wedged in an object), it
+// jumps there. Checked every 2 seconds while the spider is out and awake.
+RESCUE_WAIT_MS :: 10_000
+
+cricket_rescue :: proc() {
+	s := &game.spider
+	if s.hide != 0 || s.carried != 0 || game.life.dead || s.y < FLOOR_TOP do return
+	any := false
+	for c in game.crickets do if c.active && !c.in_box && c.carried == 0 && !c.web_stuck do any = true
+	if !any do return
+	grid_reach(s)
+	for &c, i in game.crickets {
+		if !c.active || c.in_box || c.carried != 0 || c.web_stuck do continue
+		if s.target_id == i && (s.seq == game.seq.catch_ || s.eating) do continue
+		if grid_near_reached(c.x, c.y) {
+			c.rescue_ms = 0
+			continue
+		}
+		x, y, ok := grid_nearest_reached(c.x, c.y)
+		if !ok do continue
+		if c.rescue_ms == 0 {
+			c.rescue_ms = max(now_ms, 1)
+			clear_queue(&c)
+			move_to(&c, .Point, x, y, -1, game.cseq.lurk, RESCUE_WAIT_MS / 1000)
+			debug_logf("cricket %d is out of the spider's reach: walking to (%d, %d)", i, x, y)
+		} else if now_ms > c.rescue_ms + RESCUE_WAIT_MS {
+			clear_goal(&c)
+			clear_queue(&c)
+			stop_current(&c)
+			c.x, c.y = x, y
+			c.prev_x, c.prev_y = x, y
+			creature_update_position(&c)
+			enqueue_anim(&c, game.cseq.jump, -1, 1, flush = true)
+			c.rescue_ms = 0
+			debug_logf("cricket %d stuck out of reach: jumps to (%d, %d)", i, x, y)
+		}
+	}
+}

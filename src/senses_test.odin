@@ -120,3 +120,36 @@ glass_trip_goes_round_an_obstacle_by_the_wall :: proc(t: ^testing.T) {
 	}
 	testing.expectf(t, reached, "never got to the glass (y %d, glass %d)", s.y, glass_y)
 }
+
+@(test)
+cricket_out_of_reach_is_brought_back :: proc(t: ^testing.T) {
+	if !sim_setup(t, 36) do return
+	s := put_spider(250, 330)
+	// a cricket boxed in by rocks, far from the spider
+	cr := put_cricket(0, 900, 330)
+	for r in ([?]struct {id, x, y: int}{{2, 840, 330}, {3, 960, 330}, {6, 900, 260}, {5, 900, 410}, {4, 845, 250}}) {
+		o := &game.objects[r.id]
+		o.active, o.in_box = true, false
+		o.x, o.y = r.x, r.y
+		object_update_position(o)
+	}
+	grid_reach(s)
+	testing.expect(t, !grid_near_reached(cr.x, cr.y), "the setup puts it out of reach")
+	reached := false
+	for _ in 0 ..< 300 { // thirty seconds
+		tank_advance(TICK)
+		grid_reach(s)
+		if grid_near_reached(cr.x, cr.y) {reached = true; break}
+	}
+	testing.expectf(t, reached, "still out of reach at (%d, %d)", cr.x, cr.y)
+}
+
+@(test)
+cricket_command_drops_one :: proc(t: ^testing.T) {
+	if !sim_setup(t, 37) do return
+	before := crickets_in_tank()
+	for ch in transmute([]u8)string("CRICKET") do tank_char(i32(ch))
+	tank_char(13)
+	tank_tick()
+	testing.expect_value(t, crickets_in_tank(), before + 1)
+}

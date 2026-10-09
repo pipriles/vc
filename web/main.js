@@ -579,7 +579,6 @@ function setupTank() {
 		try { localStorage.setItem("vc-debug", on ? "1" : ""); } catch {}
 	};
 	$("debug").onchange = () => setDebug($("debug").checked);
-	$("drop").onclick = () => mem.exports.tank_drop_cricket();
 	addEventListener("keydown", (e) => {
 		mem.exports.tank_skip_intro(); // a key skips the opening (as the original)
 		if (e.target.tagName === "INPUT" && e.target.type !== "checkbox" && e.target.type !== "range") return;
@@ -589,7 +588,6 @@ function setupTank() {
 		if (e.key === "Enter") mem.exports.tank_char(13);
 		else if (/^[a-zA-Z0-9]$/.test(e.key) && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) mem.exports.tank_char(e.key.charCodeAt(0));
 		if (e.shiftKey && e.key.toUpperCase() === "D") setDebug(!$("debug").checked);
-		if (e.shiftKey && e.key.toUpperCase() === "C") mem.exports.tank_drop_cricket();
 		if (e.shiftKey && e.key.toUpperCase() === "F") $("fullscreen").click();
 		if (e.key >= "1" && e.key <= "5") mem.exports.tank_set_tool(+e.key - 1);
 	});

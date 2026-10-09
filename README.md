@@ -86,7 +86,7 @@ Not covered yet: comparison against the original program's behaviour
 - [x] Tank scene: spider idle AI, movement, depth scale, needs
 - [x] Walk-to-goal steering with detours; hiding under the rock; glass; shadows
 - [x] Debug overlay
-- [x] Crickets: collisions, chase, catch, eat, remains (debug "Drop cricket")
+- [x] Crickets: collisions, chase, catch, eat, remains (typed command CRICKET drops one)
 - [x] Tank objects: rendering, animation, blocking, drinking at the bowl
 - [x] Player tools with the original cursors, reactions, cricket box, buttons
 - [x] In-view UI, close-up and whole-tank views, object panel

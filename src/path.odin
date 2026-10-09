@@ -129,3 +129,52 @@ grid_fits :: proc(x, y: int) -> bool {
 	gx, gy := grid_cell(x, y)
 	return grid_free[gy * GRID_W + gx]
 }
+
+// Every square the spider can walk to from where it is now (for finding
+// crickets it can't get at).
+grid_reach :: proc(c: ^Creature) {
+	grid_build(c)
+	for &f in grid_from do f = -1
+	sx, sy := grid_cell(c.x, c.y)
+	start := sy * GRID_W + sx
+	grid_from[start] = -2
+	grid_free[start] = true
+	head, tail := 0, 0
+	grid_queue[tail] = i16(start); tail += 1
+	for head < tail {
+		i := int(grid_queue[head]); head += 1
+		gx, gy := i % GRID_W, i / GRID_W
+		for dy in -1 ..= 1 do for dx in -1 ..= 1 {
+			nx, ny := gx + dx, gy + dy
+			if (dx == 0 && dy == 0) || nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H do continue
+			n := ny * GRID_W + nx
+			if !grid_free[n] || grid_from[n] != -1 do continue
+			if dx != 0 && dy != 0 && !grid_free[gy * GRID_W + nx] && !grid_free[ny * GRID_W + gx] do continue
+			grid_from[n] = i16(i)
+			grid_queue[tail] = i16(n); tail += 1
+		}
+	}
+}
+
+// After grid_reach: whether the spider can get next to (x, y), that is
+// onto its square or one beside it.
+grid_near_reached :: proc(x, y: int) -> bool {
+	cx, cy := grid_cell(x, y)
+	for dy in -1 ..= 1 do for dx in -1 ..= 1 {
+		gx, gy := cx + dx, cy + dy
+		if gx < 0 || gy < 0 || gx >= GRID_W || gy >= GRID_H do continue
+		if grid_from[gy * GRID_W + gx] != -1 do return true
+	}
+	return false
+}
+
+// After grid_reach: the reachable square nearest to (x, y).
+grid_nearest_reached :: proc(x, y: int) -> (rx, ry: int, ok: bool) {
+	best := max(int)
+	for i in 0 ..< GRID_W * GRID_H {
+		if grid_from[i] == -1 do continue
+		px, py := grid_pos(i % GRID_W, i / GRID_W)
+		if d := (px - x) * (px - x) + (py - y) * (py - y); d < best do best, rx, ry, ok = d, px, py, true
+	}
+	return
+}

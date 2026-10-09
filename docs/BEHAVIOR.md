@@ -584,6 +584,12 @@ decisions:
   when hungry with no cricket in sight or thirsty with no bowl known, the
   spider walks to a random reachable point at least 350 px away.
 
+## Crickets out of reach (port addition)
+Every 2 s, while the spider is out and awake, the squares it can walk to
+are worked out (the route grid). A cricket not on or beside one (dropped
+between objects, behind one, pushed out of bounds) walks to the nearest
+reachable square, and if it isn't there 10 s later, jumps there.
+
 ## Opening sequence **confirmed** (0x40ca70 while 0x4519c4 < 3)
 Splash vcg_5000 (the egg) fading in from black (palette +8 a channel a
 frame), 24 frames then 1.5 s; sound 415 and the spider's CLEAN facing 4 at
@@ -608,7 +614,8 @@ a corner web · FLINT no frame-rate limit · SHOWFPS "FPS:nn" at (10, 464)
 · KAMIKAZE the crickets in the tank walk to the spider · URSULLA a moult
 · GLOBALBEACH the spider wears the Global Beach logo (vcg_2013 tiled at a
 size bouncing 2 px every other frame). The port's own shortcuts (debug,
-drop cricket, full screen) need Shift so typing doesn't set them off.
+full screen) need Shift so typing doesn't set them off. Port addition:
+CRICKET drops a cricket from the box into the tank.
 
 ## Plants on death **confirmed**
 Death (catch-up 0x415430): yucca to its last frame and both cacti (objects

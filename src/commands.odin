@@ -8,10 +8,11 @@ import "base:runtime"
 // (0x42b4e8). A match, while the creature is alive, plays the slurp (457),
 // shows a blinking "C" bottom right for 50 frames and does something.
 
-COMMANDS := [19]string {
+COMMANDS := [20]string {
 	"VENUS", "FLYTRAP", "BUFFALO", "PARKER", "DIET", "SAHARA", "PARTY",
 	"LANDOFTHEGIANTS", "MICROCOSM", "JARVIS", "VINNIE", "OLIVER", "SWAMPY",
 	"SURFER", "FLINT", "SHOWFPS", "KAMIKAZE", "URSULLA", "GLOBALBEACH",
+	"CRICKET", // port: drops a cricket from the box into the tank
 }
 
 Commands :: struct {
@@ -122,6 +123,8 @@ cmd_run :: proc(word: string) {
 		spider_moult()
 	case 18: // GLOBALBEACH
 		cmd.logo_skin = !cmd.logo_skin
+	case 19: // CRICKET (port)
+		game.pending_drops += 1
 	}
 }
 

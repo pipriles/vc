@@ -106,6 +106,7 @@ Creature :: struct {
 	anchor_ms:          u32,
 	squeeze_until:      u32,
 	waiting_for:        int, // cricket the spider is waiting to come within reach, -1 none
+	rescue_ms:          u32, // port: cricket out of the spider's reach since (see cricket_rescue)
 	pause:              int,         // ticks frozen (+0xf8)
 	tool:               Interaction, // pending player interaction (+0x4c)
 	prev_tool:          Interaction, // (+0x4e)
