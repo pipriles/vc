@@ -143,6 +143,7 @@ Assets :: struct {
 	objects:     [OBJECT_COUNT]Bitmap,
 	objects_ok:  [OBJECT_COUNT]bool,
 	options_box: Box_Art, // the Options box
+	splash:      Bitmap,  // vcg_5000: the opening picture
 }
 
 assets: Assets
@@ -165,6 +166,7 @@ load_assets :: proc() -> bool {
 	}
 	assets.ring, _ = bmp_load(load_file("bitmaps/vc_320.bmp"))
 	box_art_load(&assets.options_box)
+	assets.splash, _ = bmp_load(load_file("bitmaps/vcg_5000.bmp"))
 	for id, i in ([4]int{1000, 1003, 1002, 1001}) {
 		assets.gauges[i], _ = bmp_load(load_file(fmt.tprintf("bitmaps/vcg_%d.bmp", id)))
 	}
@@ -348,6 +350,12 @@ lerp_pos :: proc(from, to: int, limit: int) -> int {
 }
 
 tank_tick :: proc() {
+	if intro_active() {
+		now_ms += u32(tick_ms())
+		intro_tick()
+		return
+	}
+	cmd_tick()
 	remember_positions()
 	now_ms += u32(tick_ms())
 	if game.pending_new {
@@ -413,6 +421,11 @@ tank_step :: proc(dt: f64) {
 // watch the sim skip the render).
 tank_advance :: proc(dt: f64) {
 	tick := f64(tick_ms()) / 1000
+	if cmd.flat_out && dt > 0 {
+		// FLINT: no frame-rate limit, a game step every display frame
+		for _ in 0 ..< max(1, int(game.speed)) do tank_tick()
+		return
+	}
 	game.accum += dt * game.speed
 	if game.accum > 1 do game.accum = tick
 	for game.accum >= tick {
@@ -444,6 +457,10 @@ tank_set_debug :: proc "contextless" (on: i32) {
 }
 
 tank_render :: proc() {
+	if intro_active() {
+		intro_render()
+		return
+	}
 	if game.input.view == .Box {
 		box_render()
 		return
@@ -474,7 +491,10 @@ tank_render :: proc() {
 			copy(view[y * VIEW_W:][:VIEW_W], tank_buf[y * TANK_W + sx:][:VIEW_W])
 		}
 		ui_draw()
-		if !game.ui.saver do box_draw()
+		if !game.ui.saver {
+			box_draw()
+			cmd_draw()
+		}
 	case .Whole:
 		whole_render()
 	case .Close:
@@ -525,8 +545,12 @@ draw_creature :: proc(c: ^Creature, pass: Draw_Pass, scroll: int) {
 		for i in 0 ..< dw {
 			vx := x0 + i
 			if vx < 0 || vx >= dst.w do continue
-			p := frame_buf[sy * a.w + i * a.w / dw]
+			fx := i * a.w / dw
+			p := frame_buf[sy * a.w + fx]
 			if p == a.key || (p == d.key2) != (pass == .Shadow) do continue
+			if cmd.logo_skin && pass == .Body && c == &game.spider && a.w == LOGO_TEX_W && a.h == LOGO_TEX_H {
+				p = logo_tex[sy * LOGO_TEX_W + fx] // GLOBALBEACH
+			}
 			dst.px[vy * dst.w + vx] = p
 		}
 	}

@@ -28,6 +28,10 @@ spider_growth :: proc(check_moult: bool) {
 	minutes_per_point := 24.0 / f64(per_day) * 60
 	size := int(f64(age_minutes()) / minutes_per_point + NEWBORN_SIZE)
 	s.size = min(size, 100)
+	switch cmd.size_force { // LANDOFTHEGIANTS / MICROCOSM
+	case 1: s.size = 100
+	case 2: s.size = 5
+	}
 
 	// The original only checks for a moult while starting up (the game loop
 	// flag 0x456058 is still off), i.e. after time away.
@@ -88,11 +92,10 @@ slow_anims :: proc(minutes: int) {
 			}
 		}
 	}
+	if game.life.dead do plants_wilt(true) // (a death while running wilts them here)
 	y := &game.objects[YUCCA]
-	if y.active && !y.in_box {
-		if game.life.dead {
-			y.frame = y.def.frames - 1
-		} else if y.frame > 0 && y.frame < y.def.frames - 1 {
+	if y.active && !y.in_box && !game.life.dead {
+		if y.frame > 0 && y.frame < y.def.frames - 1 {
 			game.yucca_age += minutes
 			for game.yucca_age >= YUCCA_DAY && y.frame > 0 {
 				game.yucca_age -= YUCCA_DAY

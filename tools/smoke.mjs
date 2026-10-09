@@ -80,6 +80,17 @@ async function run(variant, mode, saveJson = null) {
 		ex.tank_set_saver(1);
 		for (let t = 0; t < 50; t++) ex.step(0.016, ctx);
 		ex.tank_set_saver(0);
+		// every typed command, then a few drawn frames
+		for (const w of ["VENUS", "FLYTRAP", "BUFFALO", "PARKER", "DIET", "SAHARA", "PARTY", "LANDOFTHEGIANTS",
+			"MICROCOSM", "JARVIS", "VINNIE", "OLIVER", "SWAMPY", "SURFER", "FLINT", "SHOWFPS", "KAMIKAZE",
+			"URSULLA", "GLOBALBEACH"]) {
+			for (const ch of w) ex.tank_char(ch.charCodeAt(0));
+			ex.tank_char(13);
+			for (let t = 0; t < 10; t++) ex.step(0.1, ctx);
+		}
+		ex.tank_intro(); // the opening sequence, drawn
+		for (let t = 0; t < 200; t++) ex.step(0.1, ctx);
+		ex.tank_skip_intro();
 		ex.tank_set_frame_rate(1, 0);
 		for (let t = 0; t < 50; t++) ex.step(0.1, ctx);
 	}

@@ -298,8 +298,7 @@ catch_up :: proc(minutes: int, since: f64) {
 	st.last_water = now_ms - min(u32(water_acc) * 60_000, now_ms)
 	st.last_food = now_ms - min(u32(food_acc) * 60_000, now_ms)
 	if game.life.dead {
-		yucca := &game.objects[YUCCA]
-		yucca.frame = yucca.def.frames - 1
+		plants_wilt(true)
 		return
 	}
 	// often found hiding afterwards
@@ -369,8 +368,7 @@ spider_resurrect :: proc() {
 	game.life.dead = false
 	game.life.died_at = 0
 	game.life.resurrections += 1
-	yucca := &game.objects[YUCCA]
-	yucca.frame = min(8, yucca.def.frames - 1)
+	plants_wilt(false)
 	game.scroll_x = clamp(s.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
 	st := &game.stats
 	st.water, st.food, st.mood = 30, 30, 0

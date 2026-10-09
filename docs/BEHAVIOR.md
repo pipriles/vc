@@ -584,5 +584,35 @@ decisions:
   when hungry with no cricket in sight or thirsty with no bowl known, the
   spider walks to a random reachable point at least 350 px away.
 
+## Opening sequence **confirmed** (0x40ca70 while 0x4519c4 < 3)
+Splash vcg_5000 (the egg) fading in from black (palette +8 a channel a
+frame), 24 frames then 1.5 s; sound 415 and the spider's CLEAN facing 4 at
+(160, 180), revealed by a rising palette-index threshold (5 / 4 / 3 a
+frame at 10 / 14 / 18 fps; indices ≥ 128 count as negative and always
+show), moving once fully shown, for 90 / 110 / 120 frames, the last 25
+darkening the palette 10 a frame; then the click (400) and the game. A key
+skips it (the port also a tap). The plugin's CLEAN, which replaces the
+spider's, has no frames facing 4; the port uses the spider's own.
+
+## Typed commands **confirmed** (0x409de0, WM_CHAR)
+Letters and digits collect upper-cased in a 16-character buffer (emptied
+when full or on Enter); Enter checks 19 words (stored +100 per letter at
+0x42b4e8). Alive only; slurp 457 and a blinking "C" at (620, 464) for 50
+frames:
+VENUS glass trip · FLYTRAP WEB_LAYING ×6 in four directions · BUFFALO hide
+under the rock · PARKER wait at the bell · DIET food −10 · SAHARA water −10
+· PARTY the crickets in the box dance (only in the box view) ·
+LANDOFTHEGIANTS size 100 / MICROCOSM size 5 (toggles) · JARVIS HAIR ×4 ·
+VINNIE THREAT ×3 · OLIVER bowl empty · SWAMPY yucca grows a frame · SURFER
+a corner web · FLINT no frame-rate limit · SHOWFPS "FPS:nn" at (10, 464)
+· KAMIKAZE the crickets in the tank walk to the spider · URSULLA a moult
+· GLOBALBEACH the spider wears the Global Beach logo (vcg_2013 tiled at a
+size bouncing 2 px every other frame). The port's own shortcuts (debug,
+drop cricket, full screen) need Shift so typing doesn't set them off.
+
+## Plants on death **confirmed**
+Death (catch-up 0x415430): yucca to its last frame and both cacti (objects
+4, 5) to frame 1; resurrection (0x404230): yucca frame 8, cacti frame 0.
+
 ## Not yet ported
 - Freeze Simulation (not wanted).

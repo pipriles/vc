@@ -479,6 +479,8 @@ function setupTank() {
 	window.vcSettingsChanged = (next) => { st = next; };
 	document.addEventListener("fullscreenchange", pushState);
 	mem.exports.tank_set_variant(variant === "rk" ? 1 : 0);
+	mem.exports.tank_intro(); // the opening sequence
+	canvas.addEventListener("pointerdown", () => mem.exports.tank_skip_intro()); // port: a tap skips it too
 	if ($("plate")) $("plate").textContent = variant === "rk" ? "RED KNEE TARANTULA" : "CHILE ROSE TARANTULA";
 	$("fullscreen").onclick = toggleFullscreen;
 
@@ -572,11 +574,17 @@ function setupTank() {
 	$("debug").onchange = () => setDebug($("debug").checked);
 	$("drop").onclick = () => mem.exports.tank_drop_cricket();
 	addEventListener("keydown", (e) => {
+		mem.exports.tank_skip_intro(); // a key skips the opening (as the original)
 		if (e.target.tagName === "INPUT" && e.target.type !== "checkbox" && e.target.type !== "range") return;
-		if (e.key === "d" || e.key === "D") setDebug(!$("debug").checked);
-		if (e.key === "c" || e.key === "C") mem.exports.tank_drop_cricket();
+		// letters and digits, and Enter, go to the game (the original's typed
+		// commands); the port's own shortcuts need Shift so typing doesn't
+		// trigger them
+		if (e.key === "Enter") mem.exports.tank_char(13);
+		else if (/^[a-zA-Z0-9]$/.test(e.key) && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) mem.exports.tank_char(e.key.charCodeAt(0));
+		if (e.shiftKey && e.key.toUpperCase() === "D") setDebug(!$("debug").checked);
+		if (e.shiftKey && e.key.toUpperCase() === "C") mem.exports.tank_drop_cricket();
+		if (e.shiftKey && e.key.toUpperCase() === "F") $("fullscreen").click();
 		if (e.key >= "1" && e.key <= "5") mem.exports.tank_set_tool(+e.key - 1);
-		if (e.key === "f" || e.key === "F") $("fullscreen").click();
 	});
 	let saved = false;
 	try { saved = localStorage.getItem("vc-debug") === "1"; } catch {}

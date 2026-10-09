@@ -7,6 +7,8 @@ package vc
 OBJECT_COUNT :: 10 // the 11th table row is the shed skin (kind 6), handled with moulting
 BOWL         :: 0  // DAT_00455846: the drinking object
 BELL         :: 1  // DAT_00454a38: where a hungry spider waits
+CACTUS1      :: 4  // DAT_00451ef8: wilted (frame 1) while the spider is dead
+CACTUS2      :: 5  // DAT_00451ed8: likewise
 YUCCA        :: 7  // DAT_0044def4: grows one frame per day
 FOUNTAIN     :: 8  // running water while in the tank (loop 465)
 WINDPUMP     :: 9  // DAT_00451f2a: creaks now and then (419)
@@ -80,6 +82,15 @@ objects_init :: proc() {
 		o.in_box = !def.in_tank // not placed in the tank
 		if def.in_tank do place_free(&o)
 	}
+}
+
+// The plants wilt when the spider dies (catch-up 0x415430: the yucca to its
+// last frame, both cacti to frame 1) and recover when it's resurrected
+// (0x404230: yucca frame 8, cacti frame 0).
+plants_wilt :: proc(dead: bool) {
+	y := &game.objects[YUCCA]
+	y.frame = dead ? y.def.frames - 1 : min(8, y.def.frames - 1)
+	for id in ([?]int{CACTUS1, CACTUS2}) do game.objects[id].frame = dead ? 1 : 0
 }
 
 // Bounds of the non-key pixels of frame 0, in frame coordinates. Port:
