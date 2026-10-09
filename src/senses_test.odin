@@ -36,7 +36,7 @@ hungry_spider_stalks_and_catches_a_cricket :: proc(t: ^testing.T) {
 	eaten := game.eaten
 	stalked, froze := false, false
 	for _ in 0 ..< 1200 { // two minutes
-		tank_step(TICK)
+		tank_advance(TICK)
 		stalked ||= game.senses.hunt == .Stalk
 		froze ||= game.senses.hunt == .Freeze
 		if game.eaten > eaten do break
@@ -54,7 +54,7 @@ spider_doesnt_notice_a_cricket_far_away :: proc(t: ^testing.T) {
 	put_spider(250, 330)
 	put_cricket(0, 1000, 300)
 	for _ in 0 ..< 100 { // ten seconds
-		tank_step(TICK)
+		tank_advance(TICK)
 		testing.expect(t, game.senses.hunt == .None, "stalking a cricket it can't have noticed")
 		if game.senses.hunt != .None do break
 	}
@@ -72,7 +72,7 @@ thirsty_spider_finds_a_bowl_it_hasnt_seen :: proc(t: ^testing.T) {
 	drank := false
 	for _ in 0 ..< 6000 { // ten minutes
 		before := game.stats.water
-		tank_step(TICK)
+		tank_advance(TICK)
 		if game.stats.water > before {drank = true; break}
 	}
 	log.infof("bowl known %v, water %d", game.senses.bowl_known, game.stats.water)

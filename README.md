@@ -40,8 +40,10 @@ the spider's decisions. Sim speed runs the clock up to 20× faster.
 ```sh
 ./test.sh   # native tests, then wasm build + Node smoke test
 ```
-Native `odin test` (about 2 s), single-threaded because tests share the
-simulation's globals. Data tests skip themselves when `data/` is missing.
+Native `odin test` (about 2 s of tests after a ~30 s `-o:speed` build),
+single-threaded because tests share the simulation's globals. Data tests
+skip themselves when `data/` is missing. One test: `./test.sh
+-define:ODIN_TEST_NAMES=vc.<name>`.
 - **Unit:** `rand` vs known MSVC output; x87 rounding vs an exact-fraction
   oracle (`tools/gen_x87_fixture.py`); needs/temperament, depth scale,
   speeds and wall bumps vs values worked out by hand from the disassembly.
@@ -53,6 +55,15 @@ simulation's globals. Data tests skip themselves when `data/` is missing.
   with every object placed; a sweep of 3000 start seeds.
 - **Browser build:** `tools/smoke.mjs` runs the real `vc.wasm` in Node with
   both variants and both pages (needs Node), catching wasm-only failures.
+
+Keeping the suite fast:
+- Sim tests step with `tank_tick()` or `tank_advance(TICK)`, never
+  `tank_step(TICK)` in a loop: that renders a full 640×480 frame per
+  step, which the native build throws away (7,200 renders took ~30 s).
+  Call `tank_render()` once where a test checks drawing.
+- `x87_scale_trunc` is called many times a tick; keep per-call work small
+  (its per-scale quotient is cached, uncached it was ~95% of test time).
+- Unoptimised builds (`odin test src` without `-o:speed`) are ~6× slower.
 
 Not covered yet: comparison against the original program's behaviour
 (see docs/BEHAVIOR.md for how each rule was derived).
