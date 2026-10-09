@@ -1,5 +1,7 @@
 package vc
 
+import "base:runtime"
+
 // The in-view UI: button row, needs indicators, pet name and logo (the
 // logo toggles the rest; the original's exit button isn't needed here), drawn into the view like the original (main update 0x40ca70,
 // buttons 0x41bc..: table, 0x4060b0 draw, indicators 0x40e990).
@@ -238,10 +240,37 @@ logo_frames :: proc() -> int {
 }
 
 button_at :: proc(vx, vy: int) -> int {
+	// port: a finger gets a few pixels more round each button (the gaps
+	// between them are 4 px, so they still don't overlap)
+	pad := touch_ui ? 6 : 0
+	best, best_d := -1, max(int)
 	for b, i in game.ui.buttons {
-		if vx >= b.x && vx < b.x + b.fw && vy >= BUTTON_Y && vy < BUTTON_Y + b.fh do return i
+		if vx >= b.x - pad && vx < b.x + b.fw + pad && vy >= BUTTON_Y - pad && vy < BUTTON_Y + b.fh + pad {
+			d := abs(vx - (b.x + b.fw / 2))
+			if d < best_d do best, best_d = i, d
+		}
 	}
-	return -1
+	return best
+}
+
+touch_ui := false
+
+@(export)
+tank_set_touch :: proc "contextless" (on: i32) {touch_ui = on != 0}
+
+// What's under a view point, for the host's touch handling: 0 the tank,
+// 1 a button or indicator (a long press gives help), 2 the logo.
+@(export)
+tank_ui_at :: proc "c" (x, y: i32) -> i32 {
+	context = runtime.default_context()
+	vx, vy := int(x), int(y)
+	u := &game.ui
+	if game.input.view != .Tank || u.floating do return 0
+	if box_covers(vx, vy) do return 0
+	if over_logo(vx, vy) do return 2
+	if u.shown && u.slide == 0 && button_at(vx, vy) >= 0 do return 1
+	if indicator_help_at(vx, vy) >= 0 do return 1
+	return 0
 }
 
 LOGO_X :: VIEW_W - 96 - 10

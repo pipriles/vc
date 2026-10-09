@@ -80,6 +80,12 @@ async function run(variant, mode, saveJson = null) {
 		ex.tank_set_saver(1);
 		for (let t = 0; t < 50; t++) ex.step(0.016, ctx);
 		ex.tank_set_saver(0);
+		// touch: padded buttons, and what's under a finger
+		ex.tank_set_touch(1);
+		if (ex.tank_ui_at(30, 440) !== 1) throw new Error("no button under a finger at (30, 440)");
+		if (ex.tank_ui_at(580, 440) !== 2) throw new Error("no logo under a finger at (580, 440)");
+		if (ex.tank_ui_at(320, 250) !== 0) throw new Error("UI in the middle of the tank");
+		ex.tank_set_touch(0);
 		// every typed command, then a few drawn frames
 		for (const w of ["VENUS", "FLYTRAP", "BUFFALO", "PARKER", "DIET", "SAHARA", "PARTY", "LANDOFTHEGIANTS",
 			"MICROCOSM", "JARVIS", "VINNIE", "OLIVER", "SWAMPY", "SURFER", "FLINT", "SHOWFPS", "KAMIKAZE",

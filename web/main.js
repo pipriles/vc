@@ -345,7 +345,11 @@ function setupViewer() {
 // Original cursors (manifest.cursors[set][frame] = {file, hotspot}).
 const cursorCss = Object.fromEntries(Object.entries(manifest.cursors ?? {}).map(([set, frames]) =>
 	[set, frames.map((f) => `url(${base}${f.file}) ${f.hotspot[0]} ${f.hotspot[1]}, auto`)]));
+// The current cursor, also drawn under a finger on touch screens.
+let cursorNow = null; // {url, hx, hy}
 function setCursor(set, frame) {
+	const f = manifest.cursors?.[set]?.[frame] ?? manifest.cursors?.[set]?.[0];
+	if (f) cursorNow = { url: `${base}${f.file}`, hx: f.hotspot[0], hy: f.hotspot[1] };
 	const css = cursorCss[set]?.[frame] ?? cursorCss[set]?.[0];
 	if (css && canvas.style.cursor !== css) canvas.style.cursor = css;
 }
@@ -483,6 +487,9 @@ function setupTank() {
 	canvas.addEventListener("pointerdown", () => mem.exports.tank_skip_intro()); // port: a tap skips it too
 	if ($("plate")) $("plate").textContent = variant === "rk" ? "RED KNEE TARANTULA" : "CHILE ROSE TARANTULA";
 	$("fullscreen").onclick = toggleFullscreen;
+	// small screens: the settings fold into the gear button
+	if ($("menu")) $("menu").onclick = () => document.body.classList.toggle("bar-open");
+	canvas.addEventListener("pointerdown", () => document.body.classList.remove("bar-open"));
 
 	// screensaver: UI and cursor hidden, the view follows the spider; any
 	// input ends it. After the idle minutes set in Options > Utilities, or
@@ -596,25 +603,67 @@ function setupTank() {
 	};
 	// left button (or one finger): the current tool; right click: help on a
 	// button or indicator, otherwise the next tool (the original's right
-	// button); right (or middle) drag, or two fingers, pans the viewfinder
+	// button); right (or middle) drag, or two fingers, pans the viewfinder.
+	// Touch: a finger on a button, indicator or the logo shows its tooltip;
+	// lifted, it presses it; held half a second, it gives the help (the
+	// logo: a box to type a command). Elsewhere it's the tool, with the
+	// tool's cursor drawn under the finger.
 	let panX = null, panFrom = null, panning = false;
 	const touches = new Map(); // pointerId -> clientX, for two-finger panning
 	let twoFinger = false;
+	let uiTouch = null; // {kind, x, y, at: [cx, cy], timer, long}
 	const touchX = () => [...touches.values()].reduce((a, b) => a + b, 0) / touches.size;
 	const k = () => canvas.width / canvas.getBoundingClientRect().width;
+	const finger = $("finger");
+	const showFinger = (e) => {
+		if (!finger || !cursorNow) { if (finger) finger.hidden = true; return; }
+		const r = canvas.getBoundingClientRect(), sc = r.width / canvas.width;
+		finger.src = cursorNow.url;
+		finger.style.width = `${32 * sc}px`;
+		finger.style.left = `${e.clientX - r.left - cursorNow.hx * sc}px`;
+		finger.style.top = `${e.clientY - r.top - cursorNow.hy * sc}px`;
+		finger.hidden = false;
+	};
+	const hideFinger = () => { if (finger) finger.hidden = true; };
+	const typeCommand = () => {
+		const w = prompt("Type a command");
+		if (!w) return;
+		for (const ch of w) mem.exports.tank_char(ch.charCodeAt(0));
+		mem.exports.tank_char(13);
+	};
 	canvas.oncontextmenu = (e) => e.preventDefault();
 	canvas.onpointerdown = (e) => {
 		canvas.setPointerCapture(e.pointerId);
 		if (e.pointerType === "touch") {
+			if (!document.body.classList.contains("touch")) {
+				document.body.classList.add("touch");
+				mem.exports.tank_set_touch(1);
+			}
 			touches.set(e.pointerId, e.clientX);
 			if (touches.size === 2) {
 				// a second finger: stop what the first was doing, pan instead
 				twoFinger = true;
+				if (uiTouch) { clearTimeout(uiTouch.timer); uiTouch = null; }
+				hideFinger();
 				mem.exports.tank_pointer(3, ...toCanvas(e));
 				panX = touchX();
 				return;
 			}
 			if (twoFinger) return;
+			const [x, y] = toCanvas(e);
+			const kind = mem.exports.tank_ui_at(x, y);
+			if (kind) {
+				mem.exports.tank_pointer(0, x, y); // hover: its tooltip
+				uiTouch = { kind, x, y, at: [e.clientX, e.clientY], long: false };
+				uiTouch.timer = setTimeout(() => {
+					if (!uiTouch) return;
+					uiTouch.long = true;
+					if (uiTouch.kind === 2) typeCommand();
+					else mem.exports.tank_pointer(4, uiTouch.x, uiTouch.y); // help
+				}, 500);
+				return;
+			}
+			showFinger(e);
 		} else if (e.button !== 0) {
 			panX = e.clientX;
 			panFrom = [e.clientX, e.clientY, e.button];
@@ -631,6 +680,21 @@ function setupTank() {
 				else panX = touchX();
 				return;
 			}
+			hideFinger();
+			if (uiTouch) {
+				const t = uiTouch;
+				uiTouch = null;
+				clearTimeout(t.timer);
+				if (!t.long && e.type === "pointerup") {
+					mem.exports.tank_pointer(1, t.x, t.y);
+					mem.exports.tank_pointer(2, t.x, t.y);
+				}
+				mem.exports.tank_pointer(3, t.x, t.y); // no hover left behind
+				return;
+			}
+			mem.exports.tank_pointer(2, ...toCanvas(e));
+			mem.exports.tank_pointer(3, ...toCanvas(e));
+			return;
 		} else if (panFrom) {
 			if (!panning && panFrom[2] === 2) mem.exports.tank_pointer(4, ...toCanvas(e));
 			panX = panFrom = null;
@@ -647,6 +711,14 @@ function setupTank() {
 			panX = x;
 			return;
 		}
+		if (e.pointerType === "touch" && uiTouch) {
+			// sliding off cancels the long press; it's a tap only where it started
+			if (Math.hypot(e.clientX - uiTouch.at[0], e.clientY - uiTouch.at[1]) > 10) {
+				clearTimeout(uiTouch.timer);
+				uiTouch.long = true;
+			}
+			return;
+		}
 		if (panFrom) {
 			if (!panning && Math.hypot(e.clientX - panFrom[0], e.clientY - panFrom[1]) < 5) return;
 			panning = true;
@@ -654,6 +726,7 @@ function setupTank() {
 			panX = e.clientX;
 			return;
 		}
+		if (e.pointerType === "touch") showFinger(e);
 		mem.exports.tank_pointer(0, ...toCanvas(e));
 	};
 	canvas.onpointerleave = (e) => mem.exports.tank_pointer(3, ...toCanvas(e));
