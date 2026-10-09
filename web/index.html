@@ -52,14 +52,18 @@
   .stage.saver, .stage.saver * { cursor: none !important; }
   #view { display: block; width: 100%; image-rendering: pixelated; touch-action: none; }
   #overlay, #ui-text { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-  /* the creature's state, with the debug tools only */
-  #status { display: none; font: 12px/1.4 ui-monospace, Menlo, monospace; color: var(--dim); font-variant-numeric: tabular-nums; }
-  body.show-debug #status { display: block; }
-  .debug { display: none; gap: 16px; flex-wrap: wrap; justify-content: center; }
-  body.show-debug .debug { display: flex; }
-  .debug pre { margin: 0; padding: 8px 12px; background: var(--panel); border: 1px solid #000; border-radius: 6px;
-    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow: auto; }
-  #debug-log { height: 220px; width: 520px; max-width: 100%; }
+  /* debug tools: small see-through windows over the page, fixed in place
+     so they never move the layout; long lines wrap, overflow scrolls */
+  .debug, #status { display: none; }
+  body.show-debug .debug, body.show-debug #status { display: block; }
+  .dbg { position: fixed; z-index: 20; margin: 0; padding: 6px 9px; box-sizing: border-box;
+    background: rgb(8 8 10 / 0.68); color: #cfd2cf; border: 1px solid rgb(255 255 255 / 0.12); border-radius: 8px;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.4);
+    font: 10.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums;
+    white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; }
+  #debug-panel { top: 84px; left: 12px; width: 400px; max-width: calc(100vw - 24px); max-height: calc(100vh - 290px); }
+  #debug-log { bottom: 12px; left: 12px; width: 400px; max-width: calc(100vw - 24px); height: 150px; }
+  #status { bottom: 12px; right: 12px; max-width: 360px; }
   .message { position: fixed; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 0.55); }
   .message[hidden] { display: none; }
   .message-box { max-width: 420px; padding: 16px 20px; border-radius: 12px; border: 1px solid #000;
@@ -98,10 +102,10 @@
 </div>
 <div class="foot"><span class="grill"></span><span class="plate" id="plate">SPIDER TANK</span><span class="grill"></span></div>
 </div>
-<div id="status"></div>
+<div id="status" class="dbg"></div>
 <div class="debug">
-  <pre id="debug-panel"></pre>
-  <pre id="debug-log"></pre>
+  <pre id="debug-panel" class="dbg"></pre>
+  <pre id="debug-log" class="dbg"></pre>
 </div>
 <script src="odin.js"></script>
 <script type="module" src="main.js"></script>
