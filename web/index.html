@@ -102,9 +102,8 @@
      settings go below it */
   @media (max-width: 760px) and (max-aspect-ratio: 5/4), (max-height: 600px) and (max-aspect-ratio: 5/4) {
     .cabinet { order: 0; }
-    .gear { position: static; order: 1; width: auto; height: auto; padding: 6px 16px; border-radius: 8px; font-size: 15px; }
-    .gear::after { content: " Settings"; font-size: 13px; }
-    .bar { position: static; order: 2; width: var(--w); max-height: none; }
+    .gear, body.bar-open .gear { display: none; }
+    .bar, body.bar-open .bar { display: flex; position: static; order: 1; width: calc(var(--w) + 10px); max-height: none; }
     #status, .debug { order: 3; }
   }
   /* room beside the tank (landscape): the gear floats at the left */
@@ -115,7 +114,7 @@
 </style>
 </head>
 <body data-mode="tank">
-<button id="menu" class="gear" title="Settings" aria-label="Settings">⚙</button>
+<button id="menu" class="gear" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.3 7.3 0 0 0-1.7-1L15 3.3h-4L10.6 6a7.3 7.3 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.3 7.3 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.3 7.3 0 0 0 1.7-1l2.5 1 2-3.5zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg></button>
 <div class="bar">
   <label>Variant <select id="variant"><option value="cr">Chile Rose</option><option value="rk">Red Knee</option></select></label>
   <label>Sim speed <input id="speed" type="range" min="1" max="20" step="1" value="1"><span id="speedv">1×</span></label>
@@ -125,7 +124,7 @@
   <label>Name <input id="pet-name" maxlength="20" size="12" placeholder="ENTER PETS NAME HERE"></label>
   <button id="new-spider">New spider</button>
   <button id="drop">Drop cricket <kbd>⇧C</kbd></button>
-  <label><input id="debug" type="checkbox"> Debug <kbd>⇧D</kbd></label>
+  <label>Debug <kbd>⇧D</kbd> <input id="debug" type="checkbox"></label>
   <a href="viewer.html" id="viewer-link" hidden>Animation viewer →</a>
 </div>
 <div class="cabinet">
