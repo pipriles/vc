@@ -6,4 +6,5 @@
   runs from several agents slow each other down.
 - In tests, advance the sim with `tank_tick()` or `tank_advance(TICK)`.
   Don't loop over `tank_step()`: it renders a full frame every step.
-- See README.md "Tests" for the rest.
+- See README.md "Tests", and docs/TESTING.md for why (profiling how-to,
+  measurements).

@@ -106,9 +106,9 @@ starving_while_running_dies :: proc(t: ^testing.T) {
 	if !sim_setup(t, 5) do return
 	defer game.life = {} // later tests share the globals
 	game.stats.food, game.stats.water = 0, 0
-	for _ in 0 ..< 30 do tank_step(TICK)
+	for _ in 0 ..< 30 do tank_advance(TICK)
 	testing.expect(t, game.life.dead, "dies when health reaches 0")
 	testing.expect(t, game.life.death_notice > 0, "the notice is pending")
-	for _ in 0 ..< 40 do tank_step(TICK)
+	for _ in 0 ..< 40 do tank_advance(TICK)
 	testing.expect_value(t, last_message, "YOUR CREATURE HAS DIED!")
 }

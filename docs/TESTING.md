@@ -43,9 +43,9 @@ read sim state (positions, `game.senses`, `eaten`, `water`).
 
 Fix: `tank_step` was split into `tank_advance(dt)` (timing + ticks, sets
 `game.alpha`) followed by `tank_render()`. Tests call `tank_advance`.
-Results were unchanged (e.g. the ring test still reports 272 px).
-`starving_while_running_dies` keeps `tank_step` (70 frames; it checks the
-death message, which goes through the drawn UI).
+Results were unchanged (e.g. the ring test still reports 272 px). No
+test loops over `tank_step` now; messages such as the death notice come
+from the tick (`death_notice_tick` → `host_message`), not the render.
 
 ### 3. Unoptimised build
 

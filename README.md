@@ -65,6 +65,8 @@ Keeping the suite fast:
   (its per-scale quotient is cached, uncached it was ~95% of test time).
 - Unoptimised builds (`odin test src` without `-o:speed`) are ~6× slower.
 
+Why, with measurements and how to profile: `docs/TESTING.md`.
+
 Not covered yet: comparison against the original program's behaviour
 (see docs/BEHAVIOR.md for how each rule was derived).
 
@@ -75,7 +77,7 @@ Not covered yet: comparison against the original program's behaviour
 | `web/`   | HTML + JS host (file prefetch, canvas blit) |
 | `tools/` | extractor, Ghidra scripts (`decompile.sh`), dev server, fixture generator |
 | `re/`    | `symbols.txt`: names for addresses in `VC.EXE` |
-| `docs/`  | `FORMAT.md` (animation format), `BEHAVIOR.md` (game logic notes) |
+| `docs/`  | `FORMAT.md` (animation format), `BEHAVIOR.md` (game logic notes), `TESTING.md` (test speed) |
 
 ## Status
 - [x] Installer + resource extraction
