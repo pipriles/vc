@@ -30,7 +30,8 @@ file_read :: proc "contextless" (name: string, dst: [^]u8) {
 	if err == nil do copy(dst[:len(data)], data)
 }
 
-present :: proc "contextless" (rgba: [^]u8, w, h: i32) {}
+presented: int // frames sent to the host, for tests
+present :: proc "contextless" (rgba: [^]u8, w, h: i32) {presented += 1}
 host_mode :: proc "contextless" () -> i32 {return 0}
 host_time :: proc "contextless" () -> f64 {return 1_000_000_000} // a fixed "now" for tests
 ui_add_anim :: proc "contextless" (name: string) {}

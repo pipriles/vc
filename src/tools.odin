@@ -167,8 +167,10 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 			}
 		}
 	case .Move:
-		// pointer at the left/right edge scrolls the viewfinder (scan mode)
-		if in_.view == .Tank {
+		// pointer at the left/right edge scrolls the viewfinder: port, only
+		// while carrying something (the original always did; the port pans
+		// with a right-drag or two fingers instead)
+		if in_.view == .Tank && in_.carry != .None {
 			if vx > VIEW_W - 20 {
 				game.scroll_right, game.scroll_left = 8, 0
 			} else if vx < 20 {

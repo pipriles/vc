@@ -110,6 +110,7 @@ addEventListener("pointerdown", () => sound.unlock(), { capture: true });
 addEventListener("keydown", () => sound.unlock(), { capture: true });
 const noop = () => {};
 const tctx = $("ui-text")?.getContext("2d");
+let uiOps = null, uiShown = "[]"; // UI text: this frame's calls, what's drawn (uiFlush)
 // The text canvas matches the displayed size (the view is scaled up), so
 // text stays sharp; everything draws in 640 x 480 view coordinates.
 function fitText() {
@@ -120,6 +121,7 @@ function fitText() {
 	if (c.width !== w) {
 		c.width = w;
 		c.height = Math.round(w * 3 / 4);
+		uiShown = null; // resizing cleared it
 	}
 	tctx.setTransform(c.width / 640, 0, 0, c.height / 480, 0, 0);
 	tctx.font = "bold 11px Arial, sans-serif";
@@ -193,32 +195,9 @@ const imports = {
 		host_view: (view) => setView(view),
 		host_tool: noop,
 		host_open: (what) => (what === 0 ? openWebsite() : toggleFloatingPanel()),
-		ui_begin: () => tctx?.clearRect(0, 0, 640, 480),
-		// text for the Options box: font 1 Arial bold 18, 2 bold 12, 3 bold
-		// italic 16 (GDI cell heights); flags 1 centre, 2 word wrap, 4 clip
-		ui_text_ex: (x, y, w, h, p, n, font, color, flags) => {
-			if (!tctx) return;
-			const text = mem.loadString(p, n);
-			tctx.save();
-			tctx.font = BOX_FONTS[font] ?? BOX_FONTS[1];
-			tctx.fillStyle = hex(color);
-			if (flags & 4) { tctx.beginPath(); tctx.rect(x, y, w, h); tctx.clip(); }
-			let lines = [text];
-			if (flags & 2) {
-				lines = [];
-				let line = "";
-				for (const word of text.split(" ")) {
-					const t = line ? `${line} ${word}` : word;
-					if (line && tctx.measureText(t).width > w) { lines.push(line); line = word; } else line = t;
-				}
-				lines.push(line);
-			}
-			lines.forEach((l, k) => {
-				const lx = flags & 1 ? x + (w - tctx.measureText(l).width) / 2 : x;
-				tctx.fillText(l, lx, y + k * 12);
-			});
-			tctx.restore();
-		},
+		ui_begin: () => uiBegin(),
+		ui_text_ex: (x, y, w, h, p, n, font, color, flags) =>
+			uiOps?.push(["ex", x, y, w, h, mem.loadString(p, n), font, color, flags]),
 		host_set_sound: (on) => setSound(!!on),
 		host_fullscreen: () => toggleFullscreen(),
 		host_settings: (rate, smooth, helpText, idle) => {
@@ -228,17 +207,62 @@ const imports = {
 		},
 		host_saver: () => window.vcStartSaver?.(true),
 		host_tz_offset: () => -new Date().getTimezoneOffset(),
-		ui_text: (x, y, p, n) => {
-			const text = mem.loadString(p, n);
-			tctx.fillStyle = "#000";
-			tctx.fillText(text, x + 1, y + 1);
-			tctx.fillStyle = "#fff";
-			tctx.fillText(text, x, y);
-		},
+		ui_text: (x, y, p, n) => uiOps?.push(["text", x, y, mem.loadString(p, n)]),
 		tank_status: (food, water, health, mood, temper, p, n, dir) =>
 			showStatus(food, water, health, mood, temper, mem.loadString(p, n), dir),
 	},
 };
+
+// UI text is redrawn by the game every frame (ui_begin, then the labels),
+// but is usually empty or unchanged: collect a frame's calls and repaint the
+// text canvas only when they differ from what it shows, so the browser
+// doesn't recomposite it every display frame.
+function uiBegin() {
+	if (!tctx) return;
+	if (uiOps === null) queueMicrotask(uiFlush); // after this step returns
+	uiOps = [];
+}
+function uiFlush() {
+	const ops = uiOps;
+	uiOps = null;
+	const key = JSON.stringify(ops);
+	if (key === uiShown) return;
+	uiShown = key;
+	tctx.clearRect(0, 0, 640, 480);
+	for (const op of ops) {
+		if (op[0] === "ex") uiTextEx(...op.slice(1));
+		else uiText(...op.slice(1));
+	}
+}
+// text for the Options box: font 1 Arial bold 18, 2 bold 12, 3 bold
+// italic 16 (GDI cell heights); flags 1 centre, 2 word wrap, 4 clip
+function uiTextEx(x, y, w, h, text, font, color, flags) {
+	tctx.save();
+	tctx.font = BOX_FONTS[font] ?? BOX_FONTS[1];
+	tctx.fillStyle = hex(color);
+	if (flags & 4) { tctx.beginPath(); tctx.rect(x, y, w, h); tctx.clip(); }
+	let lines = [text];
+	if (flags & 2) {
+		lines = [];
+		let line = "";
+		for (const word of text.split(" ")) {
+			const t = line ? `${line} ${word}` : word;
+			if (line && tctx.measureText(t).width > w) { lines.push(line); line = word; } else line = t;
+		}
+		lines.push(line);
+	}
+	lines.forEach((l, k) => {
+		const lx = flags & 1 ? x + (w - tctx.measureText(l).width) / 2 : x;
+		tctx.fillText(l, lx, y + k * 12);
+	});
+	tctx.restore();
+}
+function uiText(x, y, text) {
+	tctx.fillStyle = "#000";
+	tctx.fillText(text, x + 1, y + 1);
+	tctx.fillStyle = "#fff";
+	tctx.fillText(text, x, y);
+}
 
 function setupViewer() {
 	const fillDirs = () => {
@@ -508,14 +532,28 @@ function setupTank() {
 		$("speedv").textContent = `${$("speed").value}×`;
 		mem.exports.tank_set_speed(+$("speed").value);
 	};
-	// left button: the current tool; right click: help on a button or
-	// indicator, otherwise the next tool (the original's right button);
-	// right (or middle) drag pans the viewfinder
+	// left button (or one finger): the current tool; right click: help on a
+	// button or indicator, otherwise the next tool (the original's right
+	// button); right (or middle) drag, or two fingers, pans the viewfinder
 	let panX = null, panFrom = null, panning = false;
+	const touches = new Map(); // pointerId -> clientX, for two-finger panning
+	let twoFinger = false;
+	const touchX = () => [...touches.values()].reduce((a, b) => a + b, 0) / touches.size;
+	const k = () => canvas.width / canvas.getBoundingClientRect().width;
 	canvas.oncontextmenu = (e) => e.preventDefault();
 	canvas.onpointerdown = (e) => {
 		canvas.setPointerCapture(e.pointerId);
-		if (e.button !== 0) {
+		if (e.pointerType === "touch") {
+			touches.set(e.pointerId, e.clientX);
+			if (touches.size === 2) {
+				// a second finger: stop what the first was doing, pan instead
+				twoFinger = true;
+				mem.exports.tank_pointer(3, ...toCanvas(e));
+				panX = touchX();
+				return;
+			}
+			if (twoFinger) return;
+		} else if (e.button !== 0) {
 			panX = e.clientX;
 			panFrom = [e.clientX, e.clientY, e.button];
 			panning = false;
@@ -523,8 +561,15 @@ function setupTank() {
 		}
 		mem.exports.tank_pointer(1, ...toCanvas(e));
 	};
-	canvas.onpointerup = (e) => {
-		if (panX !== null) {
+	canvas.onpointerup = canvas.onpointercancel = (e) => {
+		if (e.pointerType === "touch") {
+			touches.delete(e.pointerId);
+			if (twoFinger) {
+				if (touches.size === 0) { twoFinger = false; panX = null; }
+				else panX = touchX();
+				return;
+			}
+		} else if (panFrom) {
 			if (!panning && panFrom[2] === 2) mem.exports.tank_pointer(4, ...toCanvas(e));
 			panX = panFrom = null;
 			return;
@@ -532,11 +577,18 @@ function setupTank() {
 		mem.exports.tank_pointer(2, ...toCanvas(e));
 	};
 	canvas.onpointermove = (e) => {
-		if (panX !== null) {
+		if (e.pointerType === "touch" && twoFinger) {
+			if (!touches.has(e.pointerId)) return;
+			touches.set(e.pointerId, e.clientX);
+			const x = touchX();
+			mem.exports.tank_scroll(Math.round((panX - x) * k()));
+			panX = x;
+			return;
+		}
+		if (panFrom) {
 			if (!panning && Math.hypot(e.clientX - panFrom[0], e.clientY - panFrom[1]) < 5) return;
 			panning = true;
-			const k = canvas.width / canvas.getBoundingClientRect().width;
-			mem.exports.tank_scroll(Math.round((panX - e.clientX) * k));
+			mem.exports.tank_scroll(Math.round((panX - e.clientX) * k()));
 			panX = e.clientX;
 			return;
 		}

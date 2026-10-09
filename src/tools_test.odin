@@ -135,3 +135,14 @@ whole_tank_and_close_up :: proc(t: ^testing.T) {
 	tank_tick()
 	testing.expect(t, game.input.view == .Tank, "click leaves the close-up")
 }
+
+@(test)
+edges_dont_scroll_unless_carrying :: proc(t: ^testing.T) {
+	if !sim_setup(t, 8) do return
+	game.follow = false
+	game.scroll_x = 300
+	pointer_event(.Move, VIEW_W - 5, 300)
+	pointer_event(.Move, 5, 300)
+	for _ in 0 ..< 10 do tank_tick()
+	testing.expect_value(t, game.scroll_x, 300)
+}

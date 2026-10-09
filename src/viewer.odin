@@ -96,9 +96,19 @@ viewer_step :: proc(dt: f64) {
 	viewer_render()
 }
 
+// What the canvas shows: a frame only changes with these, so the other
+// display frames (all of them while paused) skip the decode and present.
+@(private = "file")
+shown: struct {
+	anim, seq, dir, frame: int,
+	valid:                 bool,
+}
+
 viewer_render :: proc() {
 	d := current_dir()
 	if d == nil || len(d.frames) == 0 do return
+	key := type_of(shown){state.anim, state.seq, state.dir, state.frame, true}
+	if shown == key do return
 	a := &state.anims[state.anim]
 	s := &a.seqs[state.seq]
 	n := a.w * a.h
@@ -113,5 +123,6 @@ viewer_render :: proc() {
 		rgba[4 * i + 3] = 255
 	}
 	present(&rgba[0], i32(a.w), i32(a.h))
+	shown = key
 	ui_status(i32(state.seq), i32(state.dir), i32(state.frame), i32(len(d.frames)))
 }

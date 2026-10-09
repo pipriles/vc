@@ -71,6 +71,35 @@ cache only saved ~10% on the render-heavy movement tests, but ~13× on the
 sim tests. Measure the whole suite, and per test group, before ranking
 causes.
 
+## Browser loop (2026-10-09)
+
+`odin.js` calls `step` on every `requestAnimationFrame`: up to 120 Hz on a
+ProMotion display, while the sim ticks every 55-100 ms. Each call ran a
+full render, and ~90% of frames came out pixel-identical to the previous
+one. Measured with the real `web/main.js` against a stub DOM in Node, 30 s
+at 120 Hz, Chile Rose tank:
+
+| Per display frame | Before | After |
+|---|---:|---:|
+| `putImageData` (640×480 RGBA, 1.2 MB) | 1.00 | 0.17 |
+| UI text canvas cleared | 1.00 | 0 |
+| JS + wasm time | 0.48 ms | 0.44 ms |
+| Viewer page: `putImageData` / status text writes | 1.00 / 1.00 | 0.08 / 0.08 |
+| Viewer page: JS + wasm time | 0.115 ms | 0.011 ms |
+
+- `present_view` (`tank.odin`) keeps the last frame sent (palette indices
+  and palette) and skips the RGBA conversion and `present` when both are
+  unchanged. The canvas already shows that image, so output is identical
+  (`identical_frames_are_not_sent_again`).
+- `main.js` collects each frame's UI text calls (`ui_begin`, `ui_text`,
+  `ui_text_ex`) and repaints the text canvas only when they differ.
+- The viewer renders only when animation, sequence, direction or frame
+  change (nothing while paused).
+
+Still per display frame: composing the tank in wasm (~0.44 ms, about 5%
+of a core at 120 Hz). Skipping it needs to know nothing visible changed
+(no tick, no input, no smooth-motion step), which isn't tracked yet.
+
 ## Rules for new tests
 
 - Advance the sim with `tank_tick()` or `tank_advance(TICK)`. Never loop
@@ -81,7 +110,9 @@ causes.
 - Long runs (thousands of ticks) are fine if they don't render; budget
   roughly tens of µs per tick in the optimised build.
 - One test process at a time: parallel runs (e.g. several agents) heat
-  the machine and skew timings.
+  the machine and skew timings. `test.sh` enforces it with a lock
+  (`build/.test.lock`): a second run waits, and a lock left by a killed
+  run is taken over.
 
 ## How to profile a slow test (macOS)
 

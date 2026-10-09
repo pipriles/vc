@@ -80,6 +80,28 @@ debug_enabled: bool
 frame_buf: [MAX_W * MAX_H]u8
 view: [VIEW_W * VIEW_H]u8 // palette indices
 view_rgba: [VIEW_W * VIEW_H * 4]u8
+
+// The last frame sent to the host. The browser calls step every display
+// frame (up to 120 Hz) but the sim ticks every 55-100 ms, so most frames
+// come out identical: those aren't converted or sent again.
+shown_view:    [VIEW_W * VIEW_H]u8
+shown_palette: [256][3]u8
+shown_valid:   bool
+
+present_view :: proc(palette: ^[256][3]u8) {
+	if shown_valid && shown_palette == palette^ && slice.equal(view[:], shown_view[:]) do return
+	for i in 0 ..< VIEW_W * VIEW_H {
+		col := palette[view[i]]
+		view_rgba[4 * i + 0] = col[0]
+		view_rgba[4 * i + 1] = col[1]
+		view_rgba[4 * i + 2] = col[2]
+		view_rgba[4 * i + 3] = 255
+	}
+	present(&view_rgba[0], VIEW_W, VIEW_H)
+	copy(shown_view[:], view[:])
+	shown_palette = palette^
+	shown_valid = true
+}
 tank_buf: [TANK_W * VIEW_H]u8 // the whole scene, like the original's tank surface
 
 // Draw target for the blitters.
@@ -459,14 +481,7 @@ tank_render :: proc() {
 		close_render()
 	}
 
-	for i in 0 ..< VIEW_W * VIEW_H {
-		col := state.palette[view[i]]
-		view_rgba[4 * i + 0] = col[0]
-		view_rgba[4 * i + 1] = col[1]
-		view_rgba[4 * i + 2] = col[2]
-		view_rgba[4 * i + 3] = 255
-	}
-	present(&view_rgba[0], VIEW_W, VIEW_H)
+	present_view(&state.palette)
 	if debug_enabled {
 		if game.input.view == .Tank do draw_debug()
 		else do debug_begin() // the overlay is in tank-view coordinates: clear it
@@ -552,14 +567,7 @@ box_render :: proc() {
 	slice.sort_by(list, proc(a, b: ^Creature) -> bool {return a.y < b.y})
 	for c in list do draw_creature(c, .Shadow, 0)
 	for c in list do draw_creature(c, .Body, 0)
-	for i in 0 ..< VIEW_W * VIEW_H {
-		col := b.palette[view[i]]
-		view_rgba[4 * i + 0] = col[0]
-		view_rgba[4 * i + 1] = col[1]
-		view_rgba[4 * i + 2] = col[2]
-		view_rgba[4 * i + 3] = 255
-	}
-	present(&view_rgba[0], VIEW_W, VIEW_H)
+	present_view(&b.palette)
 }
 
 // Blits a bitmap, skipping its top-left colour (0x412600).
