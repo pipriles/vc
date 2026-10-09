@@ -774,14 +774,24 @@ goal_step :: proc(c: ^Creature) {
 	// port: head for the next point of a planned route rather than straight
 	// at the target (the bands and detours work as before)
 	tx, ty := g.x, g.y
-	if c.kind == .Spider && !g.detouring && g.type != .Y_Band && g.type != .X_Band {
-		if wx, wy, _, _, ok := plan_route(c, g.x, g.y); ok do tx, ty = wx, wy
+	routed := false
+	if c.kind == .Spider && !g.detouring && g.type != .X_Band {
+		if g.type == .Y_Band {
+			// the glass: the nearest reachable spot at that height
+			band := c.sy * 7
+			if wx, wy, _, _, ok := plan_route_band(c, g.y - band / 2, g.y + band, c.x, g.y); ok {
+				tx, ty, routed = wx, wy, true
+			}
+		} else if wx, wy, _, _, ok := plan_route(c, g.x, g.y); ok {
+			tx, ty, routed = wx, wy, true
+		}
 	}
-	right := g.type != .Y_Band && c.x < tx - 4 * c.sx
-	left := g.type != .Y_Band && c.x > tx + 4 * c.sx
+	bands := g.type == .Y_Band && !routed
+	right := !bands && c.x < tx - 4 * c.sx
+	left := !bands && c.x > tx + 4 * c.sx
 	down := g.type != .X_Band && c.y < ty - 3 * c.sy
 	up := g.type != .X_Band && c.y > ty + 3 * c.sy
-	if g.type == .Y_Band && !g.detouring &&
+	if bands && !g.detouring &&
 	   ((up && c.blocks[0].active) || (down && c.blocks[4].active)) {
 		if c.x < TANK_W / 2 do right = true
 		else do left = true
@@ -809,9 +819,20 @@ goal_step :: proc(c: ^Creature) {
 		return
 	}
 
+	if routed && dir_blocked(c, dir) && !g.detouring {
+		// port: on a planned route, edge round the corner (the neighbouring
+		// directions) before falling back to the original's detour
+		for off in ([?]int{1, 7, 2, 6}) {
+			d := (dir + off) % 8
+			if !dir_blocked(c, d) && !c.blocks[d].active {
+				enqueue(c, d, 3)
+				return
+			}
+		}
+	}
 	if !dir_blocked(c, dir) {
 		if !g.detouring {
-			enqueue(c, dir, 6)
+			enqueue(c, dir, routed ? 4 : 6)
 			return
 		}
 	} else if !g.detouring {

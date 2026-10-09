@@ -98,3 +98,25 @@ route_goes_round_a_line_of_objects :: proc(t: ^testing.T) {
 	testing.expectf(t, abs(ex - 900) <= GRID && abs(ey - 360) <= GRID, "reaching the target (ends at %d,%d)", ex, ey)
 	testing.expectf(t, wy <= s.y, "heading up round the rocks first (next %d,%d)", wx, wy)
 }
+
+@(test)
+glass_trip_goes_round_an_obstacle_by_the_wall :: proc(t: ^testing.T) {
+	if !sim_setup(t, 35) do return
+	s := put_spider(154, 300)
+	// rocks right under it and below-right, as in a stuck run seen in
+	// the browser ("detour: 3 blocked, going 6" until it timed out)
+	for r in ([?]struct {id, x, y: int}{{2, 175, 385}, {3, 300, 400}}) {
+		o := &game.objects[r.id]
+		o.active, o.in_box = true, false
+		o.x, o.y = r.x, r.y
+		object_update_position(o)
+	}
+	glass_y := (100 - s.size) / 2 + GLASS_Y
+	move_to(s, .Y_Band, s.x, glass_y, 4, game.seq.glass, 60)
+	reached := false
+	for _ in 0 ..< 600 { // a minute
+		tank_advance(TICK)
+		if s.y >= glass_y - 25 {reached = true; break}
+	}
+	testing.expectf(t, reached, "never got to the glass (y %d, glass %d)", s.y, glass_y)
+}

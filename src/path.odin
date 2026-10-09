@@ -57,9 +57,22 @@ grid_build :: proc(c: ^Creature) {
 // and where the route ends: the target's square, or the reachable square
 // nearest to it when the target can't be reached.
 plan_route :: proc(c: ^Creature, tx, ty: int) -> (wx, wy: int, end_x, end_y: int, ok: bool) {
+	return plan(c, tx, ty, -1, -1)
+}
+
+// Plans to the nearest reachable spot whose y lies in [y0, y1] (goals
+// where only the height matters, like the glass); (tx, ty) is the fallback.
+plan_route_band :: proc(c: ^Creature, y0, y1, tx, ty: int) -> (wx, wy: int, end_x, end_y: int, ok: bool) {
+	return plan(c, tx, ty, y0, y1)
+}
+
+@(private = "file")
+plan :: proc(c: ^Creature, target_x, target_y, band0, band1: int) -> (wx, wy: int, end_x, end_y: int, ok: bool) {
+	tx, ty := target_x, target_y
 	grid_build(c)
 	sx, sy := grid_cell(c.x, c.y)
 	ex, ey := grid_cell(tx, ty)
+	band := band0 >= 0
 	for &f in grid_from do f = -1
 	start := sy * GRID_W + sx
 	grid_from[start] = -2
@@ -70,9 +83,17 @@ plan_route :: proc(c: ^Creature, tx, ty: int) -> (wx, wy: int, end_x, end_y: int
 	for head < tail {
 		i := int(grid_queue[head]); head += 1
 		gx, gy := i % GRID_W, i / GRID_W
+		if band {
+			// breadth first: the first square in the band is the nearest
+			if _, y := grid_pos(gx, gy); y >= band0 && y <= band1 {
+				best, best_d = i, 0
+				tx, ty = grid_pos(gx, gy)
+				break
+			}
+		}
 		if d := (gx - ex) * (gx - ex) + (gy - ey) * (gy - ey); d < best_d {
 			best, best_d = i, d
-			if d == 0 do break
+			if d == 0 && !band do break
 		}
 		for dy in -1 ..= 1 do for dx in -1 ..= 1 {
 			nx, ny := gx + dx, gy + dy

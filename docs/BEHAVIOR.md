@@ -559,6 +559,9 @@ decisions:
 - Routes: walks to a target follow a breadth-first route over a 20 px grid
   of the squares where the spider's body fits between objects, heading 4
   squares ahead; an unreachable target is approached as near as possible.
+  The glass (only the height matters) is routed to the nearest reachable
+  spot at that height. When the next step of a route is blocked, the
+  neighbouring directions are tried before the original's detour.
 - Exploring: after 4 minutes within 200 × 120 px of one spot, or 1 minute
   when hungry with no cricket in sight or thirsty with no bowl known, the
   spider walks to a random reachable point at least 350 px away.
