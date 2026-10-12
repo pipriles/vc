@@ -77,15 +77,17 @@ spider_frame_events :: proc(c: ^Creature) {
 		if f == 3 do spider_lay_web(c)
 	}
 
-	// footsteps on the floor
-	if c.y >= FLOOR_TOP && game.input.view != .Box {
+	// footsteps on the floor (heard only outside the box view; the prints
+	// are left either way)
+	if c.y >= FLOOR_TOP {
+		heard := game.input.view != .Box
 		if c.seq == ids.walk && (f == 1 || f == 3 || (f == 5 && rand_n(10) < 3)) {
-			host_sound(460)
+			if heard do host_sound(460)
 			if f == 3 do add_footprint(c, 0, 0, 1)
 		} else if c.seq == ids.circle && (f == 0 || f == 6) {
 			dx := rand_n(4) - 2
 			dy := rand_n(4) - 2
-			host_sound(460)
+			if heard do host_sound(460)
 			add_footprint(c, dx, dy, f != 0 ? 1 : 0)
 		}
 	}

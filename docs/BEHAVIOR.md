@@ -413,9 +413,12 @@ comes back after ≥ 3 minutes):
 - Size = min(100, 40 + minutes alive / 360): one point every 6 hours,
   full grown after 15 days. Recomputed every game minute.
 - Moults are only checked while starting up (after time away): days 5–15,
-  and from day 28 in every 28-day cycle on its first 5 days. At most one a
-  day, and only when no shed skin is lying in the tank.
-- The skin lies at x 200–999, y 170–389, facing 0 or 1, the spider's size;
+  and from day 28 in every 28-day cycle on its first 5 days. Never within
+  a day of a new or resurrected spider (0x41f710 dates the skin then;
+  moulting doesn't), and only when no shed skin is lying in the tank.
+- The skin lies at x 200–999, y 170–389 (its previous position drawn
+  separately, where it stays if it lands against an object), facing 0 or
+  1, the spider's size;
   it crumbles one frame per 1920 minutes and is gone after 3.
 - Yucca grows back one frame per 1440 minutes (wilted while dead).
 
@@ -423,16 +426,19 @@ comes back after ≥ 3 minutes):
 - Decals are drawn into the 1200×480 floor surface once; they stay drawn
   until the floor is rebuilt (start-up or Clear).
 - Footprints: walk frame 3 and circle frames 0/6 (±2 px jitter) on the
-  floor; ring of 500.
+  floor, also while the box is viewed (only the step sound is not
+  played); ring of 500.
 - Web pieces: WEB_LAYING frame 3 lays a piece behind the spider, frame
-  chosen by facing and play number; ring of 100, 2880-minute lifetime.
+  chosen by facing and play number; ring of 100. Pieces 2880 minutes old
+  are only removed by the start-up catch-up (0x404580).
   The catch-up also lays them (≤ 3 times a day). Crickets overlapping
   half their hit box get stuck (the spider notices); otherwise 70 % turn
   away.
 - Corner webs (bitmaps 4000–4003) appear only during the catch-up;
   stages grow every day (4 stages; the big fourth web needs the other
   three and lasts 3 days).
-- Clear removes remains, footprints and web pieces and frees crickets.
+- Clear (and resurrection) removes remains, footprints, web pieces,
+  corner webs and the skin, and frees crickets.
 
 ## Rendering **confirmed**
 - Draw order (0x41c160): back to front by the bottom of each hit box
@@ -637,7 +643,7 @@ Splash vcg_5000 (the egg) fading in from black (palette +8 a channel a
 frame), 24 frames then 1.5 s; sound 415 and the spider's CLEAN facing 4 at
 (160, 180), revealed by a rising palette-index threshold (5 / 4 / 3 a
 frame at 10 / 14 / 18 fps; indices ≥ 128 count as negative and always
-show), moving once fully shown, for 90 / 110 / 120 frames, the last 25
+show) on its last frame, then moving from frame 0 once fully shown, for 90 / 110 / 120 frames, the last 25
 darkening the palette 10 a frame; then the click (400) and the game. A key
 skips it (the port also a tap). The plugin's CLEAN, which replaces the
 spider's, has no frames facing 4; the port uses the spider's own.
@@ -649,9 +655,10 @@ when full or on Enter); Enter checks 19 words (stored +100 per letter at
 frames:
 VENUS glass trip · FLYTRAP WEB_LAYING ×6 in four directions · BUFFALO hide
 under the rock · PARKER wait at the bell · DIET food −10 · SAHARA water −10
-· PARTY the crickets in the box dance (only in the box view) ·
+· PARTY every cricket stops and those in the box dance (only in the box
+view) ·
 LANDOFTHEGIANTS size 100 / MICROCOSM size 5 (toggles) · JARVIS HAIR ×4 ·
-VINNIE THREAT ×3 · OLIVER bowl empty · SWAMPY yucca grows a frame · SURFER
+VINNIE THREAT ×3 · OLIVER bowl empty · SWAMPY the yucca in the tank grows a frame · SURFER
 a corner web · FLINT no frame-rate limit · SHOWFPS "FPS:nn" at (10, 464)
 · KAMIKAZE the crickets in the tank follow the spider (40 px below it) · URSULLA a moult
 · GLOBALBEACH the spider wears the Global Beach logo (vcg_2013 tiled at a

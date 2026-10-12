@@ -86,7 +86,15 @@ cmd_run :: proc(word: string) {
 		st.water = max(st.water - 10, 0)
 	case 6: // PARTY: the crickets in the box dance (only seen in the box)
 		if game.input.view == .Box {
-			for &c in game.crickets do if c.active && c.in_box do cricket_dance(&c)
+			// every cricket stops, the ones in the box dance
+			for &c in game.crickets do if c.active {
+				if c.in_box {
+					cricket_dance(&c)
+				} else {
+					stop_current(&c)
+					clear_queue(&c)
+				}
+			}
 		} else {
 			cmd.mark = 0
 		}
@@ -104,7 +112,7 @@ cmd_run :: proc(word: string) {
 		game.objects[BOWL].frame = 0
 	case 12: // SWAMPY: the yucca grows a frame
 		y := &game.objects[YUCCA]
-		if y.active {
+		if y.active && !y.in_box {
 			y.frame -= 1
 			if y.frame < 0 do y.frame = y.def.frames - 2
 		}

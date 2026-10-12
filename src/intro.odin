@@ -20,8 +20,10 @@ Intro :: struct {
 	hold_ms:    u32, // stage 0: when the countdown ran out
 	alpha:      int, // stage 1: palette index threshold, 0..127
 	step:       int,
-	frame:      int,
+	frame:      int, // next frame to show
 	seq:        int,
+	shown:      int, // frame and threshold drawn this tick (taken before
+	shown_alpha: int, // they advance, as the original draws then steps)
 	palette:    [256][3]u8, // shown palette (fading)
 }
 
@@ -62,9 +64,13 @@ intro_tick :: proc() {
 			case:          in_.step, in_.countdown = 3, 120
 			}
 			in_.seq = intro_seq()
+			// starting on the last frame, so it moves from frame 0
+			if in_.seq >= 0 do in_.frame = len(assets.spider.seqs[in_.seq].dirs[4].frames) - 1
+			in_.shown, in_.shown_alpha = in_.frame, 0
 			host_sound(415)
 		}
 	case 1:
+		in_.shown, in_.shown_alpha = in_.frame, in_.alpha
 		if in_.alpha > 126 do in_.frame += 1
 		in_.alpha = min(in_.alpha + in_.step, 127)
 		in_.countdown -= 1
@@ -97,14 +103,14 @@ intro_render :: proc() {
 		a := &assets.spider
 		s := &a.seqs[in_.seq]
 		d := &s.dirs[4]
-		f := d.frames[in_.frame % len(d.frames)]
+		f := d.frames[in_.shown % len(d.frames)]
 		buf := frame_buf[:a.w * a.h]
 		if frame_decode(a, s, f, buf) {
 			key := frame_key(a, buf)
 			for j in 0 ..< a.h do for i in 0 ..< a.w {
 				p := buf[j * a.w + i]
 				// signed byte compare, as the original: 128..255 always show
-				if p == key || (p < 128 && int(p) > in_.alpha) do continue
+				if p == key || (p < 128 && int(p) > in_.shown_alpha) do continue
 				x, y := 160 + i, 180 + j
 				if x < VIEW_W && y < VIEW_H do view[y * VIEW_W + x] = p
 			}

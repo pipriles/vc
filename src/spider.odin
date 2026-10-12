@@ -17,7 +17,10 @@ Spider_Stats :: struct {
 
 // Per-second stats update (0x4010c0).
 spider_stats_tick :: proc(s: ^Spider_Stats) {
-	if game.life.dead do return
+	if game.life.dead {
+		s.last_minute = now_ms // the minute timer keeps restarting (0x4010c0)
+		return
+	}
 	water, food := s.water, s.food
 	avg := (water + food) / 2
 	s.health = avg

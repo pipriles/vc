@@ -22,8 +22,9 @@ grows_with_age :: proc(t: ^testing.T) {
 moults_and_the_skin_crumbles :: proc(t: ^testing.T) {
 	if !sim_setup(t, 32) do return
 	game.life.born_at = host_time() - 6 * 86400
-	spider_growth(true)
 	k := &game.skin
+	k.shed_at = game.life.born_at // hatched 6 days ago
+	spider_growth(true)
 	testing.expect(t, k.active, "moults on day 6")
 	testing.expect_value(t, k.size, game.spider.size)
 	testing.expect(t, k.y >= FLOOR_TOP && k.x >= WALL_MARGIN, "skin on the floor")
@@ -33,13 +34,20 @@ moults_and_the_skin_crumbles :: proc(t: ^testing.T) {
 	testing.expect(t, found, "skin drawn in the tank")
 	tank_render()
 
-	// at most one moult a day, and not while a skin is lying there
+	// moulting doesn't restart the day's wait: once the skin is gone it
+	// may moult again at the next start
+	shed := k.shed_at
 	k.active = false
 	spider_growth(true)
-	testing.expect(t, !k.active, "no second moult within a day")
+	testing.expect(t, k.active, "moults again")
+	testing.expect_value(t, k.shed_at, shed)
+	// but not within a day of a new or resurrected spider
+	k.active = false
+	k.shed_at = host_time() - 3600
+	spider_growth(true)
+	testing.expect(t, !k.active, "no moult within a day of a resurrection")
 	k.shed_at = host_time() - 25 * 3600
 	spider_growth(true)
-	testing.expect(t, k.active, "next day: moults again")
 
 	slow_anims(SKIN_STAGE)
 	testing.expect_value(t, k.frame, 1)

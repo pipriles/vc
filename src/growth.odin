@@ -12,7 +12,7 @@ YUCCA_DAY     :: 1440 // minutes per growth frame: 9 days / (frames - 1)
 Skin :: struct {
 	using c:    Creature,
 	stage_age:  int, // minutes into the current crumbling stage
-	shed_at:    f64, // unix seconds, at most one moult a day
+	shed_at:    f64, // unix seconds: no moult within a day of this (set for a new or resurrected spider, not by moulting)
 }
 
 age_minutes :: proc() -> int {
@@ -47,8 +47,10 @@ spider_growth :: proc(check_moult: bool) {
 	}
 }
 
-// A shed skin appears somewhere on the floor (0x408d50), at most once a day
-// and only when the last one has crumbled away.
+// A shed skin appears somewhere on the floor (0x408d50), not within a day
+// of a new or resurrected spider, and only when the last one has crumbled
+// away. Its previous position is drawn separately, and is where it stays if
+// it lands against something.
 spider_moult :: proc() {
 	k := &game.skin
 	if k.active do return
@@ -59,10 +61,19 @@ spider_moult :: proc() {
 	k.frame = 0
 	k.size = game.spider.size
 	k.x = rand_n(800) + 200
+	k.prev_x = rand_n(800) + 200
 	k.y = rand_n(220) + 170
-	k.prev_x, k.prev_y = k.x, k.y
-	k.shed_at = host_time()
+	k.prev_y = rand_n(220) + 170
 	creature_update_position(&k.c)
+	for &o in game.objects {
+		if !o.active || o.in_box || !rects_intersect(k.hit, o.hit) do continue
+		if collide_mark(&k.c, &o.c) && k.blocks[k.dir].active {
+			k.x, k.y = k.prev_x, k.prev_y
+			creature_update_position(&k.c)
+			break
+		}
+	}
+	k.prev_x, k.prev_y = k.x, k.y
 	debug_logf("the spider moulted (size %d)", k.size)
 }
 
@@ -109,5 +120,5 @@ slow_anims :: proc(minutes: int) {
 minute_tick :: proc() {
 	spider_growth(false)
 	slow_anims(1)
-	age_webs(1)
+	age_webs(1, expire_pieces = false) // pieces only go in the start-up catch-up
 }

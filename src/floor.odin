@@ -189,7 +189,7 @@ add_corner_web :: proc(starting: bool) {
 }
 
 // Minutes passing for the floor decals (0x404490, 0x404580).
-age_webs :: proc(minutes: int) {
+age_webs :: proc(minutes: int, expire_pieces := true) {
 	for &w, i in game.corner_webs {
 		if !w.active do continue
 		w.age += minutes
@@ -208,7 +208,7 @@ age_webs :: proc(minutes: int) {
 	for &p in game.webs {
 		if p.scale == 0 do continue
 		p.age += minutes
-		if p.age >= WEB_PIECE_LIFE do p = {}
+		if expire_pieces && p.age >= WEB_PIECE_LIFE do p = {}
 	}
 }
 
@@ -231,16 +231,21 @@ cricket_web_check :: proc(c: ^Creature) {
 		if rand_n(10) < 7 && !c.queue_busy {
 			d := c.dir - 4
 			if d < 0 do d = 7 - d // sic: out of range, so it keeps its facing
-			enqueue_anim(c, game.seq.walk, d, rand_n(3) + 3, flush = true)
+			enqueue_anim(c, game.cseq.walk, d, rand_n(3) + 3, flush = true)
 			return
 		}
 	}
 }
 
+// A clean tank (0x41f710, at resurrection): no remains, prints or webs,
+// no shed skin, and no moult for a day.
 clear_debris :: proc() {
 	game.remains = {}
 	game.footprints = {}
 	game.webs = {}
+	game.corner_webs = {}
+	game.skin.active = false
+	game.skin.shed_at = host_time()
 	for &c in game.crickets {
 		if c.web_stuck do stop_current(&c)
 		c.web_stuck = false

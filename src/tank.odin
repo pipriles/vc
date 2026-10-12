@@ -273,6 +273,7 @@ tank_reset :: proc() {
 	objects_init()
 	game.skin_a = assets.skin
 	skin_init()
+	game.skin.shed_at = host_time() // a new spider doesn't moult for a day (0x41f710)
 	floor_rebuild()
 	update_render_list()
 
