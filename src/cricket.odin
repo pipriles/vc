@@ -3,7 +3,7 @@ package vc
 // Crickets and hunting (docs/BEHAVIOR.md, "Crickets and hunting").
 
 CRICKET_COUNT :: 12
-MAX_IN_TANK   :: 6  // crickets can only be taken out of the box while fewer are in the tank (0x40e930: 6 registered, 3 not)
+MAX_IN_TANK   :: 8  // crickets can only be taken out of the box while fewer are in the tank (wnd_proc mouse-down)
 REMAINS_COUNT :: 12 // ring of cricket remains on the sand (0x452720)
 
 Cricket_Seq_Ids :: struct {
@@ -165,9 +165,15 @@ spider_catch_frame :: proc(s: ^Creature) {
 		s.prev_seq = game.seq.catch_
 		enqueue_anim(s, game.seq.catch_reset, s.dir, 1, flush = true)
 		if in_centre || in_slot || centre.id == cr.id || slot.id == cr.id {
+			// it jumps clear, then runs
 			enqueue_anim(cr, game.cseq.jump, rand_n(8), rand_n(3) + 1, flush = true, run = true)
+			enqueue_anim(cr, game.cseq.walk, -1, rand_n(10) + 1, run = true)
 		}
 		debug_logf("spider missed cricket %d", cr.id)
+		if rand_n(10) < 8 {
+			// and usually goes after it again
+			move_to(s, .Creature_B, -1, -1, -1, game.seq.catch_, 120, target = cr.id)
+		}
 	}
 }
 

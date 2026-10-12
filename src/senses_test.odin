@@ -83,6 +83,7 @@ thirsty_spider_finds_a_bowl_it_hasnt_seen :: proc(t: ^testing.T) {
 @(test)
 route_goes_round_a_line_of_objects :: proc(t: ^testing.T) {
 	if !sim_setup(t, 34) do return
+	game.objects[BOWL].in_box = true // only the rocks in the way
 	s := put_spider(300, 330)
 	// rocks in a column between the spider and the target, leaving a gap
 	// only at the top
@@ -102,6 +103,7 @@ route_goes_round_a_line_of_objects :: proc(t: ^testing.T) {
 @(test)
 glass_trip_goes_round_an_obstacle_by_the_wall :: proc(t: ^testing.T) {
 	if !sim_setup(t, 35) do return
+	game.objects[BOWL].in_box = true
 	s := put_spider(154, 300)
 	// rocks right under it and below-right, as in a stuck run seen in
 	// the browser ("detour: 3 blocked, going 6" until it timed out)

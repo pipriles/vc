@@ -62,3 +62,49 @@ crush_taps_then_plays_back :: proc(t: ^testing.T) {
 	testing.expectf(t, tail >= 40, "only %d tail frames", tail)
 	testing.expectf(t, len(shown) < n + 40 * 3 + 2 * n, "%d frames: more than one play", len(shown))
 }
+
+@(test)
+glass_climb_comes_back_down_at_a_fixed_scale :: proc(t: ^testing.T) {
+	if !sim_setup(t, 12) do return
+	s := &game.spider
+	s.size = 60 // small enough that the depth scale would change with y
+	s.x, s.y = 600, (100 - s.size) / 2 + GLASS_Y
+	s.prev_x, s.prev_y = s.x, s.y
+	creature_update_position(s)
+	clear_queue(s)
+	clear_goal(s)
+	enqueue_anim(s, game.seq.glass, 4, 1, flush = true)
+	s.plays = 1
+	s.left = 0
+	y0 := s.y
+	started, done := false, false
+	top := y0
+	locked_scale := -1
+	scale_kept := true
+	ups, downs_back := 0, 0 // moves up the glass forward, back down on the way back
+	for _ in 0 ..< 3000 {
+		prev_y, prev_frame, prev_step := s.y, s.frame, s.step
+		creature_tick(s)
+		if s.seq == game.seq.glass && s.dir == 4 {
+			started = true
+			top = min(top, s.y)
+			if prev_frame >= 19 && prev_frame <= 28 {
+				if prev_step > 0 && s.y < prev_y do ups += 1
+				if prev_step < 0 && s.y > prev_y do downs_back += 1
+			}
+			if creature_dir(s).frames[s.frame].lock_scale {
+				if locked_scale < 0 do locked_scale = s.scale
+				scale_kept &&= s.scale == locked_scale
+			} else {
+				locked_scale = -1
+			}
+		} else if started {
+			done = true
+			break
+		}
+	}
+	testing.expect(t, done, "GLASS played and ended")
+	testing.expectf(t, top < y0 - 5, "climbed up the glass (top %d, start %d)", top, y0)
+	testing.expectf(t, ups >= 9 && downs_back >= 9, "up the glass and back down (%d up, %d down)", ups, downs_back)
+	testing.expect(t, scale_kept, "scale held while climbing")
+}

@@ -4,6 +4,7 @@ package vc
 // windpump. Table and behaviour from VC.EXE setup (0x41a790), the object
 // part of the main update (0x40ca70) and drinking (0x403e90).
 
+MAX_OBJECTS_IN_TANK :: 6 // the whole view's object panel only gives more while fewer are in the tank (0x40e360, 0x40e930)
 OBJECT_COUNT :: 10 // the 11th table row is the shed skin (kind 6), handled with moulting
 BOWL         :: 0  // DAT_00455846: the drinking object
 BELL         :: 1  // DAT_00454a38: where a hungry spider waits
@@ -119,12 +120,16 @@ shadow_bottom :: proc(o: ^Object) -> int {
 	return o.fh - 1
 }
 
-// Position update for objects (the no-animation branch of 0x406df0).
+OBJECT_MARGIN :: 180 // 0xb4: closest an object's centre gets to the side walls
+SPIDER_BMP_H  :: 200 // height of the spider's bitmap (vcg_9100), which the back limit uses (sic)
+
+// Position update for objects (the no-animation branch of 0x406df0). The
+// back limit divides the spider's bitmap height, not the object's own.
 object_update_position :: proc(o: ^Object) {
-	if o.x < WALL_MARGIN do o.x = WALL_MARGIN
-	if o.x > TANK_W - WALL_MARGIN do o.x = TANK_W - WALL_MARGIN
+	if o.x < OBJECT_MARGIN do o.x = OBJECT_MARGIN
+	if o.x > TANK_W - OBJECT_MARGIN do o.x = TANK_W - OBJECT_MARGIN
 	div := o.def.depth_class == 1 ? 6 : o.def.depth_class == 2 ? 12 : 3
-	if top := FLOOR_TOP + o.fh / div; o.y < top do o.y = top
+	if top := FLOOR_TOP + SPIDER_BMP_H / div; o.y < top do o.y = top
 	if o.y + o.fh / 2 >= VIEW_H do o.y = VIEW_H - o.fh / 2
 
 	// objects: scale% = min(100, 35 + 100 * y/480)
@@ -261,6 +266,11 @@ spider_thirst :: proc(s: ^Creature) {
 	}
 }
 
+objects_in_tank :: proc() -> (n: int) {
+	for &o in game.objects do if o.active && !o.in_box do n += 1
+	return
+}
+
 @(export)
 tank_set_object :: proc "contextless" (id, on: i32) {
 	if id < 0 || id >= OBJECT_COUNT do return
@@ -276,7 +286,7 @@ handle_pending_objects :: proc() {
 	for &p, i in game.pending_objects {
 		if p == 0 do continue
 		o := &game.objects[i]
-		if p == 1 && o.active && o.in_box {
+		if p == 1 && o.active && o.in_box && objects_in_tank() < MAX_OBJECTS_IN_TANK {
 			o.in_box = false
 			place_free(o)
 			debug_logf("placed %s at (%d, %d)", o.name, o.x, o.y)

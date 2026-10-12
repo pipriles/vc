@@ -160,3 +160,26 @@ held_spider_stays_on_pickup :: proc(t: ^testing.T) {
 	}
 	testing.expectf(t, other == 0, "%d ticks on other animations while held", other)
 }
+
+@(test)
+any_tool_but_the_tap_drags_crickets :: proc(t: ^testing.T) {
+	if !sim_setup(t, 45) do return
+	s := &game.spider
+	s.x, s.y = 1000, 300
+	creature_update_position(s)
+	cr := &game.crickets[0]
+	cr.in_box = false
+	cr.x, cr.y = 400, 350
+	cr.prev_x, cr.prev_y = cr.x, cr.y
+	creature_update_position(cr)
+	game.scroll_x = 0
+	for tool in ([?]Tool{.Prod, .Stroke, .Follow, .Tap}) {
+		game.input.tool = tool
+		game.input.carry = .None
+		cr.carried = 0
+		pointer_event(.Down, cr.x, cr.y)
+		dragged := game.input.carry == .Cricket
+		testing.expectf(t, dragged == (tool != .Tap), "%v drags the cricket: %v", tool, dragged)
+		pointer_event(.Up, cr.x, cr.y)
+	}
+}

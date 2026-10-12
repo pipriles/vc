@@ -228,7 +228,7 @@ cricket_web_check :: proc(c: ^Creature) {
 			spider_sees_cricket(&game.spider, c)
 			return
 		}
-		if rand_n(10) < 7 && c.queue_len == 0 {
+		if rand_n(10) < 7 && !c.queue_busy {
 			d := c.dir - 4
 			if d < 0 do d = 7 - d // sic: out of range, so it keeps its facing
 			enqueue_anim(c, game.seq.walk, d, rand_n(3) + 3, flush = true)

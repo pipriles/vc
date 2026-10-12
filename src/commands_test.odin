@@ -39,7 +39,10 @@ typed_commands :: proc(t: ^testing.T) {
 	cr := &game.crickets[0]
 	cr.in_box, cr.active = false, true
 	type_word("KAMIKAZE")
-	testing.expect(t, cr.goal.active, "the cricket heads for the spider")
+	testing.expect(t, cr.goal.active && cr.goal.type == .Spider, "the cricket heads for the spider")
+	game.spider.x = 600 // it follows the spider as it moves
+	goal_check(cr)
+	testing.expect(t, !cr.goal.active || cr.goal.x == game.spider.x, "aiming at where the spider is now")
 
 	type_word("OLIVER")
 	testing.expect_value(t, game.objects[BOWL].frame, 0)

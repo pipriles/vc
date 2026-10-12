@@ -120,7 +120,7 @@ cmd_run :: proc(word: string) {
 			stop_current(&c)
 			clear_queue(&c)
 			clear_goal(&c)
-			move_to(&c, .Point, s.x, s.y, -1, game.cseq.web_stuck, 120)
+			move_to(&c, .Spider, -1, -1, -1, game.cseq.web_stuck, 120)
 		}
 	case 17: // URSULLA: a moult, now
 		game.skin.active = false

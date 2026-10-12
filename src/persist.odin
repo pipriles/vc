@@ -227,11 +227,15 @@ catch_up :: proc(minutes: int, since: f64) {
 	s.turn_target, s.turn_dir, s.pop_turning = -1, 0, false
 	s.eating = false
 	for &t in s.last_played do t = now_ms - min(now_ms, 300_000)
+	s.tool = .None
+	s.last_react = now_ms
+	clear_queue(s) // (dropping what the finished hook queued)
+	stop_current(s)
 	if s.hide != 0 {
 		s.hide = 0
 		s.no_clamp = false
 	}
-	for &c in game.crickets do if c.active && !c.in_box do place_free_creature(&c)
+	for &c in game.crickets do if c.active && !c.in_box && !c.web_stuck do place_free_creature(&c)
 
 	step := minutes < 30 ? 1 : minutes < 60 ? 2 : minutes < 90 ? 3 : 90
 	water_acc, food_acc, day_acc, webs_today, t := 0, 0, 0, 0, 0
@@ -301,6 +305,8 @@ catch_up :: proc(minutes: int, since: f64) {
 		}
 		if t >= minutes do break
 	}
+	// crickets stuck in webs are free again
+	for &c in game.crickets do c.web_stuck = false
 	// carry the remainders into the live decay timers
 	st.last_water = now_ms - min(u32(water_acc) * 60_000, now_ms)
 	st.last_food = now_ms - min(u32(food_acc) * 60_000, now_ms)

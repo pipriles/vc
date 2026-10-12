@@ -130,7 +130,7 @@ sim_with_all_objects :: proc(t: ^testing.T) {
 	for &o in game.objects do if o.active && !o.in_box do placed += 1
 	log.infof("objects placed %d, sequences %d, drank %d times, water %d, bowl level %d, x range %d..%d, ate %d",
 		placed, variety, sim_drank, game.stats.water, game.objects[BOWL].frame, sim_min_x, sim_max_x, game.eaten)
-	testing.expect_value(t, placed, OBJECT_COUNT)
+	testing.expect_value(t, placed, MAX_OBJECTS_IN_TANK)
 	// (randomly placed objects can wall the spider in, as in the original,
 	// so roaming and drinking aren't guaranteed here)
 	// (touching crickets re-queue CATCH every tick, and while turning the
@@ -191,29 +191,20 @@ spider_gets_away_from_the_glass_when_boxed_in :: proc(t: ^testing.T) {
 }
 
 @(test)
-spider_catches_a_cricket_it_cant_get_closer_to :: proc(t: ^testing.T) {
+catch_reach_is_half_the_drawn_frame :: proc(t: ^testing.T) {
 	if !sim_setup(t, 22) do return
 	s := &game.spider
-	s.x, s.y = 600, 480 // onto the front glass
+	s.x, s.y = 600, 330
 	creature_update_position(s)
 	cr := &game.crickets[0]
 	cr.in_box, cr.active = false, true
-	cr.x, cr.y = 0, 480 // crickets get nearer the glass than the spider
-	creature_update_position(cr)
-	// diagonally below-left, overlapping the corner of the spider's box
-	cr.x = s.hit.left - (cr.hit.right - cr.hit.left) / 2 + 6
-	creature_update_position(cr)
 	s.target_id = 0
-	log.infof("spider %d,%d hit %v; cricket %d,%d hit %v", s.x, s.y, s.hit, cr.x, cr.y, cr.hit)
-	testing.expect(t, rects_intersect(s.hit, cr.hit), "touching")
-	testing.expect(t, abs(s.x - cr.x) > (s.hit.right - s.hit.left) / 2, "beyond the usual reach")
-	testing.expect(t, spider_precondition(s, game.seq.catch_), "catchable from the glass")
-	s.y = 330 // the same, away from the glass
-	creature_update_position(s)
-	cr.y = s.y + 20
+	dw, dh := x87_scale_trunc(s.anim.w, s.scale), x87_scale_trunc(s.anim.h, s.scale)
+	cr.x, cr.y = s.x - dw / 2 + 2, s.y + dh / 2 - 2
 	creature_update_position(cr)
-	cr.x = s.hit.left - (cr.hit.right - cr.hit.left) / 2 + 6
+	testing.expect(t, abs(s.x - cr.x) > (s.hit.right - s.hit.left) / 2, "beyond the hit box")
+	testing.expect(t, spider_precondition(s, game.seq.catch_), "but within half the drawn frame")
+	cr.x = s.x - dw / 2 - 4
 	creature_update_position(cr)
-	testing.expect(t, rects_intersect(s.hit, cr.hit), "touching in the open")
-	testing.expect(t, !spider_precondition(s, game.seq.catch_), "not in the open: it waits instead")
+	testing.expect(t, !spider_precondition(s, game.seq.catch_), "out of reach further away")
 }

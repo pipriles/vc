@@ -28,6 +28,7 @@ Block :: struct {
 }
 
 Goal_Type :: enum {
+	Spider     = 0, // follow the spider (crickets aim 40 px below it): KAMIKAZE
 	Creature_A = 1, // chase a creature (types 1/2, crickets: TBD)
 	Creature_B = 2,
 	Cursor     = 10,
@@ -98,6 +99,7 @@ Creature :: struct {
 	blocks:             [9]Block,
 	queue:              [QUEUE_LEN]Queued,
 	queue_len:          int,
+	queue_busy:         bool, // set by enqueueing, cleared only when a pop finds the queue empty, so it stays on while the last queued sequence plays (+0x1ec)
 	goal:               Goal,
 	hide:               int, // hiding state (+0x48): 0 out, 1 hidden, 2..3 coming out
 	web_stuck:          bool, // cricket caught in a web (+0x166)
@@ -172,17 +174,23 @@ enqueue_anim :: proc(c: ^Creature, seq, dir, plays: int, flush := false, run := 
 	if c.queue_len >= QUEUE_LEN do return
 	c.queue[c.queue_len] = {seq, dir, plays, run}
 	c.queue_len += 1
+	c.queue_busy = true
 }
 
 clear_queue :: proc(c: ^Creature) {
 	c.queue_len = 0
+	c.queue_busy = false
 	c.run = false
 }
 
 // Lets the current sequence finish its current play, then stop (0x405900).
 stop_current :: proc(c: ^Creature) {
-	if c.y < FLOOR_TOP do return
-	if c.seq == game.seq.glass do return
+	// the spider can't be stopped off the floor, while eating or dead, or
+	// on the glass unless it's being carried
+	if c.kind == .Spider {
+		if c.y < FLOOR_TOP || c.eating || game.life.dead do return
+		if c.seq == game.seq.glass && c.carried == 0 do return
+	}
 	c.plays = 1
 	c.turn_target = -1
 	c.run = false
@@ -307,6 +315,18 @@ start_turn_step :: proc(c: ^Creature, cw: bool) {
 	start_sequence(c)
 }
 
+// Which way to turn from dir to face target (0x408290). It compares the
+// target with dir - 1 (CIRCLE's flag at +0x26 is 0 in every animation), so
+// it turns clockwise one or two steps round, sometimes three (when the
+// target is below dir - 1, or dir is 0), and counter-clockwise otherwise,
+// half turns included.
+turn_clockwise :: proc(dir, target: int) -> bool {
+	d := dir - 1
+	if d < 0 do d = 7
+	diff := target - d
+	return (diff >= 1 && diff <= 3) || diff <= -4
+}
+
 // Called when the current sequence has finished all its plays.
 next_sequence :: proc(c: ^Creature) {
 	if c.turn_dir > 0 do c.dir = (c.dir + 1) % 8
@@ -317,8 +337,8 @@ next_sequence :: proc(c: ^Creature) {
 	if c.finished != nil do c.finished(c)
 
 	if c.turn_target >= 0 && c.turn_target != c.dir {
-		// turn the shorter way round, one CIRCLE play per step (0x408170)
-		cw := (c.turn_target - c.dir + 8) % 8 <= 4
+		// one CIRCLE play per step, the way 0x408290 picks (0x408170)
+		cw := turn_clockwise(c.dir, c.turn_target)
 		start_turn_step(c, cw)
 		return
 	}
@@ -335,7 +355,7 @@ next_sequence :: proc(c: ^Creature) {
 			c.turn_target = dir
 			c.run = q.run
 			c.pop_turning = true
-			cw := (dir - c.dir + 8) % 8 <= 4
+			cw := turn_clockwise(c.dir, dir)
 			start_turn_step(c, cw)
 			return
 		}
@@ -344,8 +364,12 @@ next_sequence :: proc(c: ^Creature) {
 		c.queue_len -= 1
 		c.prev_seq = c.seq
 		c.seq = q.seq
-		c.plays = q.plays
 		c.run = q.run
+		// the start rules run first with no play count, so a mood rule's
+		// count (LURK, THREAT, CLEAN...) wins over the queued one (0x414840)
+		c.plays = 0
+		if c.y >= FLOOR_TOP do sequence_start_rules(c)
+		if c.plays == 0 do c.plays = q.plays
 		if !seq_has_frames(c, c.seq, c.dir) || (c.can_play != nil && !c.can_play(c, c.seq)) {
 			if c.kind == .Spider && c.seq == game.seq.catch_ {
 				// out of reach: wait (lurking, facing it) for it to come closer
@@ -363,6 +387,7 @@ next_sequence :: proc(c: ^Creature) {
 		}
 	} else {
 		c.run = false
+		c.queue_busy = false
 		c.prev_seq = c.seq
 		c.plays = 0
 		c.idle(c)
@@ -388,8 +413,20 @@ creature_tick :: proc(c: ^Creature) {
 		d = creature_dir(c)
 	}
 	f := d.frames[c.frame]
+	// the frame's own displacement is taken before advancing, flipped when
+	// playing backward on frames marked so (GLASS's climb, 0x406780)
+	dx, dy := int(f.dx), int(f.dy)
+	if c.step < 0 && f.reverse do dx, dy = -dx, -dy
+	// so are the walking flags, speeds and facing
+	move_x, move_y, dir := c.moving_x, c.moving_y, c.dir
+	sx, sy := c.sx, c.sy
+	if c.run && c.seq == game.seq.walk {
+		sx *= 2
+		sy *= 2
+	}
 
-	// a pause (+0xf8) freezes the creature: no frames, no movement
+	// a pause (+0xf8) freezes the creature's frames and walking (the
+	// frame displacement still applies)
 	c.pause -= 1
 	paused := c.pause >= 0
 	if !paused {
@@ -412,20 +449,11 @@ creature_tick :: proc(c: ^Creature) {
 		}
 	}
 
-	// movement for the frame now showing
-	d = creature_dir(c)
-	f = d.frames[clamp(c.frame, 0, len(d.frames) - 1)]
-	dx, dy := int(f.dx), int(f.dy)
 	if c.kind == .Cricket && !paused do cricket_web_check(c)
-	if c.kind == .Cricket && c.web_stuck do paused = true // stuck crickets don't move
-	if !paused && (c.moving_x || c.moving_y || dx != 0 || dy != 0) {
-		sx, sy := c.sx, c.sy
-		if c.run && c.seq == game.seq.walk {
-			sx *= 2
-			sy *= 2
-		}
+	if c.kind == .Cricket && c.web_stuck do paused, dx, dy = true, 0, 0 // stuck crickets don't move
+	moving := !paused && (move_x || move_y)
+	if c.carried == 0 && (moving || dx != 0 || dy != 0) {
 		vy := sx
-		dir := c.dir
 		if dir != 0 && dir != 4 && (dy == 0 || dx != 0) do vy = sy
 		if dx != 0 || dy != 0 do dir = 99
 		if dir == 0 || dir == 1 || dir == 7 || dy < 0 do c.y -= vy
@@ -502,10 +530,13 @@ creature_update_position :: proc(c: ^Creature) {
 	}
 
 	// scale% = min(100, y/480 * size + 35), truncated (x87 + _ftol); spiders
-	// and crickets both use the spider's size
+	// and crickets both use the spider's size. Frames marked lock-scale keep
+	// it (GLASS's climb up the glass).
 	size := c.kind == .Cricket ? game.spider.size : c.size
 	v := f64(c.y) / f64(VIEW_H) * f64(size) + 35
-	c.scale = int(min(v, 100))
+	if d := creature_dir(c); len(d.frames) == 0 || !d.frames[clamp(c.frame, 0, len(d.frames) - 1)].lock_scale || c.scale == 0 {
+		c.scale = int(min(v, 100))
+	}
 	// speeds shrink with distance: base / (100 / scale), truncated
 	c.sx = x87_scale_trunc(c.base_sx, c.scale)
 	c.sy = x87_scale_trunc(c.base_sy, c.scale)
@@ -627,7 +658,7 @@ collide_respond :: proc(a, b: ^Creature) -> bool {
 			if !already && a.waiting_for != b.id do debug_logf("%s touched cricket %d: catch facing %d", a.name, b.id, s)
 			return true
 		}
-	} else if a.kind == .Cricket && b.kind == .Spider && rand_n(10) < 5 && a.queue_len == 0 {
+	} else if a.kind == .Cricket && b.kind == .Spider && rand_n(10) < 5 && !a.queue_busy {
 		dir := a.dir
 		if rand_n(10) >= 5 do dir = a.dir - rand_n(3) - 2
 		if dir < 0 do dir += 7 // sic: the original wraps by 7
@@ -648,8 +679,13 @@ collide_respond :: proc(a, b: ^Creature) -> bool {
 // move_to_then_anim (0x40bdd0). x/y < 0 keep the current draw position;
 // target is a creature id for chase goals.
 move_to :: proc(c: ^Creature, type: Goal_Type, x, y, dir, seq, timeout_s: int, target := -1) {
-	if c.hide != 0 || c.y < FLOOR_TOP do return
+	if c.hide != 0 || c.y < FLOOR_TOP || c.eating do return
 	if c.goal.active && c.goal.seq == game.seq.log_hide do return
+	if type == .Creature_A || type == .Creature_B {
+		if target < 0 do return
+		// already after it: the goal (and its timer) carries on
+		if c.goal.active && c.goal.type == type && c.goal.target == target do return
+	}
 	w, h := x87_scale_trunc(c.anim.w, c.scale), x87_scale_trunc(c.anim.h, c.scale)
 	c.goal = {
 		active    = true,
@@ -662,7 +698,7 @@ move_to :: proc(c: ^Creature, type: Goal_Type, x, y, dir, seq, timeout_s: int, t
 		start_ms  = now_ms,
 		target    = target,
 	}
-	if seq != game.seq.kill do stop_current(c)
+	if c.seq != game.seq.kill do stop_current(c)
 	debug_logf("%s goal: %v to (%d, %d) then %s", c.name, type, c.goal.x, c.goal.y, seq_name(c, seq))
 }
 
@@ -686,6 +722,10 @@ goal_check :: proc(c: ^Creature) -> bool {
 	if g.type == .Creature_B && g.target >= 0 {
 		cr := &game.crickets[g.target]
 		g.x, g.y = cr.x, cr.y
+	}
+	if g.type == .Spider {
+		g.x, g.y = game.spider.x, game.spider.y
+		if c.kind == .Cricket do g.y += 40
 	}
 	if g.type == .Creature_A && g.target >= 0 {
 		t := &game.objects[g.target]
@@ -746,7 +786,7 @@ goal_check :: proc(c: ^Creature) -> bool {
 		} else {
 			for b in c.blocks[:8] do if b.kind == int(Kind.Object) && b.id == g.target {arrived = true; break}
 		}
-	case .Point, .Cursor:
+	case .Point, .Cursor, .Spider:
 		arrived = abs(c.x - gx) <= tx / 2 && abs(c.y - gy) <= ty / 2
 	case .Y_Band:
 		arrived = (c.y >= gy && c.y <= gy + ty) || (c.y + ty >= gy && c.y + ty <= gy + ty)

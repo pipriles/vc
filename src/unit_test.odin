@@ -179,10 +179,13 @@ climbing_spider_is_drawn_in_front :: proc(t: ^testing.T) {
 }
 
 @(test)
-at_most_six_crickets_in_the_tank :: proc(t: ^testing.T) {
+at_most_eight_crickets_and_six_objects_in_the_tank :: proc(t: ^testing.T) {
 	if !sim_setup(t, 8) do return
 	for _ in 0 ..< 10 do cricket_drop(400, 300)
-	testing.expect_value(t, crickets_in_tank(), 6)
+	testing.expect_value(t, crickets_in_tank(), 8)
+	for i in 0 ..< OBJECT_COUNT do tank_set_object(i32(i), 1)
+	handle_pending_objects()
+	testing.expect_value(t, objects_in_tank(), MAX_OBJECTS_IN_TANK)
 }
 
 @(test)
@@ -195,4 +198,71 @@ catch_up_resets_the_cooldowns :: proc(t: ^testing.T) {
 	catch_up(10, host_time() - 600)
 	testing.expect(t, !s.goal.active, "no goal after time away")
 	testing.expect_value(t, s.last_played[game.seq.glass], now_ms - 300_000)
+}
+
+@(test)
+turn_direction_follows_the_original :: proc(t: ^testing.T) {
+	// (from, to) -> clockwise
+	cases := [?]struct {from, to: int, cw: bool}{
+		{0, 1, true}, {0, 2, true}, {0, 3, true}, {1, 4, false}, {0, 4, false}, {0, 7, false},
+		{6, 1, true}, {5, 0, true}, {4, 0, false}, {2, 6, false}, {6, 2, false},
+	}
+	for c in cases do testing.expectf(t, turn_clockwise(c.from, c.to) == c.cw, "%d -> %d", c.from, c.to)
+}
+
+@(test)
+mood_rule_play_count_beats_the_queued_one :: proc(t: ^testing.T) {
+	if !sim_setup(t, 41) do return
+	s := &game.spider
+	game.stats.temperament = 6
+	clear_queue(s)
+	clear_goal(s)
+	enqueue_anim(s, game.seq.lurk, s.dir, 9)
+	s.plays = 1
+	next_sequence(s)
+	testing.expect_value(t, s.seq, game.seq.lurk)
+	testing.expectf(t, s.plays >= 2 && s.plays <= 3, "LURK plays (rand(t)+t)/3, not the queued 9 (got %d)", s.plays)
+}
+
+@(test)
+web_laying_continues_at_most_once :: proc(t: ^testing.T) {
+	if !sim_setup(t, 42) do return
+	s := &game.spider
+	clear_queue(s)
+	s.seq = game.seq.web_laying
+	s.queue_busy = true // it came from the queue: the flag is still on
+	for _ in 0 ..< 50 do spider_finished(s)
+	testing.expect_value(t, s.queue_len, 0)
+	s.queue_busy = false
+	for _ in 0 ..< 50 {
+		spider_finished(s)
+		if s.queue_len > 0 do break
+	}
+	testing.expect(t, s.queue_len > 0, "picked by the idle chooser, it may lay on")
+}
+
+@(test)
+no_walking_goals_while_eating :: proc(t: ^testing.T) {
+	if !sim_setup(t, 43) do return
+	s := &game.spider
+	clear_goal(s)
+	s.eating = true
+	move_to(s, .Creature_A, -1, -1, -1, game.seq.lurk, 120, target = BOWL)
+	testing.expect(t, !s.goal.active, "no goal while eating")
+	s.eating = false
+	move_to(s, .Creature_A, -1, -1, -1, game.seq.lurk, 120, target = BOWL)
+	start := s.goal.start_ms
+	now_ms += 5000
+	move_to(s, .Creature_A, -1, -1, -1, game.seq.lurk, 120, target = BOWL)
+	testing.expect_value(t, s.goal.start_ms, start) // the same chase carries on
+}
+
+@(test)
+catch_up_frees_crickets_from_webs :: proc(t: ^testing.T) {
+	if !sim_setup(t, 44) do return
+	cr := &game.crickets[0]
+	cr.in_box, cr.web_stuck = false, true
+	enqueue_anim(&game.spider, game.seq.clean, -1, 2)
+	catch_up(10, host_time() - 600)
+	testing.expect(t, !cr.web_stuck, "free again")
 }

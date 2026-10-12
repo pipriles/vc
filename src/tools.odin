@@ -146,25 +146,29 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 			box_pick(in_.x, in_.y)
 			return
 		}
-		switch in_.tool {
-		case .Tap:
+		if in_.tool == .Tap {
 			set_cursor(5)
-		case .Prod, .Stroke:
-			if hit_test(s, in_.x, in_.y) && spider_pickable(s) && s.seq != game.seq.drop {
-				if in_.tool == .Prod {
-					set_cursor(4)
-					in_.prodding = true
-				} else {
-					set_cursor(7)
-					in_.stroking = true
-				}
+			return
+		}
+		// every tool but the tap: on the spider it prods, strokes or picks
+		// it up; anywhere else it drags an object or a cricket
+		// (wnd_proc mouse-down)
+		if hit_test(s, in_.x, in_.y) && spider_pickable(s) && s.seq != game.seq.drop {
+			#partial switch in_.tool {
+			case .Prod:
+				set_cursor(4)
+				in_.prodding = true
+			case .Stroke:
+				set_cursor(7)
+				in_.stroking = true
+			case .Pickup:
+				pickup_at(in_.x, in_.y)
 			}
-		case .Pickup:
-			pickup_at(in_.x, in_.y)
-		case .Follow:
-			if !s.goal.active || now_ms > s.goal.start_ms + 10_000 {
-				move_to(s, .Cursor, in_.x, in_.y, -1, game.seq.lurk_d, 60)
-			}
+			return
+		}
+		pickup_at(in_.x, in_.y)
+		if in_.tool == .Follow && (!s.goal.active || now_ms > s.goal.start_ms + 10_000) {
+			move_to(s, .Cursor, in_.x, in_.y, -1, game.seq.lurk_d, 60)
 		}
 	case .Move:
 		// pointer at the left/right edge scrolls the viewfinder: port, only
@@ -186,21 +190,18 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 			set_cursor(box_cricket_at(in_.x, in_.y) >= 0 ? 2 : 1)
 			return
 		}
-		switch in_.tool {
-		case .Tap:
+		if in_.tool == .Tap {
 			set_cursor(in_.down ? 5 : 6)
-		case .Pickup:
+			return
+		}
+		on_spider := hit_test(s, in_.x, in_.y)
+		if in_.down && in_.prodding && on_spider {
+			set_cursor(4)
+		} else if in_.down && in_.stroking && on_spider {
+			set_cursor(7)
+		} else {
+			in_.prodding, in_.stroking = false, false
 			set_cursor(grabbable_at(in_.x, in_.y) ? 2 : 1)
-		case .Prod, .Stroke, .Follow:
-			on_spider := hit_test(s, in_.x, in_.y)
-			if in_.down && in_.prodding && on_spider {
-				set_cursor(4)
-			} else if in_.down && in_.stroking && on_spider {
-				set_cursor(7)
-			} else {
-				set_cursor(1)
-				in_.prodding, in_.stroking = false, false
-			}
 		}
 	case .Up:
 		in_.down = false
@@ -218,7 +219,8 @@ grabbable_at :: proc(x, y: int) -> bool {
 	return false
 }
 
-// Pick-up tool press: the spider, else a cricket, else an object.
+// Press with a grabbing tool: the spider (the hand only), else an object,
+// else a cricket.
 pickup_at :: proc(x, y: int) {
 	in_ := &game.input
 	s := &game.spider
@@ -230,17 +232,17 @@ pickup_at :: proc(x, y: int) {
 		debug_logf("picked up the spider")
 		return
 	}
+	for &o in game.objects {
+		if !o.active || o.in_box || !hit_test(&o.c, x, y) do continue
+		in_.carry, in_.carry_id = .Object, o.id
+		return
+	}
 	for &c in game.crickets {
 		if !c.active || c.in_box || !hit_test(&c, x, y) do continue
 		in_.carry, in_.carry_id = .Cricket, c.id
 		c.carried = 1
 		force_sequence(&c, game.cseq.pickup)
 		host_sound(407)
-		return
-	}
-	for &o in game.objects {
-		if !o.active || o.in_box || !hit_test(&o.c, x, y) do continue
-		in_.carry, in_.carry_id = .Object, o.id
 		return
 	}
 }

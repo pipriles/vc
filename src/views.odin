@@ -43,11 +43,11 @@ whole_render :: proc() {
 	ch := corners.h / 4
 	for &o, i in game.objects {
 		x, y := cell_rect(i)
-		placeable := o.active && o.in_box
+		placeable := o.active && o.in_box && objects_in_tank() < MAX_OBJECTS_IN_TANK
 		// dithered cell, lighter when it can be dragged out (0x40e2a0)
 		colour: u8 = i == hover && placeable ? 2 : 1
 		for j := 0; j < CELL; j += 2 do for k := 0; k < CELL; k += 2 do view[(y + j) * VIEW_W + x + k] = colour
-		if placeable {
+		if o.active && o.in_box {
 			s := min(100, (CELL - 8) * 100 / max(o.fw, o.fh))
 			draw_object(&o, .Shadow, x + CELL / 2, y + CELL / 2, s)
 			draw_object(&o, .Body, x + CELL / 2, y + CELL / 2, s)
@@ -93,7 +93,7 @@ whole_pointer :: proc(ev: Pointer_Event, vx, vy: int) {
 	in_.x, in_.y = whole_to_tank(vx, vy)
 	#partial switch ev {
 	case .Down:
-		if c := cell_at(vx, vy); c >= 0 && game.objects[c].active && game.objects[c].in_box {
+		if c := cell_at(vx, vy); c >= 0 && game.objects[c].active && game.objects[c].in_box && objects_in_tank() < MAX_OBJECTS_IN_TANK {
 			in_.carry, in_.carry_id = .Object, c
 			in_.down = true
 			set_cursor(3)
@@ -123,7 +123,7 @@ whole_pointer :: proc(ev: Pointer_Event, vx, vy: int) {
 			return
 		}
 		over := cell_at(vx, vy)
-		set_cursor(over >= 0 && game.objects[over].in_box ? 2 : 1)
+		set_cursor(over >= 0 && game.objects[over].in_box && objects_in_tank() < MAX_OBJECTS_IN_TANK ? 2 : 1)
 	case .Up:
 		in_.down = false
 		if in_.carry == .Object {

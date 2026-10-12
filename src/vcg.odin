@@ -12,7 +12,7 @@ DIR_BLOCK_SIZE    :: 0x924 // the last block of a record is truncated (unused ta
 // Per-frame tables (64 entries) relative to the frame-count field b:
 // dx i8 @0x708, dy i8 @0x748, reverse u8 @0x788, hold flag i16 @0x7c8,
 // hold i16 @0x848, lock-scale u8 @0x8c8. The last block of a record ends
-// before 0x8c8 + 64, so only tables up to hold are read.
+// exactly at 0x8c8 + 64.
 DIR_COUNT         :: 8
 MAX_FRAMES        :: 64
 
@@ -22,6 +22,8 @@ Frame :: struct {
 	dx, dy:         i8,     // per-frame displacement (usually 0)
 	hold_flag:      i16,    // nonzero: hold this frame for hold ticks
 	hold:           i16,    // ticks to hold; negative = random up to -hold
+	reverse:        bool,   // dx/dy flip when the frame plays backward
+	lock_scale:     bool,   // the depth scale stays as it is on this frame
 }
 
 // Per-direction header. Field names follow how VC.EXE uses them
@@ -114,6 +116,8 @@ anim_parse :: proc(idx, pix: []u8) -> (a: Anim, ok: bool) {
 				f.dy = i8(b[0x748 + j])
 				f.hold_flag = i16(le_u16(b, 0x7c8 + 2 * j))
 				f.hold = i16(le_u16(b, 0x848 + 2 * j))
+				f.reverse = b[0x788 + j] != 0
+				if 0x8c8 + j < len(b) do f.lock_scale = b[0x8c8 + j] != 0
 				if u64(f.offset) + u64(f.length) > u64(len(pix)) do return
 			}
 		}

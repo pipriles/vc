@@ -49,11 +49,16 @@ internet/website links, floppy-disk cricket "download", screensaver config.
   `seq_spider_*` / `seq_cricket_*`.
 - Each creature has a 16-entry **animation queue**: entries of
   `{seq: i16, dir: i16, p4: i16, p6: i16}` at creature `+0x1f4`, count
-  `+0x1f0`, dirty flag `+0x1ec`. `enqueue_anim(c, seq, dir, p4, p5, p6)`:
+  `+0x1f0`, busy flag `+0x1ec` (set by enqueueing, cleared only when a pop
+  finds the queue empty, so it is still on while the last queued sequence
+  plays: web-laying continues at most once, a cricket doesn't flee again
+  mid-jump). `enqueue_anim(c, seq, dir, p4, p5, p6)`:
   - `dir == 8` → keep current facing (`+0x9a`).
   - `p5 != 0` (and creature not busy) → flush queue first (*tentative*).
   - Rejected while creature not active (`+0x92 == 0`) or anim not loaded.
-  - p4 looks like a repeat count (walk uses `rand()*4/0x7fff + 4`).
+  - p4 is the play count, but a pop first zeroes the count and runs the
+    start rules (0x403210), and only uses p4 if the rule left it 0: LURK,
+    LURK_D, THREAT, HAIR and CLEAN play their mood counts instead.
 
 ## Playback: repeats and ping-pong **confirmed** (0x404830, 0x404600, 0x403210)
 - A play counts its frames (`+0xb6`); when they run out:
@@ -80,24 +85,34 @@ internet/website links, floppy-disk cricket "download", screensaver config.
    (negative = `rand()*hold/0x7fff`).
 3. Advance `frame += step`; past the end → one play done; after all plays
    pop the queue (turning first with CIRCLE steps if the queued direction
-   differs) or run the idle chooser, then `start_sequence`.
+   differs) or run the idle chooser, then `start_sequence`. Turns go
+   clockwise when the target is 1–3 steps past dir − 1 (or 4+ below it),
+   else counter-clockwise (0x408290).
 4. Move if the sequence moves (`move_x` 60% per play, `move_y` always) or
    the frame has dx/dy: dirs 0/1/7 up, 3/4/5 down, 5/6/7 left, 1/2/3 right.
+   The flags, speeds, facing and dx/dy are those from before the frame
+   advanced; dx/dy flip when playing backward on frames flagged reverse,
+   and still apply during a pause (only GLASS dir 4 has any: its climb).
    x step = `sx`; y step = `sx` straight up/down, `sy` on diagonals.
    Running doubles speeds while walking.
 5. `creature_update_position`: clamp x to [130, 1070] (walls) and y to
    [170 + h/3, 480 - h/2]; hitting a side marks the 3 directions into it as
    bumped for 5 ticks. Then
-   `scale% = min(100, trunc(y/480 * size + 35))`,
+   `scale% = min(100, trunc(y/480 * size + 35))` (kept on frames flagged
+   lock-scale: GLASS's climb),
    `sx = trunc(base_sx / (100/scale))`, `sy` likewise.
    Spider: base 5×3, size 40 when new (grows; SKIN = moult, TBD).
 
 ## Goals: walk somewhere, then play **confirmed**
 `move_to_then_anim(c, target, type, x, y, dir, seq, timeout)` only stores a
-goal (refused while hiding or above the floor line); it lets the current
-play finish.
-- Types: 1/2 chase a creature (crickets, TBD), 10 cursor, 11 point,
-  12 only y matters (front glass), 13 only x matters.
+goal (refused while hiding, above the floor line or eating, and a chase
+already after the same target carries on with its timer); it lets the
+current play finish, unless that is KILL. The spider's current play can't
+be cut short off the floor, while eating or dead, or on the glass unless
+carried (0x405900).
+- Types: 0 follow the spider (crickets aim 40 px below it), 1/2 chase a
+  creature, 10 cursor, 11 point, 12 only y matters (front glass), 13 only
+  x matters.
 - Arrival, checked every frame (`goal_check`): tolerance `9·sx` by `7·sy`
   around the target (bands for 12/13). On arrival the queue is flushed and
   `seq` queued facing `dir`; the current sequence ends at once. Not yet
@@ -173,7 +188,9 @@ starts and it keeps going back (faithful to the original logic).
   slot, or in the centre slot with the spider on the floor and 80% →
   eaten: +25 food, crickets-eaten +1, cricket removed (refilled into the
   box from storage), KILL queued, eating flag, crunch sound 450–452.
-  Otherwise CATCH_RESET and the cricket jumps away (×1–3).
+  Otherwise CATCH_RESET; the cricket jumps away (×1–3) and runs (WALK
+  ×1–10), and 80% of the time the spider goes after it again (CATCH goal,
+  120 s).
 - KILL finished: eating cleared, cricket remains (vcg_4004, 1 of 6) left at
   the hit-rect centre (ring of 12), KILL_RESET then CLEAN ×2–3.
 
@@ -195,8 +212,9 @@ Table built on the stack at startup (recovered by tracing the stores):
 | 10 | Skin (kind 6) | – | 6 | – | – | crumbles, then gone |
 
 - Objects are creature structs of kind 1 without animation data. Depth
-  class sets the floor clamp: y ≥ 170 + h/3, h/6 or h/12; bottom
-  y + h/2 < 480; x margin 130. Scale `min(100, 35 + 100·y/480)`.
+  class sets the floor clamp: y ≥ 170 + H/3, H/6 or H/12, where H is the
+  *spider's* bitmap height (200, sic); bottom y + h/2 < 480 with the
+  object's own h; x margin 180. Scale `min(100, 35 + 100·y/480)`.
 - Hit rect: non-key bounds of frame 0 (`object_content_bounds`), scaled.
   Shadows are colour 49 in the object bitmaps, drawn in the shadow pass.
 - Start: random x = rand_n(1200) − w, y = rand_n(480) − h + 170 (then
@@ -215,10 +233,10 @@ Table built on the stack at startup (recovered by tracing the stores):
   timeout after the detour test, so a detour that never gets anywhere
   lasts forever), and a detour walk that got nowhere tries the next
   direction round instead of repeating.
-- Port: CATCH needs the cricket's centre within half the spider's box in
-  x and y; a cricket touching a corner is out of reach. The spider then
-  waits (lurking, facing it) for it to come closer, and at a wall or the
-  glass, where it can't get closer, it may catch any cricket touching it.
+- CATCH needs the cricket's centre within half the spider's drawn frame
+  (320×200 at its scale) in x and y. Port: when it isn't, the spider waits
+  (lurking, facing it) for it to come closer, and at a wall or the glass,
+  where it can't get closer, it may catch any cricket touching it.
 - New spider: random facing, then the free-spot search (`place_free`:
   random point, step 50 px right / down until the position update leaves
   it unchanged), then faces the first free direction.
@@ -246,9 +264,11 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
 - Tap: holding the button anywhere in the tank. Prod / stroke: holding it
   on the spider (if it could be picked up). Pick up: the spider (PICKUP,
   sound 405; carried it plays PICKUP and counts as interaction 5, released
-  it plays DROP), a cricket in the tank (sound 407) or an object (dragged;
-  dropped below the tank it is put away). Follow: the spider walks after
-  the pointer (goal type 10, LURK_D on arrival, interaction 4).
+  it plays DROP). Every tool but the tap drags an object (dropped below the
+  tank it is put away), else a cricket in the tank (sound 407), when
+  pressed off the spider; the hover cursor shows the grabbing hand over
+  them. Follow: pressed off the spider, the spider walks after the pointer
+  (goal type 10, LURK_D on arrival, interaction 4).
 - The spider can be picked up unless something is carried, it is eating,
   hiding, above the floor line or dead. Hit test: hit rect shrunk by 1/8.
 - Pointer within 20 px of the left/right edge scrolls the viewfinder 20 px
@@ -300,8 +320,9 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   640×256; below it a panel of 96×96 cells (5 per row from x 60, y 260)
   with the objects not in the tank (dithered background, colour 1, 2 when
   hovered; corners vcg_2009; names). Drag objects between the panel and
-  the tank; a click elsewhere returns and restores the tool. (The
-  unregistered original allowed 3 objects in the tank.)
+  the tank; a click elsewhere returns and restores the tool. Only while
+  fewer than 6 objects (the bowl included) are in the tank can another be
+  dragged out (0x40e360, 0x40e930; the unregistered original allowed 3).
 
 ## Pauses and frame events **confirmed** (`creature_post_frame`)
 Run on every frame advance. A pause (`+0xf8`) freezes the creature
@@ -362,7 +383,9 @@ comes back after ≥ 3 minutes):
 - M ≥ 60: mood becomes rand_n(200) − 100. Crickets in the tank are
   moved to free spots.
 - The current sequence ends and the spider is reset (0x408630): no goal,
-  no turn, not eating, every sequence last played 5 minutes ago.
+  no turn, not eating, empty queue (dropping what ending the sequence
+  queued), no tool, every sequence last played 5 minutes ago. At the end
+  every cricket stuck in a web is free.
 - Steps of 1, 2, 3 or 90 minutes (M < 30, < 60, < 90, else). Each step:
   water −(acc/75) per 150 min, food −(acc/60) per 120 min; water < 80 →
   drink from the bowl (+20, level −1); food < 26 → 50 % per tank cricket to
@@ -439,7 +462,9 @@ probability (rand_n(5)+4)/10 unless it just turned; otherwise `spider_idle`:
    HAIR only after interaction, CLEAN `rand_n(15) < 2*temperament`,
    WEB_LAYING when food < 36), not repeat, not CIRCLE, have frames, and its
    precondition if flagged (GLASS near the front glass, LOG_HIDE at the log
-   x 630–650 y < 174). Gives up after 8 tries → LURK 60% / WALK.
+   x 630–650 y < 174), which is checked twice (WEB_LAYING's chance twice).
+   A try only counts when the candidate at the loop top has no
+   precondition; after 7 counted tries → LURK 60% / WALK.
 5. 1/51 chance (≥12 min apart) go hide under the rock; 30% (≥3 min apart)
    go to the front glass (see below).
 Crickets: random sequence with frames in the current direction.
@@ -628,7 +653,7 @@ under the rock · PARKER wait at the bell · DIET food −10 · SAHARA water −
 LANDOFTHEGIANTS size 100 / MICROCOSM size 5 (toggles) · JARVIS HAIR ×4 ·
 VINNIE THREAT ×3 · OLIVER bowl empty · SWAMPY yucca grows a frame · SURFER
 a corner web · FLINT no frame-rate limit · SHOWFPS "FPS:nn" at (10, 464)
-· KAMIKAZE the crickets in the tank walk to the spider · URSULLA a moult
+· KAMIKAZE the crickets in the tank follow the spider (40 px below it) · URSULLA a moult
 · GLOBALBEACH the spider wears the Global Beach logo (vcg_2013 tiled at a
 size bouncing 2 px every other frame). The port's own shortcuts (debug,
 full screen) need Shift so typing doesn't set them off. Port addition:

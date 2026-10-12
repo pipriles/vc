@@ -115,11 +115,12 @@ spider_precondition :: proc(c: ^Creature, seq: int) -> bool {
 	case ids.catch_reset:
 		return c.prev_seq == ids.catch_
 	case ids.catch_:
-		// the target cricket must be within half the spider's hit rect
+		// the target cricket must be within half the spider's drawn frame
+		// (+0x34/+0x38: the 320x200 frame stretched to its scale)
 		if c.target_id < 0 do return false
 		cr := &game.crickets[c.target_id]
-		if abs(c.x - cr.x) <= (c.hit.right - c.hit.left) / 2 &&
-		   abs(c.y - cr.y) <= (c.hit.bottom - c.hit.top) / 2 {
+		dw, dh := x87_scale_trunc(c.anim.w, c.scale), x87_scale_trunc(c.anim.h, c.scale)
+		if abs(c.x - cr.x) <= dw / 2 && abs(c.y - cr.y) <= dh / 2 {
 			return true
 		}
 		// port: touching it but held back by a wall from getting closer
@@ -230,10 +231,14 @@ spider_idle :: proc(c: ^Creature) {
 		return
 	}
 
+	// A try only counts when the candidate at the top of the loop (at
+	// first the sequence that just ended) has no precondition; after 7
+	// counted tries it falls back. A candidate with a precondition has it
+	// checked twice, once by spider_can_play and once more here.
 	tries := 0
 	for {
-		tries += 1
-		if tries > 8 {
+		if d := &c.anim.seqs[c.seq].dirs[c.dir]; !d.needs_check do tries += 1
+		if tries > 7 {
 			c.seq = rand_n(10) < 6 ? ids.lurk : ids.walk
 			debug_logf("idle: nothing fits, %s", seq_name(c, c.seq))
 			break
@@ -243,9 +248,10 @@ spider_idle :: proc(c: ^Creature) {
 		} else {
 			c.seq = rand_n(len(c.anim.seqs))
 		}
-		if c.seq == c.prev_seq || c.seq == ids.circle do continue
-		if !seq_has_frames(c, c.seq, c.dir) do continue
-		if spider_wants(c, c.seq) && spider_can_play(c, c.seq) {
+		ok := spider_wants(c, c.seq) && spider_can_play(c, c.seq) &&
+			c.seq != c.prev_seq && c.seq != ids.circle && seq_has_frames(c, c.seq, c.dir)
+		if ok && c.anim.seqs[c.seq].dirs[c.dir].needs_check do ok = spider_precondition(c, c.seq)
+		if ok {
 			debug_logf("idle: pick %s (try %d)", seq_name(c, c.seq), tries)
 			break
 		}
@@ -318,7 +324,7 @@ spider_finished :: proc(c: ^Creature) {
 			enqueue_anim(c, ids.clean, dir, rand_n(2) + 2, flush = true)
 		}
 	case ids.web_laying:
-		if rand_n(10) < 6 && c.queue_len == 0 {
+		if rand_n(10) < 6 && !c.queue_busy {
 			dir := c.dir + 2
 			if dir > 7 do dir = 0
 			run := rand_n(2) != 0
