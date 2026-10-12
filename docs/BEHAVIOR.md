@@ -639,4 +639,8 @@ Death (catch-up 0x415430): yucca to its last frame and both cacti (objects
 4, 5) to frame 1; resurrection (0x404230): yucca frame 8, cacti frame 0.
 
 ## Not yet ported
+- The Cricket Swarm screensaver module (VC.SCR's third mode, 0x4133a0:
+  crickets roaming a black screen round a centred picture) — skipped: a
+  page can't be a system screensaver; the port's in-page screensaver mode
+  covers the "Non-Interactive" module.
 - Freeze Simulation (not wanted).
