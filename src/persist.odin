@@ -220,6 +220,13 @@ catch_up :: proc(minutes: int, since: f64) {
 		return
 	}
 	if minutes >= 60 do st.mood = rand_n(200) - 100
+	// the sequence ends, then the spider is reset: no goal, no turn, not
+	// eating, every sequence last played 5 minutes ago (0x403520, 0x408630)
+	if s.finished != nil do s.finished(s)
+	clear_goal(s)
+	s.turn_target, s.turn_dir, s.pop_turning = -1, 0, false
+	s.eating = false
+	for &t in s.last_played do t = now_ms - min(now_ms, 300_000)
 	if s.hide != 0 {
 		s.hide = 0
 		s.no_clamp = false

@@ -154,3 +154,45 @@ small_spider_waits_between_glass_trips :: proc(t: ^testing.T) {
 	}
 	testing.expectf(t, trips <= 2, "%d glass trips in three minutes", trips)
 }
+
+@(test)
+climbing_spider_is_drawn_in_front :: proc(t: ^testing.T) {
+	if !sim_setup(t, 7) do return
+	s := &game.spider
+	s.x, s.y = 600, 300
+	creature_update_position(s)
+	rock := &game.objects[2]
+	rock.active, rock.in_box = true, false
+	rock.x, rock.y = s.x, 470 // in front of it
+	object_update_position(rock)
+	s.seq, s.frame = game.seq.lurk, 0
+	update_render_list()
+	si, ri := -1, -1
+	for c, i in game.render_list {
+		if c == s do si = i
+		if c == &rock.c do ri = i
+	}
+	testing.expectf(t, ri > si, "normally the rock in front is drawn after the spider (%d, %d)", si, ri)
+	s.seq, s.frame = game.seq.glass, 21
+	update_render_list()
+	testing.expect(t, game.render_list[len(game.render_list) - 1] == s, "climbing the glass: the spider last")
+}
+
+@(test)
+at_most_six_crickets_in_the_tank :: proc(t: ^testing.T) {
+	if !sim_setup(t, 8) do return
+	for _ in 0 ..< 10 do cricket_drop(400, 300)
+	testing.expect_value(t, crickets_in_tank(), 6)
+}
+
+@(test)
+catch_up_resets_the_cooldowns :: proc(t: ^testing.T) {
+	if !sim_setup(t, 9) do return
+	s := &game.spider
+	now_ms = CLOCK_START
+	for &v in s.last_played do v = now_ms
+	move_to(s, .Point, 900, 400, -1, game.seq.lurk, 60)
+	catch_up(10, host_time() - 600)
+	testing.expect(t, !s.goal.active, "no goal after time away")
+	testing.expect_value(t, s.last_played[game.seq.glass], now_ms - 300_000)
+}

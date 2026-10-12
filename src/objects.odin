@@ -52,7 +52,9 @@ Object :: struct {
 	bmp:      Bitmap,
 	fw, fh:   int, // frame size
 	key:      u8,
-	content:  Rect, // non-key bounds of frame 0 (0x41c2e0)
+	content:  Rect, // non-key bounds of frame 0 (0x41c2e0), less the shadow (port)
+	shadow_bottom: int, // bottom of frame 0 with its shadow, in frame coordinates
+	sort_bottom:   int, // the original's hit-box bottom (shadow included), for the draw order
 	anim_left: int, // ticks until the next frame (+0x8a)
 	anim_step: int, // (+0x8c)
 	swings:   int, // remaining bell swings (+0x90)
@@ -73,6 +75,7 @@ objects_init :: proc() {
 		o.fw, o.fh = bmp.w, bmp.h / def.frames
 		o.key = bmp.pixels[0]
 		o.content = content_bounds(&o)
+		o.shadow_bottom = shadow_bottom(&o)
 		o.anim_step = def.step
 		o.target_id = -1
 		if i == BOWL do o.frame = (def.frames - 1) / 2 // half full
@@ -107,6 +110,15 @@ content_bounds :: proc(o: ^Object) -> Rect {
 	return r
 }
 
+// Bottom of frame 0's non-key pixels, shadow included (what the original's
+// hit box, and so its draw order, uses).
+shadow_bottom :: proc(o: ^Object) -> int {
+	for y := o.fh - 1; y >= 0; y -= 1 do for x in 0 ..< o.fw {
+		if o.bmp.pixels[y * o.fw + x] != o.key do return y
+	}
+	return o.fh - 1
+}
+
 // Position update for objects (the no-animation branch of 0x406df0).
 object_update_position :: proc(o: ^Object) {
 	if o.x < WALL_MARGIN do o.x = WALL_MARGIN
@@ -124,6 +136,7 @@ object_update_position :: proc(o: ^Object) {
 		x87_scale_trunc(b.left, o.scale) + ox, x87_scale_trunc(b.top, o.scale) + oy,
 		x87_scale_trunc(b.right, o.scale) + ox, x87_scale_trunc(b.bottom, o.scale) + oy,
 	}
+	o.sort_bottom = x87_scale_trunc(o.shadow_bottom, o.scale) + oy
 }
 
 // Frame animation and sounds (main update, 0x40ca70).

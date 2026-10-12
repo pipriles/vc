@@ -361,6 +361,8 @@ comes back after ≥ 3 minutes):
 - M < 3: nothing, except a hidden spider is put back under the rock.
 - M ≥ 60: mood becomes rand_n(200) − 100. Crickets in the tank are
   moved to free spots.
+- The current sequence ends and the spider is reset (0x408630): no goal,
+  no turn, not eating, every sequence last played 5 minutes ago.
 - Steps of 1, 2, 3 or 90 minutes (M < 30, < 60, < 90, else). Each step:
   water −(acc/75) per 150 min, food −(acc/60) per 120 min; water < 80 →
   drink from the bowl (+20, level −1); food < 26 → 50 % per tank cricket to
@@ -410,6 +412,9 @@ comes back after ≥ 3 minutes):
 - Clear removes remains, footprints and web pieces and frees crickets.
 
 ## Rendering **confirmed**
+- Draw order (0x41c160): back to front by the bottom of each hit box
+  (objects' with their shadow); while the spider plays GLASS past frame 20
+  (climbing the glass) it is drawn in front of everything.
 - Scene is composed into an 8-bit 1200×480 surface; the 640×480 view is a
   window at `scroll_x` (panning moves 20 px per tick).
 - Creatures drawn in render-list order with `blit_creature`: the frame

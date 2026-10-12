@@ -196,9 +196,14 @@ load_assets :: proc() -> bool {
 	return true
 }
 
+// The sim clock starts an hour in, as GetTickCount is never near 0: things
+// last done "5 minutes ago" (the catch-up's reset) must fit before it.
+CLOCK_START :: 3_600_000
+
 tank_init :: proc() -> bool {
 	if !load_assets() do return false
 	rng.seed = u32(host_time())
+	now_ms = max(now_ms, CLOCK_START)
 	tank_reset()
 	if load_game() {
 		if game.life.dead do game.life.death_notice = 30
@@ -284,7 +289,23 @@ update_render_list :: proc() {
 	for &c in game.crickets do if c.active && !c.in_box do append(&game.render_list, &c)
 	for &o in game.objects do if o.active && !o.in_box do append(&game.render_list, &o.c)
 	if game.skin.active do append(&game.render_list, &game.skin.c)
-	slice.sort_by(game.render_list[:], proc(a, b: ^Creature) -> bool {return a.y < b.y})
+	// back to front by the bottom of the hit box (0x41c160)
+	slice.sort_by(game.render_list[:], proc(a, b: ^Creature) -> bool {return draw_bottom(a) < draw_bottom(b)})
+	// climbing the glass (GLASS past frame 20) the spider is in front of
+	// everything: the original sorts it as if at y = 490
+	s := &game.spider
+	if s.seq == game.seq.glass && s.frame > 20 {
+		for c, i in game.render_list do if c == s {
+			ordered_remove(&game.render_list, i)
+			append(&game.render_list, s)
+			break
+		}
+	}
+}
+
+draw_bottom :: proc(c: ^Creature) -> int {
+	if c.kind == .Object do return (^Object)(c).sort_bottom
+	return c.hit.bottom
 }
 
 // Frame rate setting (Options > Settings): the original runs the whole

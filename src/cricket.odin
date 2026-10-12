@@ -3,7 +3,7 @@ package vc
 // Crickets and hunting (docs/BEHAVIOR.md, "Crickets and hunting").
 
 CRICKET_COUNT :: 12
-MAX_IN_TANK   :: 8  // crickets can only be taken out of the box while fewer are in the tank
+MAX_IN_TANK   :: 6  // crickets can only be taken out of the box while fewer are in the tank (0x40e930: 6 registered, 3 not)
 REMAINS_COUNT :: 12 // ring of cricket remains on the sand (0x452720)
 
 Cricket_Seq_Ids :: struct {
