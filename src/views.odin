@@ -95,6 +95,7 @@ whole_pointer :: proc(ev: Pointer_Event, vx, vy: int) {
 	case .Down:
 		if c := cell_at(vx, vy); c >= 0 && game.objects[c].active && game.objects[c].in_box && objects_in_tank() < MAX_OBJECTS_IN_TANK {
 			in_.carry, in_.carry_id = .Object, c
+			game.objects[c].carried = 1 // nothing reacts to it while dragged (+0xc8)
 			in_.down = true
 			set_cursor(3)
 			return
@@ -103,6 +104,7 @@ whole_pointer :: proc(ev: Pointer_Event, vx, vy: int) {
 			for &o in game.objects {
 				if !o.active || o.in_box || !hit_test(&o.c, in_.x, in_.y) do continue
 				in_.carry, in_.carry_id = .Object, o.id
+				o.carried = 1
 				in_.down = true
 				set_cursor(3)
 				return
@@ -128,6 +130,7 @@ whole_pointer :: proc(ev: Pointer_Event, vx, vy: int) {
 		in_.down = false
 		if in_.carry == .Object {
 			o := &game.objects[in_.carry_id]
+			o.carried = 0
 			if o.in_box do debug_logf("%s back in the panel", o.name)
 			else do debug_logf("%s placed at (%d, %d)", o.name, o.x, o.y)
 		}

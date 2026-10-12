@@ -235,6 +235,7 @@ pickup_at :: proc(x, y: int) {
 	for &o in game.objects {
 		if !o.active || o.in_box || !hit_test(&o.c, x, y) do continue
 		in_.carry, in_.carry_id = .Object, o.id
+		o.carried = 1 // the spider doesn't react to it (drink, ...) while it's dragged (0x403770)
 		return
 	}
 	for &c in game.crickets {
@@ -285,6 +286,7 @@ carry_release :: proc() {
 		spider_sees_cricket(&game.spider, c)
 	case .Object:
 		o := &game.objects[in_.carry_id]
+		o.carried = 0
 		if game.input.y >= VIEW_H - 2 {
 			o.in_box = true // dragged out of the tank: put away
 			debug_logf("%s put away", o.name)

@@ -183,3 +183,31 @@ any_tool_but_the_tap_drags_crickets :: proc(t: ^testing.T) {
 		pointer_event(.Up, cr.x, cr.y)
 	}
 }
+
+@(test)
+no_drinking_from_a_bowl_being_dragged :: proc(t: ^testing.T) {
+	if !sim_setup(t, 46) do return
+	s := &game.spider
+	clear_goal(s)
+	clear_queue(s)
+	s.x, s.y, s.dir = 600, 300, 4
+	s.prev_x, s.prev_y = s.x, s.y
+	creature_update_position(s)
+	game.stats.water = 30
+	bowl := &game.objects[BOWL]
+	bowl.frame = bowl.def.frames - 1
+	game.scroll_x = 0
+	game.input.tool = .Pickup
+	bowl.x, bowl.y = 900, 400
+	object_update_position(bowl)
+	pointer_event(.Down, bowl.x, bowl.y)
+	testing.expect(t, game.input.carry == .Object && game.input.carry_id == BOWL, "dragging the bowl")
+	// held right under the spider's mouth
+	for _ in 0 ..< 20 {
+		pointer_event(.Move, s.x, s.y + 60)
+		creature_update_position(s)
+	}
+	testing.expect_value(t, game.stats.water, 30)
+	pointer_event(.Up, s.x, s.y + 60)
+	testing.expect_value(t, bowl.carried, 0)
+}
