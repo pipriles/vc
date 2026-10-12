@@ -34,6 +34,11 @@ cmd: Commands
 @(export)
 tank_char :: proc "c" (ch: i32) {
 	context = runtime.default_context()
+	if game.ui.name_edit {
+		if ch == 13 do game.ui.name_edit = false // port: Enter finishes editing
+		else do name_type(ch)
+		return
+	}
 	c := cmd_upper(ch)
 	if ch == 13 {
 		cmd_run(string(cmd.typed[:cmd.n]))

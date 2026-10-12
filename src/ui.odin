@@ -96,6 +96,9 @@ UI :: struct {
 	saver_follow: bool, // follow mode before it
 	name:         [24]u8,
 	name_len:     int,
+	name_edit:    bool, // editing the name in place (0x454b78)
+	caret:        int,  // edit position (0x454714)
+	name_rect:    Rect, // where a click starts editing (0x44df50)
 }
 
 // x offsets of the name font glyphs A-Z then 0-9, and the strip's end (0x431248)
@@ -268,6 +271,7 @@ tank_ui_at :: proc "c" (x, y: i32) -> i32 {
 	if game.input.view != .Tank || u.floating do return 0
 	if box_covers(vx, vy) do return 0
 	if over_logo(vx, vy) do return 2
+	if r := u.name_rect; vx >= r.left && vx < r.right && vy >= r.top && vy < r.bottom do return 3
 	if u.shown && u.slide == 0 && button_at(vx, vy) >= 0 do return 1
 	if indicator_help_at(vx, vy) >= 0 do return 1
 	return 0
@@ -289,6 +293,15 @@ ui_pointer :: proc(ev: Pointer_Event, vx, vy: int) -> bool {
 	u.logo_hover = !u.floating && over_logo(vx, vy)
 	#partial switch ev {
 	case .Down:
+		// a click in the name's box edits it, anywhere else stops (0x205/0x201)
+		if !u.floating {
+			r := u.name_rect
+			u.name_edit = vx >= r.left && vx < r.right && vy >= r.top && vy < r.bottom
+			if u.name_edit {
+				u.caret = min(u.caret, u.name_len)
+				return true
+			}
+		}
 		if b >= 0 {
 			u.pressed = b
 			button(Button(u.buttons[b].cmd))
@@ -434,33 +447,132 @@ ui_draw_logo :: proc() {
 	}
 }
 
-// Name in the bitmap font: A-Z and 0-9, other characters as 10 px gaps.
+// Name in the bitmap font: A-Z and 0-9, other characters as 10 px gaps
+// (0x412280). While it's being edited a dither of palette 2 lies behind it
+// and a 3 px bar blinks under the character at the edit position.
+NAME_MAX :: 23 // characters (a 24-byte buffer); the edit position stops at 22
+
 draw_name :: proc(x0, y0: int) {
 	u := &game.ui
 	f := &u.font
 	if f.w == 0 do return
+	// the box: 10 px round the name, at least 100 px wide (as last drawn)
+	if u.name_edit {
+		r := u.name_rect
+		dither_color(r.left + 3, r.top + 3, r.right - r.left - 6, r.bottom - r.top - 6, 2)
+	}
 	x := x0
-	for ch in u.name[:u.name_len] {
-		g := -1
-		switch ch {
-		case 'A' ..= 'Z': g = int(ch - 'A')
-		case 'a' ..= 'z': g = int(ch - 'a')
-		case '0' ..= '9': g = 26 + int(ch - '0')
+	for k in 0 ..= u.name_len {
+		g, gw := -1, 10
+		if k < u.name_len {
+			switch ch := u.name[k]; ch {
+			case 'A' ..= 'Z': g = int(ch - 'A')
+			case 'a' ..= 'z': g = int(ch - 'a')
+			case '0' ..= '9': g = 26 + int(ch - '0')
+			}
+			if g >= 0 do gw = FONT_X[g + 1] - FONT_X[g] - 1
 		}
-		if g < 0 {
-			x += 10
-			continue
+		if u.name_edit && k == u.caret && u.blink < 5 {
+			for j in 0 ..< 3 do for i in 0 ..< gw {
+				vx, vy := x + i, y0 - 3 + f.h + j
+				if vx >= 0 && vx < dst.w && vy >= 0 && vy < dst.h do dst.px[vy * dst.w + vx] = 255
+			}
 		}
-		gx, gw := FONT_X[g], FONT_X[g + 1] - FONT_X[g] - 1
-		key: u8 = 0 // white glyphs on black
-		for j in 0 ..< f.h do for i in 0 ..< gw {
-			p := f.pixels[j * f.w + gx + i]
-			vx, vy := x + i, y0 + j
-			if p != key && vx >= 0 && vx < dst.w && vy >= 0 && vy < dst.h do dst.px[vy * dst.w + vx] = p
+		if g >= 0 {
+			gx := FONT_X[g]
+			key: u8 = 0 // white glyphs on black
+			for j in 0 ..< f.h do for i in 0 ..< gw {
+				p := f.pixels[j * f.w + gx + i]
+				vx, vy := x + i, y0 + j
+				if p != key && vx >= 0 && vx < dst.w && vy >= 0 && vy < dst.h do dst.px[vy * dst.w + vx] = p
+			}
 		}
-		x += gw + 1
+		if k < u.name_len do x += gw + 1
+	}
+	u.name_rect = {x0 - 10, y0 - 10, max(x, x0 + 100) + 10, y0 + f.h + 10}
+}
+
+dither_color :: proc(x0, y0, w, h: int, color: u8) {
+	for j := 0; j < h; j += 2 {
+		y := y0 + j
+		if y < 0 || y >= dst.h do continue
+		for i := 0; i < w; i += 2 {
+			x := x0 + i
+			if x >= 0 && x < dst.w do dst.px[y * dst.w + x] = color
+		}
 	}
 }
+
+// Typing into the name: letters (upper-cased), digits and spaces overwrite
+// the character at the edit position (the original's WM_CHAR branch).
+name_type :: proc(ch: i32) {
+	u := &game.ui
+	c := ch >= 'a' && ch <= 'z' ? ch - 32 : ch
+	if !((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == ' ') do return
+	if u.caret >= len(u.name) do return
+	u.name[u.caret] = u8(c)
+	if u.caret >= u.name_len do u.name_len = u.caret + 1
+	u.caret = min(u.caret + 1, NAME_MAX - 1)
+	name_changed()
+}
+
+// Left, Right, Home, End, Backspace and Delete (WM_KEYDOWN while editing).
+name_key :: proc(code: i32) {
+	u := &game.ui
+	switch code {
+	case 37: u.caret = max(u.caret - 1, 0)
+	case 39: u.caret = min(u.caret + 1, u.name_len, NAME_MAX - 1)
+	case 36: u.caret = 0
+	case 35: u.caret = min(u.name_len, NAME_MAX - 1)
+	case 8:
+		if u.caret == 0 do return
+		copy(u.name[u.caret - 1:], u.name[u.caret:u.name_len])
+		u.name_len -= 1
+		u.caret -= 1
+		name_changed()
+	case 46:
+		if u.caret >= u.name_len do return
+		copy(u.name[u.caret:], u.name[u.caret + 1:u.name_len])
+		u.name_len -= 1
+		name_changed()
+	}
+}
+
+name_changed :: proc() {host_name(string(game.ui.name[:game.ui.name_len]))}
+
+name_set_default :: proc() {
+	u := &game.ui
+	n := copy(u.name[:], "ENTER PETS NAME HERE")
+	u.name_len, u.caret, u.name_edit = n, 0, false
+}
+
+// Keys other than characters: name editing, and in the tank view "+" for
+// the close-up and "-" for the whole tank, or in another view "+", "-" or
+// Esc to go back (wnd_proc WM_KEYDOWN / WM_CHAR).
+@(export)
+tank_key :: proc "c" (code: i32) {
+	context = runtime.default_context()
+	u := &game.ui
+	if u.name_edit {
+		if code == 13 || code == 27 {
+			u.name_edit = false // port: Enter or Esc also finish editing
+			return
+		}
+		name_key(code)
+		return
+	}
+	plus, minus := code == '+', code == '-'
+	if game.input.view == .Tank {
+		if game.input.carry != .None do return
+		if plus do tank_button(Button(0))
+		if minus do tank_button(Button(1))
+	} else if plus || minus || code == 27 {
+		leave_view()
+	}
+}
+
+@(export)
+tank_name_editing :: proc "contextless" () -> i32 {return game.ui.name_edit ? 1 : 0}
 
 // Rows [sy, sy+h) of a bitmap scaled to scale% and centred in w x h at (x0, y0).
 draw_scaled_part :: proc(b: ^Bitmap, x0, y0, w, h, sy, scale: int) {

@@ -595,6 +595,18 @@ are worked out (the route grid). A cricket not on or beside one (dropped
 between objects, behind one, pushed out of bounds) walks to the nearest
 reachable square, and if it isn't there 10 s later, jumps there.
 
+## Pet name **confirmed** (0x412280, wnd_proc)
+A new pet is called ENTER PETS NAME HERE. A click inside the name's box
+(10 px round it, at least 100 px wide) edits it, any other click stops:
+palette 2 dithered behind it and a 3 px bar (palette 255) blinking under
+the character at the edit position. Letters (upper-cased), digits and
+spaces overwrite at the edit position (up to 23 characters); Left, Right,
+Home, End, Backspace, Delete; typed commands are off meanwhile. Other
+keys: "+" close-up, "-" whole tank, and in those views "+", "-" or Esc go
+back. Port: Enter or Esc also finish editing; on touch a tap on the name
+opens a text box; the name is kept in the browser (the top bar's field
+shows it too).
+
 ## Opening sequence **confirmed** (0x40ca70 while 0x4519c4 < 3)
 Splash vcg_5000 (the egg) fading in from black (palette +8 a channel a
 frame), 24 frames then 1.5 s; sound 415 and the spider's CLEAN facing 4 at

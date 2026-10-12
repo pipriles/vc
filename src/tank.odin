@@ -222,6 +222,7 @@ tank_new_spider :: proc "contextless" () {
 // Fresh tank with a new spider (keeps the random seed going).
 tank_reset :: proc() {
 	game = {}
+	name_set_default() // a new pet (the original's ENTER PETS NAME HERE)
 	game.render_list = make([dynamic]^Creature, 0, 32, persistent_allocator())
 	game.tank = assets.tank
 	state.palette = assets.tank.palette
@@ -381,6 +382,7 @@ tank_tick :: proc() {
 	now_ms += u32(tick_ms())
 	if game.pending_new {
 		tank_reset()
+		name_changed()
 		host_message("NEW SPIDER", "A new spider has hatched.")
 		return
 	}

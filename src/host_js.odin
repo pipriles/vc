@@ -37,6 +37,7 @@ foreign host {
 	host_fullscreen :: proc() ---
 	host_settings :: proc(frame_rate: i32, smooth, help_text: bool, saver_idle: i32) ---
 	host_saver ::   proc() --- // start the screensaver, full screen
+	host_name ::    proc(name: string) --- // the pet's name changed (edited in the tank)
 	host_tz_offset :: proc() -> i32 --- // minutes east of UTC
 	ui_begin ::    proc() ---
 	ui_text ::     proc(x, y: int, text: string) ---

@@ -250,6 +250,7 @@ const imports = {
 			try { localStorage.setItem("vc-settings", JSON.stringify(st)); } catch {}
 		},
 		host_saver: () => window.vcStartSaver?.(true),
+		host_name: (p, n) => window.vcNameChanged?.(mem.loadString(p, n)),
 		host_tz_offset: () => -new Date().getTimezoneOffset(),
 		ui_text: (x, y, p, n) => uiOps?.push(["text", x, y, mem.loadString(p, n)]),
 		tank_status: (food, water, health, mood, temper, p, n, dir) =>
@@ -562,8 +563,13 @@ function setupTank() {
 	let savedName = "";
 	try { savedName = localStorage.getItem("vc-name") ?? ""; } catch {}
 	$("pet-name").value = savedName;
-	setName(savedName);
+	if (savedName) setName(savedName); // else the new pet's "ENTER PETS NAME HERE"
+	window.vcNameChanged = (name) => {
+		$("pet-name").value = name;
+		try { localStorage.setItem("vc-name", name); } catch {}
+	};
 	$("pet-name").oninput = () => setName($("pet-name").value);
+	const setNameEverywhere = (name) => { $("pet-name").value = name; setName(name); };
 
 	// pointer events in canvas pixels
 	const toCanvas = (e) => {
@@ -582,11 +588,23 @@ function setupTank() {
 	addEventListener("keydown", (e) => {
 		mem.exports.tank_skip_intro(); // a key skips the opening (as the original)
 		if (e.target.tagName === "INPUT" && e.target.type !== "checkbox" && e.target.type !== "range") return;
+		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		// editing the pet's name in the tank: everything goes to it
+		if (mem.exports.tank_name_editing()) {
+			const keys = { ArrowLeft: 37, ArrowRight: 39, Home: 36, End: 35, Backspace: 8, Delete: 46, Escape: 27 };
+			if (keys[e.key]) mem.exports.tank_key(keys[e.key]);
+			else if (e.key === "Enter") mem.exports.tank_char(13);
+			else if (/^[a-zA-Z0-9 ]$/.test(e.key)) mem.exports.tank_char(e.key.charCodeAt(0));
+			else return;
+			e.preventDefault();
+			return;
+		}
 		// letters and digits, and Enter, go to the game (the original's typed
 		// commands); the port's own shortcuts need Shift so typing doesn't
-		// trigger them
+		// trigger them; "+" / "-" zoom in and out, Esc goes back (original)
 		if (e.key === "Enter") mem.exports.tank_char(13);
-		else if (/^[a-zA-Z0-9]$/.test(e.key) && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) mem.exports.tank_char(e.key.charCodeAt(0));
+		else if (/^[a-zA-Z0-9]$/.test(e.key) && !e.shiftKey) mem.exports.tank_char(e.key.charCodeAt(0));
+		if (e.key === "+" || e.key === "-" || e.key === "Escape") mem.exports.tank_key(e.key === "Escape" ? 27 : e.key.charCodeAt(0));
 		if (e.shiftKey && e.key.toUpperCase() === "D") setDebug(!$("debug").checked);
 		if (e.shiftKey && e.key.toUpperCase() === "F") $("fullscreen").click();
 		if (e.key >= "1" && e.key <= "5") mem.exports.tank_set_tool(+e.key - 1);
@@ -653,6 +671,13 @@ function setupTank() {
 			if (kind) {
 				mem.exports.tank_pointer(0, x, y); // hover: its tooltip
 				uiTouch = { kind, x, y, at: [e.clientX, e.clientY], long: false };
+				if (kind === 3) {
+					// the name: no keyboard on a phone, so a text box
+					uiTouch = null;
+					const name = prompt("Your pet's name", $("pet-name").value);
+					if (name !== null) { setNameEverywhere(name.toUpperCase().slice(0, 23)); }
+					return;
+				}
 				uiTouch.timer = setTimeout(() => {
 					if (!uiTouch) return;
 					uiTouch.long = true;

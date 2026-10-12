@@ -61,6 +61,7 @@ host_set_sound :: proc "contextless" (on: bool) {}
 host_fullscreen :: proc "contextless" () {}
 host_settings :: proc "contextless" (frame_rate: i32, smooth, help_text: bool, saver_idle: i32) {}
 host_saver :: proc "contextless" () {}
+host_name :: proc "contextless" (name: string) {}
 host_tz_offset :: proc "contextless" () -> i32 {return 0}
 ui_begin :: proc "contextless" () {}
 ui_text :: proc "contextless" (x, y: int, text: string) {}

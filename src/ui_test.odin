@@ -54,3 +54,35 @@ right_click_with_ui_hidden_flashes_then_cycles :: proc(t: ^testing.T) {
 	testing.expect_value(t, u.tools_flash, 0)
 	u.shown = true
 }
+
+@(test)
+name_edited_in_the_tank :: proc(t: ^testing.T) {
+	if !sim_setup(t, 3) do return
+	u := &game.ui
+	testing.expect_value(t, string(u.name[:u.name_len]), "ENTER PETS NAME HERE")
+	tank_step(TICK) // drawn: the name's box is known
+	pointer_event(.Down, 20, 15)
+	pointer_event(.Up, 20, 15)
+	testing.expect(t, u.name_edit, "a click on the name edits it")
+	u.caret = 0
+	for ch in transmute([]u8)string("tom") do tank_char(i32(ch))
+	testing.expect_value(t, string(u.name[:4]), "TOME") // overwrites
+	tank_key(46) // Delete the E
+	tank_key(35) // End
+	tank_key(8)  // Backspace
+	testing.expect_value(t, string(u.name[:u.name_len]), "TOMR PETS NAME HER")
+	food := game.stats.food
+	for ch in transmute([]u8)string("diet") do tank_char(i32(ch))
+	tank_char(13)
+	testing.expect_value(t, game.stats.food, food) // no commands while editing
+	testing.expect(t, !u.name_edit, "Enter finishes")
+	pointer_event(.Down, 20, 15)
+	pointer_event(.Down, 300, 300)
+	testing.expect(t, !u.name_edit, "a click elsewhere finishes")
+
+	tank_key('+')
+	tank_tick()
+	testing.expect_value(t, game.input.view, View.Close)
+	tank_key(27)
+	testing.expect_value(t, game.input.view, View.Tank)
+}
