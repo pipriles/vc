@@ -255,6 +255,7 @@ pickup_at :: proc(x, y: int) {
 		if !c.active || c.in_box || !hit_test(&c, x, y) do continue
 		in_.carry, in_.carry_id = .Cricket, c.id
 		c.carried = 1
+		c.web_stuck = false // picked out of a web, it's free (wnd_proc mouse-down)
 		force_sequence(&c, game.cseq.pickup)
 		host_sound(407)
 		return

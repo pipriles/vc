@@ -283,3 +283,28 @@ tall_objects_only_block_low_down :: proc(t: ^testing.T) {
 		testing.expectf(t, !hit_test(&o.c, o.x, top + 4), "%s can't be grabbed by its top", o.name)
 	}
 }
+
+@(test)
+minute_update_every_59_seconds :: proc(t: ^testing.T) {
+	if !sim_setup(t, 52) do return
+	k := &game.skin
+	k.active, k.stage_age, k.frame = true, 0, 0
+	for _ in 0 ..< 59 * 10 do tank_tick() // 59 s at 10 fps
+	testing.expect_value(t, k.stage_age, 1)
+	for _ in 0 ..< 59 * 10 do tank_tick()
+	testing.expect_value(t, k.stage_age, 2)
+}
+
+@(test)
+warns_once_when_few_crickets_are_left :: proc(t: ^testing.T) {
+	if !sim_setup(t, 53) do return
+	low_crickets_notice = 20
+	last_message = ""
+	game.storage = 0
+	for &c, i in game.crickets do if i >= 3 do c.active = false
+	for _ in 0 ..< 30 do tank_tick()
+	testing.expect_value(t, last_message, "YOU ONLY HAVE 3 CRICKETS LEFT!")
+	last_message = ""
+	for _ in 0 ..< 100 do tank_tick()
+	testing.expect_value(t, last_message, "") // once a run
+}

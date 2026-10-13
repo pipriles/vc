@@ -294,3 +294,19 @@ yucca_starts_small_and_grows :: proc(t: ^testing.T) {
 	slow_anims(YUCCA_DAY)
 	testing.expect_value(t, y.frame, 7)
 }
+
+@(test)
+picking_a_cricket_out_of_a_web_frees_it :: proc(t: ^testing.T) {
+	if !sim_setup(t, 54) do return
+	s := &game.spider
+	s.x, s.y = 1000, 300
+	creature_update_position(s)
+	cr := &game.crickets[0]
+	cr.in_box, cr.web_stuck = false, true
+	cr.x, cr.y = 400, 350
+	creature_update_position(cr)
+	game.scroll_x = 0
+	game.input.tool = .Pickup
+	pointer_event(.Down, cr.x, cr.y)
+	testing.expect(t, game.input.carry == .Cricket && !cr.web_stuck, "picked up and free")
+}

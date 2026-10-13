@@ -56,7 +56,8 @@ Game :: struct {
 	web_frame:      int,
 	corner_webs:    [4]Corner_Web,
 	yucca_age:      int,
-	minute_ms:      u32,
+	seconds:        int, // counts to the next "minute", which is 59 seconds (0x44d02c)
+	cricket_total:  int, // in the box, in store and in the tank, counted each second (0x454a3a)
 	pending_resurrect, pending_new: bool,
 	saved_tool: Tool, // restored when leaving the whole-tank view
 	scroll_left, scroll_right: int, // edge scrolling ticks left
@@ -398,6 +399,7 @@ tank_tick :: proc() {
 	box_tick()
 	if game.ui.box.state != .Closed do stats_mood()
 	death_notice_tick()
+	low_crickets_tick()
 	handle_pending_drops()
 	handle_pending_objects()
 	for &o in game.objects do if o.active && !o.in_box do object_tick(&o)
@@ -408,13 +410,19 @@ tank_tick :: proc() {
 	for &c in game.crickets do creature_tick(&c)
 	spider_hide_crawl(&game.spider)
 	sound_loops()
-	if now_ms >= game.minute_ms + 60_000 {
-		game.minute_ms = now_ms
-		minute_tick()
-	}
 	if now_ms >= game.sec_ms + 1000 {
 		game.sec_ms = now_ms
 		spider_stats_tick(&game.stats)
+		box := 0
+		for &c in game.crickets do if c.active && c.in_box do box += 1
+		game.cricket_total = box + game.storage + crickets_in_tank()
+		// the "minute" update runs when a seconds counter passes 58, i.e.
+		// every 59 seconds (wnd_proc timer)
+		game.seconds += 1
+		if game.seconds > 58 {
+			game.seconds = 0
+			minute_tick()
+		}
 		if (now_ms / 1000) % 2 == 0 do cricket_rescue()
 		// The original only checks this in the start-up catch-up, so a
 		// spider starving while the program runs lingered at health 0 until

@@ -286,9 +286,9 @@ overlays, and no limit on objects in the tank (the original's was 6).
 | D4 | Follow tool: no reactions to being followed — **fixed** | Medium |
 | D2 | Yucca starts fully grown and never grows — **fixed** | Medium |
 | D5 | Right-click while carrying a cricket doesn't move it to/from the box — **fixed** | Medium |
-| D8 | No low-crickets warning | Small |
-| D6 | Picking up a web-stuck cricket doesn't free it | Small |
-| D7 | Minute update every 60 s instead of 59 s | Small |
+| D8 | No low-crickets warning — **fixed** | Small |
+| D6 | Picking up a web-stuck cricket doesn't free it — **fixed** | Small |
+| D7 | Minute update every 60 s instead of 59 s — **fixed** | Small |
 | D13 | Save doesn't keep the current animation, eating or web-stuck crickets | Small |
 | D12 | Death message after 30 frames instead of 20 | Small |
 | D9 | Floor rebuild draws footprints under webs instead of over | Small |

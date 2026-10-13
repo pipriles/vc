@@ -270,7 +270,8 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   on the spider (if it could be picked up). Pick up: the spider (PICKUP,
   sound 405; carried it plays PICKUP and counts as interaction 5, released
   it plays DROP). Every tool but the tap drags an object (dropped below the
-  tank it is put away), else a cricket in the tank (sound 407), when
+  tank it is put away), else a cricket in the tank (sound 407; one stuck
+  in a web is freed), when
   pressed off the spider; the hover cursor shows the grabbing hand over
   them. Follow: pressed off the spider, the spider walks after the pointer,
   its goal (type 10) taking the pointer's position every tick, so it keeps
@@ -415,7 +416,13 @@ comes back after ≥ 3 minutes):
   when it happens.
 - Dead: lies on its DEAD frame (the first direction after 0 that has
   frames), no needs, no tools, no hunting; "YOUR CREATURE HAS DIED!" after
-  a few seconds.
+  a few seconds ("To resurrect it, click on the 'Resurrect Creature' option
+  in the 'Utilities' menu from the Options dialog box.").
+- Fewer than 6 crickets left (box, store and tank, counted each second):
+  once a run, 20 frames later, "YOU ONLY HAVE n CRICKETS LEFT!" (1:
+  "...CRICKET LEFT!", 0: "YOU DON'T HAVE ANY CRICKETS LEFT!") with "To
+  download extra crickets, click on the 'Download Crickets' option in the
+  'Utilities' menu from the Options dialog box." Not in the screensaver.
 - Resurrect Creature (0x404230): refused while alive or with no crickets
   left anywhere; otherwise clears debris, revives as a newborn (size 40,
   food/water 30, mood 0, birth date now, DROP), resurrections +1, yucca
@@ -423,7 +430,8 @@ comes back after ≥ 3 minutes):
 
 ## Growth and moulting **confirmed** (`spider_growth` 0x403ac0, 0x408d50)
 - Size = min(100, 40 + minutes alive / 360): one point every 6 hours,
-  full grown after 15 days. Recomputed every game minute.
+  full grown after 15 days. Recomputed every game "minute", which is 59
+  seconds: a per-second counter that resets after 58 (wnd_proc timer).
 - Moults are only checked while starting up (after time away): days 5–15,
   and from day 28 in every 28-day cycle on its first 5 days. Never within
   a day of a new or resurrected spider (0x41f710 dates the skin then;

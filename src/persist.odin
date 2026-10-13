@@ -404,6 +404,20 @@ death_notice_tick :: proc() {
 	l.death_notice -= 1
 	if l.death_notice == 0 {
 		host_message("YOUR CREATURE HAS DIED!",
-			"To resurrect it, click on the 'Resurrect Creature' option in the Options panel.")
+			"To resurrect it, click on the 'Resurrect Creature' option in the 'Utilities' menu from the Options dialog box.")
 	}
+}
+
+// Fewer than 6 crickets left (box, store and tank): once a run, 20 frames
+// after it's noticed, a reminder that more can be fetched (wnd_proc timer,
+// 0x431c6c).
+low_crickets_notice := 20
+
+low_crickets_tick :: proc() {
+	if game.cricket_total >= 6 || game.ui.saver || low_crickets_notice <= 0 do return
+	low_crickets_notice -= 1
+	if low_crickets_notice > 0 do return
+	n := game.cricket_total
+	title := n == 0 ? "YOU DON'T HAVE ANY CRICKETS LEFT!" : n == 1 ? "YOU ONLY HAVE 1 CRICKET LEFT!" : fmt.tprintf("YOU ONLY HAVE %d CRICKETS LEFT!", n)
+	host_message(title, "To download extra crickets, click on the 'Download Crickets' option in the 'Utilities' menu from the Options dialog box.")
 }
