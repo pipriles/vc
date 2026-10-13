@@ -289,12 +289,12 @@ overlays, and no limit on objects in the tank (the original's was 6).
 | D8 | No low-crickets warning — **fixed** | Small |
 | D6 | Picking up a web-stuck cricket doesn't free it — **fixed** | Small |
 | D7 | Minute update every 60 s instead of 59 s — **fixed** | Small |
-| D13 | Save doesn't keep the current animation, eating or web-stuck crickets | Small |
-| D12 | Death message after 30 frames instead of 20 | Small |
-| D9 | Floor rebuild draws footprints under webs instead of over | Small |
-| D10 | Clear stops only stuck crickets | Small |
-| D11 | Update order within a tick | Small |
-| D15 | Tooltips not moved left to fit | Small |
-| D16 | Fresh start: bowl placed in a free spot, crickets start on LURK | Small |
+| D13 | Save doesn't keep the current animation, eating or web-stuck crickets — **fixed** | Small |
+| D12 | Death message after 30 frames instead of 20 — **fixed** | Small |
+| D9 | Floor rebuild draws footprints under webs instead of over — **fixed** | Small |
+| D10 | Clear stops only stuck crickets — **fixed** | Small |
+| D11 | Update order within a tick — **fixed** | Small |
+| D15 | Tooltips not moved left to fit — **fixed** | Small |
+| D16 | Fresh start: bowl placed in a free spot, crickets start on LURK — **fixed** | Small |
 | D14 | Sprite edge clipping (original glitch) | Info |
 | 14 | Collision rules (open from the last audit) | Large, conflicts with narrow gaps |

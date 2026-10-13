@@ -106,9 +106,39 @@ starving_while_running_dies :: proc(t: ^testing.T) {
 	if !sim_setup(t, 5) do return
 	defer game.life = {} // later tests share the globals
 	game.stats.food, game.stats.water = 0, 0
-	for _ in 0 ..< 30 do tank_advance(TICK)
+	last_message = ""
+	for _ in 0 ..< 30 {
+		tank_advance(TICK)
+		if game.life.dead do break
+	}
 	testing.expect(t, game.life.dead, "dies when health reaches 0")
-	testing.expect(t, game.life.death_notice > 0, "the notice is pending")
-	for _ in 0 ..< 40 do tank_advance(TICK)
+	testing.expect(t, death_notice > 0 && last_message == "", "the notice is pending")
+	for _ in 0 ..< 20 do tank_advance(TICK)
 	testing.expect_value(t, last_message, "YOUR CREATURE HAS DIED!")
+}
+
+@(test)
+save_keeps_what_creatures_are_doing :: proc(t: ^testing.T) {
+	if !sim_setup(t, 22) do return
+	s := &game.spider
+	clear_queue(s)
+	s.seq, s.dir, s.frame, s.plays = game.seq.kill, 4, 3, 1
+	s.eating = true
+	cr := &game.crickets[1]
+	cr.in_box, cr.web_stuck = false, true
+	tank_save()
+	tank_reset()
+	testing.expect(t, load_game(), "loaded")
+	testing.expect_value(t, s.seq, game.seq.kill)
+	testing.expect_value(t, s.frame, 3)
+	testing.expect(t, s.eating, "still eating")
+	testing.expect(t, game.crickets[1].web_stuck, "still stuck in the web")
+	// away longer: the catch-up ends the meal, leaving the remains
+	used := 0
+	for r in game.remains do if r.used do used += 1
+	catch_up(10, host_time() - 600)
+	after := 0
+	for r in game.remains do if r.used do after += 1
+	testing.expect(t, after > used, "remains left from the meal")
+	testing.expect(t, !s.eating, "finished eating")
 }

@@ -14,6 +14,55 @@ SAVE_VERSION :: 1
 Save_Creature :: struct {
 	active, in_box: bool,
 	x, y, dir:      int,
+	web_stuck:      bool,
+	anim:           Save_Anim,
+}
+
+// What a creature is in the middle of (the original saved its whole
+// creature struct but the queue, 0x414a60). has = false in older saves.
+Save_Anim :: struct {
+	has:                  bool,
+	seq, frame, step:     int,
+	plays, bounces:       int,
+	back_pass, left:      int,
+	hold, pause:          int,
+	run, eating:          bool,
+	target_id:            int,
+	moving_x, moving_y:   bool,
+	goal:                 Goal,
+	goal_since_ms:        u32, // goal.start_ms as time since then
+}
+
+snapshot_anim :: proc(c: ^Creature) -> Save_Anim {
+	a := Save_Anim {
+		has = true,
+		seq = c.seq, frame = c.frame, step = c.step,
+		plays = c.plays, bounces = c.bounces, back_pass = c.back_pass, left = c.left,
+		hold = c.hold, pause = c.pause,
+		run = c.run, eating = c.eating, target_id = c.target_id,
+		moving_x = c.moving_x, moving_y = c.moving_y,
+		goal = c.goal,
+	}
+	if c.goal.active do a.goal_since_ms = now_ms - c.goal.start_ms
+	return a
+}
+
+restore_anim :: proc(c: ^Creature, a: Save_Anim) {
+	if !a.has || a.seq < 0 || a.seq >= len(c.anim.seqs) do return
+	c.seq = a.seq
+	n := len(creature_dir(c).frames)
+	if n == 0 {
+		c.seq = 0
+		return
+	}
+	c.frame = clamp(a.frame, 0, n - 1)
+	c.step = a.step if a.step != 0 else 1
+	c.plays, c.bounces, c.back_pass, c.left = a.plays, a.bounces, a.back_pass, a.left
+	c.hold, c.pause = a.hold, a.pause
+	c.run, c.eating, c.target_id = a.run, a.eating, a.target_id
+	c.moving_x, c.moving_y = a.moving_x, a.moving_y
+	c.goal = a.goal
+	if c.goal.active do c.goal.start_ms = now_ms - min(a.goal_since_ms, now_ms)
 }
 
 Save_Object :: struct {
@@ -29,6 +78,7 @@ Save :: struct {
 	spider:         struct {
 		x, y, dir, size, hide: int,
 		dead:                  bool,
+		anim:                  Save_Anim,
 	},
 	food, water, mood:  int,
 	since_food_ms:      u32, // time since the last food / water decay step
@@ -63,7 +113,6 @@ Life :: struct {
 	born_at:       f64,
 	died_at:       f64,
 	resurrections: int,   // (0x454a60)
-	death_notice:  int,   // ticks until "YOUR CREATURE HAS DIED!" (0x431c68)
 }
 
 // --- save / load ------------------------------------------------------------
@@ -75,14 +124,14 @@ make_save :: proc() -> Save {
 	sv.version = SAVE_VERSION
 	sv.saved_at = host_time()
 	sv.seed = rng.seed
-	sv.spider = {s.x, s.y, s.dir, s.size, s.hide, game.life.dead}
+	sv.spider = {s.x, s.y, s.dir, s.size, s.hide, game.life.dead, snapshot_anim(s)}
 	sv.food, sv.water, sv.mood = st.food, st.water, st.mood
 	sv.since_food_ms = now_ms - st.last_food
 	sv.since_water_ms = now_ms - st.last_water
 	for t, i in s.last_played {
 		if i < len(sv.since_played_ms) do sv.since_played_ms[i] = now_ms - t
 	}
-	for &c, i in game.crickets do sv.crickets[i] = {c.active, c.in_box, c.x, c.y, c.dir}
+	for &c, i in game.crickets do sv.crickets[i] = {c.active, c.in_box, c.x, c.y, c.dir, c.web_stuck, snapshot_anim(&c)}
 	for &o, i in game.objects do sv.objects[i] = {!o.in_box, o.x, o.y, o.frame}
 	sv.storage, sv.eaten = game.storage, game.eaten
 	sv.resurrections = game.life.resurrections
@@ -106,6 +155,7 @@ apply_save :: proc(sv: ^Save) {
 	s.x, s.y, s.dir, s.size = sv.spider.x, sv.spider.y, clamp(sv.spider.dir, 0, 7), sv.spider.size
 	s.prev_x, s.prev_y = s.x, s.y
 	s.hide = sv.spider.hide
+	restore_anim(s, sv.spider.anim)
 	s.no_clamp = s.hide != 0 && s.y < FLOOR_TOP
 	game.life.dead = sv.spider.dead
 	st.food, st.water, st.mood = sv.food, sv.water, sv.mood
@@ -118,6 +168,8 @@ apply_save :: proc(sv: ^Save) {
 		r := sv.crickets[i]
 		c.active, c.in_box, c.x, c.y = r.active, r.in_box, r.x, r.y
 		c.dir = clamp(r.dir, 0, 7)
+		c.web_stuck = r.web_stuck
+		restore_anim(&c, r.anim)
 		c.prev_x, c.prev_y = c.x, c.y
 		creature_update_position(&c)
 	}
@@ -329,7 +381,6 @@ spider_dies :: proc(s: ^Creature, at: f64) {
 	game.life.dead = true
 	game.life.died_at = at
 	game.stats.temperament = 0
-	game.life.death_notice = 30
 	stop_current(s)
 	clear_goal(s)
 	clear_queue(s)
@@ -398,11 +449,14 @@ spider_resurrect :: proc() {
 }
 
 // "YOUR CREATURE HAS DIED!" a few seconds after finding it dead (0x431c68).
+// Once a run, 20 frames into a dead spider (at start, or after it dies;
+// a later death in the same run gets no message, as in the original).
+death_notice := 20
+
 death_notice_tick :: proc() {
-	l := &game.life
-	if !l.dead || l.death_notice <= 0 do return
-	l.death_notice -= 1
-	if l.death_notice == 0 {
+	if !game.life.dead || game.ui.saver || death_notice <= 0 do return
+	death_notice -= 1
+	if death_notice == 0 {
 		host_message("YOUR CREATURE HAS DIED!",
 			"To resurrect it, click on the 'Resurrect Creature' option in the 'Utilities' menu from the Options dialog box.")
 	}

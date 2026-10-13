@@ -207,9 +207,7 @@ tank_init :: proc() -> bool {
 	rng.seed = u32(host_time())
 	now_ms = max(now_ms, CLOCK_START)
 	tank_reset()
-	if load_game() {
-		if game.life.dead do game.life.death_notice = 30
-	}
+	load_game()
 	spider_growth(true) // starting up: growth and the moult check (0x403ac0)
 	floor_rebuild()
 	return true
@@ -284,6 +282,42 @@ tank_reset :: proc() {
 	game.follow = true
 	game.speed = 1
 	game.scroll_x = clamp(game.spider.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
+}
+
+// Everything is updated in the order it was drawn last frame, back to
+// front, so the spider and the crickets interleave by depth (main update
+// 0x40ca70); anything new in the tank since then comes last. The draw
+// order is then sorted again.
+update_in_depth_order :: proc() {
+	order: [64]^Creature
+	n := 0
+	for c in game.render_list do if n < len(order) {order[n] = c; n += 1}
+	listed :: proc(order: []^Creature, c: ^Creature) -> bool {
+		for o in order do if o == c do return true
+		return false
+	}
+	if game.spider.active && !listed(order[:n], &game.spider) && n < len(order) {order[n] = &game.spider; n += 1}
+	for &c in game.crickets do if c.active && !c.in_box && !listed(order[:n], &c) && n < len(order) {order[n] = &c; n += 1}
+	for &o in game.objects do if o.active && !o.in_box && !listed(order[:n], &o.c) && n < len(order) {order[n] = &o.c; n += 1}
+	ticked: [CRICKET_COUNT]bool
+	for c in order[:n] {
+		#partial switch c.kind {
+		case .Object:
+			o := (^Object)(c)
+			if o.active && !o.in_box do object_tick(o)
+		case .Spider:
+			creature_tick(c)
+			if !game.life.dead do spider_unstick(c)
+		case .Cricket:
+			if !c.in_box {
+				creature_tick(c)
+				ticked[c.id] = true
+			}
+		}
+	}
+	// crickets in the box (only moving while it's on screen)
+	for &c, i in game.crickets do if c.in_box && !ticked[i] do creature_tick(&c)
+	update_render_list()
 }
 
 // Creatures in the tank, back to front.
@@ -402,12 +436,8 @@ tank_tick :: proc() {
 	low_crickets_tick()
 	handle_pending_drops()
 	handle_pending_objects()
-	for &o in game.objects do if o.active && !o.in_box do object_tick(&o)
-	update_render_list()
-	creature_tick(&game.spider)
-	if !game.life.dead do spider_unstick(&game.spider)
+	update_in_depth_order()
 	senses_tick()
-	for &c in game.crickets do creature_tick(&c)
 	spider_hide_crawl(&game.spider)
 	sound_loops()
 	if now_ms >= game.sec_ms + 1000 {

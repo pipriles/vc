@@ -240,7 +240,9 @@ spider_idle :: proc(c: ^Creature) {
 	// checked twice, once by spider_can_play and once more here.
 	tries := 0
 	for {
-		if d := &c.anim.seqs[c.seq].dirs[c.dir]; !d.needs_check do tries += 1
+		// (rand_n(n) is n once in 32768: no such sequence, which counts as
+		// a try without a precondition; the original reads past its table)
+		if c.seq >= len(c.anim.seqs) || !c.anim.seqs[c.seq].dirs[c.dir].needs_check do tries += 1
 		if tries > 7 {
 			c.seq = rand_n(10) < 6 ? ids.lurk : ids.walk
 			debug_logf("idle: nothing fits, %s", seq_name(c, c.seq))
@@ -253,7 +255,7 @@ spider_idle :: proc(c: ^Creature) {
 		}
 		ok := spider_wants(c, c.seq) && spider_can_play(c, c.seq) &&
 			c.seq != c.prev_seq && c.seq != ids.circle && seq_has_frames(c, c.seq, c.dir)
-		if ok && c.anim.seqs[c.seq].dirs[c.dir].needs_check do ok = spider_precondition(c, c.seq)
+		if ok && c.seq < len(c.anim.seqs) && c.anim.seqs[c.seq].dirs[c.dir].needs_check do ok = spider_precondition(c, c.seq)
 		if ok {
 			debug_logf("idle: pick %s (try %d)", seq_name(c, c.seq), tries)
 			break

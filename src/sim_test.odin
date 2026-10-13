@@ -14,6 +14,7 @@ sim_setup :: proc(t: ^testing.T, seed: u32) -> bool {
 	now_ms = 0
 	settings = {frame_rate = 0} // the tests count 100 ms steps
 	saved_json = "" // no save carried over between tests
+	death_notice, low_crickets_notice = 20, 20 // once-a-run messages
 	if !testing.expect(t, tank_init(), "tank_init") do return false
 	mode, running = .Tank, true
 	rng.seed = seed

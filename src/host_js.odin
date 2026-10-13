@@ -41,4 +41,5 @@ foreign host {
 	host_tz_offset :: proc() -> i32 --- // minutes east of UTC
 	ui_begin ::    proc() ---
 	ui_text ::     proc(x, y: int, text: string) ---
+	ui_tip ::      proc(x, y: int, text: string) --- // a tooltip (0x411fe0): boxed, moved left to fit
 }

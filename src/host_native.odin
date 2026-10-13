@@ -65,6 +65,7 @@ host_name :: proc "contextless" (name: string) {}
 host_tz_offset :: proc "contextless" () -> i32 {return 0}
 ui_begin :: proc "contextless" () {}
 ui_text :: proc "contextless" (x, y: int, text: string) {}
+ui_tip :: proc "contextless" (x, y: int, text: string) {}
 host_loop :: proc "contextless" (id: int, on: bool) {}
 host_save :: proc "contextless" (json: string) {
 	context = runtime.default_context()

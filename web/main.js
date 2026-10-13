@@ -253,6 +253,7 @@ const imports = {
 		host_name: (p, n) => window.vcNameChanged?.(mem.loadString(p, n)),
 		host_tz_offset: () => -new Date().getTimezoneOffset(),
 		ui_text: (x, y, p, n) => uiOps?.push(["text", x, y, mem.loadString(p, n)]),
+		ui_tip: (x, y, p, n) => uiOps?.push(["tip", x, y, mem.loadString(p, n)]),
 		tank_status: (food, water, health, mood, temper, p, n, dir) =>
 			showStatus(food, water, health, mood, temper, mem.loadString(p, n), dir),
 	},
@@ -276,6 +277,7 @@ function uiFlush() {
 	tctx.clearRect(0, 0, 640, 480);
 	for (const op of ops) {
 		if (op[0] === "ex") uiTextEx(...op.slice(1));
+		else if (op[0] === "tip") uiTip(...op.slice(1));
 		else uiText(...op.slice(1));
 	}
 }
@@ -300,6 +302,25 @@ function uiTextEx(x, y, w, h, text, font, color, flags) {
 		const lx = flags & 1 ? x + (w - tctx.measureText(l).width) / 2 : x;
 		tctx.fillText(l, lx, y + k * 12);
 	});
+	tctx.restore();
+}
+// A tooltip as the original draws it (0x411fe0): Arial bold 12, moved left
+// so it ends 20 px short of the right edge, on a box of palette colour 2
+// (dark green in both variants) 2 px larger all round, outlined with the
+// tank's white pen, white text.
+function uiTip(x, y, text) {
+	tctx.save();
+	tctx.font = "bold 12px Arial, sans-serif";
+	tctx.textBaseline = "top";
+	const w = Math.ceil(tctx.measureText(text).width), h = 12;
+	if (x + w >= 640 - 20) x -= x + w - (640 - 20);
+	tctx.fillStyle = "#008000";
+	tctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+	tctx.strokeStyle = "#fff";
+	tctx.lineWidth = 1;
+	tctx.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3);
+	tctx.fillStyle = "#fff";
+	tctx.fillText(text, x, y);
 	tctx.restore();
 }
 function uiText(x, y, text) {

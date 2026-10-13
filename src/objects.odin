@@ -86,11 +86,15 @@ objects_init :: proc() {
 		o.target_id = -1
 		if i == BOWL do o.frame = (def.frames - 1) / 2 // half full
 		if i == YUCCA do o.frame = 8 // a small plant that grows (0x41a790)
-		x := rand_n(TANK_W) - o.fw
-		y := rand_n(VIEW_H) - o.fh + FLOOR_TOP
-		o.x, o.y = x, y
+		// a random spot (and a previous one, drawn but not used here); the
+		// bowl, the one object in the tank at first, isn't moved to a free
+		// spot, so it may start against the spider (0x41a790)
+		o.x = rand_n(TANK_W) - o.fw
+		o.y = rand_n(VIEW_H) - o.fh + FLOOR_TOP
+		o.prev_x = rand_n(TANK_W) - o.fw
+		o.prev_y = rand_n(VIEW_H) - o.fh + FLOOR_TOP
 		o.in_box = !def.in_tank // not placed in the tank
-		if def.in_tank do place_free(&o)
+		object_update_position(&o)
 	}
 }
 

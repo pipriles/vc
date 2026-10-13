@@ -132,6 +132,7 @@ creature_init :: proc(c: ^Creature, a: ^Anim, x, y, base_sx, base_sy, size: int)
 	c.base_sx, c.base_sy = base_sx, base_sy
 	c.size = size
 	c.dir = min(rand_n(8), 7) // creature_init picks a random facing
+	_ = rand() // (and draws one more it doesn't use, 0x406680)
 	c.step = 1
 	c.hold = -1
 	c.turn_target = -1

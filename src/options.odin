@@ -634,7 +634,7 @@ box_draw :: proc() {
 	ch := a.close.h / 3
 	draw_keyed_part(&a.close, cx, CLOSE_Y, ctl_frame(.Close, 0) * ch, ch)
 	if hit == .Close && settings.help_text {
-		ui_text(cx, CLOSE_Y + ch + 2, "Close the Options box.")
+		ui_tip(cx, CLOSE_Y + ch + 2, "Close the Options box.")
 	}
 }
 

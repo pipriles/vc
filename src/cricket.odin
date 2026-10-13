@@ -38,8 +38,12 @@ crickets_init :: proc() {
 		c.in_box = true
 		c.dir = min(rand_n(8), 7) // rand_n(8) is 8 once in 32768; the original would read past its table
 		c.idle = cricket_idle
-		c.seq = game.cseq.lurk
-		start_sequence(&c)
+		// the first sequence comes from the idle chooser (0x407830), as
+		// after CIRCLE, which creation leaves set (so no turn first)
+		c.seq = game.cseq.circle
+		c.prev_seq = c.seq
+		c.idle(&c)
+		if c.turn_dir == 0 do start_sequence(&c)
 	}
 }
 

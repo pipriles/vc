@@ -335,7 +335,7 @@ ui_draw :: proc() {
 	draw_name(10, 10)
 
 	if !u.floating do ui_draw_logo()
-	if u.logo_hover && settings.help_text do ui_text(LOGO_X - 120, LOGO_Y - 16, "Toggle display of buttons and icons.")
+	if u.logo_hover && settings.help_text do ui_tip(LOGO_X, LOGO_Y - 10, "Toggle display of buttons and icons.")
 	// needs: mood gauge (frame = temperament), then health, water, food
 	iy := u.slide != 0 ? lerp_pos(u.from_ind, u.ind_y, 40) : u.shown ? INDICATOR_B : 0
 	if u.icons_only do iy = INDICATOR_B
@@ -351,7 +351,7 @@ ui_draw :: proc() {
 					u.ring_frame * rh, rh)
 			}
 			draw_button(&b, BUTTON_Y, i == u.pressed ? PRESSED_SCALE : 100)
-			if i == u.hover && settings.help_text do ui_text(b.x, BUTTON_Y - 16, button_tip(b.cmd))
+			if i == u.hover && settings.help_text do ui_tip(b.x, BUTTON_Y - 16, button_tip(b.cmd))
 		}
 	} else if u.slide == 0 && u.tools_flash > 0 {
 		// right-clicked while hidden: the tools button alone
@@ -412,7 +412,7 @@ draw_indicators :: proc(y: int) {
 	px, py := game.input.vx, game.input.vy
 	if settings.help_text && game.input.inside && px > INDICATOR_X + 10 && px < INDICATOR_X + g.w - 10 &&
 	   py > top + 5 && py < top + gh - 5 {
-		ui_text(INDICATOR_X, top + gh + 2, tips[0])
+		ui_tip(INDICATOR_X, top + gh + 2, tips[0])
 	}
 	for v, i in values {
 		b := &u.gauges[i + 1]
@@ -423,7 +423,7 @@ draw_indicators :: proc(y: int) {
 		if v > 9 || u.blink > 4 do draw_keyed_part(b, x, top, frame * fh, fh)
 		if settings.help_text && game.input.inside && px > x + 12 && px < x + b.w - 12 &&
 		   py > top + 5 && py < top + fh - 5 {
-			ui_text(x - 200, top + fh + 2, tips[i + 1])
+			ui_tip(x, top + fh + 2, tips[i + 1])
 		}
 		x += b.w + 4
 		tip_x = x

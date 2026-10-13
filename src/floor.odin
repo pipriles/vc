@@ -80,11 +80,12 @@ floor_rebuild :: proc() {
 			}
 		}
 	}
-	for f in game.footprints do if f.scale > 0 {
-		floor_decal(&assets.footprints, f.kind, f.dir, f.foot, f.x, f.y, f.scale)
-	}
+	// web pieces first, footprints over them (0x41c460)
 	for w in game.webs do if w.scale > 0 {
 		floor_decal(&assets.web, 0, w.dir, w.frame, w.x, w.y, w.scale)
+	}
+	for f in game.footprints do if f.scale > 0 {
+		floor_decal(&assets.footprints, f.kind, f.dir, f.foot, f.x, f.y, f.scale)
 	}
 }
 
@@ -247,7 +248,7 @@ clear_debris :: proc() {
 	game.skin.active = false
 	game.skin.shed_at = host_time()
 	for &c in game.crickets {
-		if c.web_stuck do stop_current(&c)
+		stop_current(&c) // every cricket's play ends (0x41f710)
 		c.web_stuck = false
 	}
 	floor_rebuild()

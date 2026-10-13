@@ -697,3 +697,21 @@ Death (catch-up 0x415430): yucca to its last frame and both cacti (objects
   page can't be a system screensaver; the port's in-page screensaver mode
   covers the "Non-Interactive" module.
 - Freeze Simulation (not wanted).
+
+## Order, tooltips, saving **confirmed** (0x40ca70, 0x411fe0, 0x414a60)
+- Each tick everything is updated in last frame's draw order, back to
+  front (spider, crickets and objects interleaved by depth), then the draw
+  order is sorted again.
+- Tooltips: Arial bold 12 on a box of palette colour 2 (dark green), 2 px
+  larger all round with a white outline, white text; moved left so they
+  end 20 px short of the right edge.
+- The floor surface is rebuilt with the corner webs, then web pieces, then
+  footprints on top.
+- "YOUR CREATURE HAS DIED!" comes 20 frames into a dead spider, once a run
+  (a second death in the same run gets none).
+- A fresh tank: objects get a random spot (the bowl isn't moved clear of
+  the spider); crickets start with a sequence from the idle chooser.
+- The save keeps what each creature is doing (sequence, frame, plays,
+  goal, eating, web-stuck crickets), as the original kept its creature
+  structs; the queue isn't kept (the original didn't either).
+
