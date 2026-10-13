@@ -62,7 +62,9 @@ whole_render :: proc() {
 	ui_begin()
 	for &o, i in game.objects {
 		x, y := cell_rect(i)
-		ui_text(x + 4, y + 4, o.name)
+		// the name centred in the top half of the cell, in the tooltip font
+		// (DrawText centre + word break, 0x40e360)
+		ui_text_ex(x + 2, y + 2, CELL - 4, CELL / 2, o.name, FONT_SMALL, 0xffffff, 1 | 2)
 	}
 }
 

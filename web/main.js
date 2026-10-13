@@ -175,7 +175,9 @@ fitText();
 addEventListener("resize", fitText);
 document.addEventListener("fullscreenchange", fitText);
 // Options box fonts by GDI cell height: Arial bold 18, bold 12, bold italic 16
-const BOX_FONTS = { 1: "bold 16px Arial, sans-serif", 2: "bold 10.5px Arial, sans-serif", 3: "italic bold 14px Arial, sans-serif" };
+// (font 2 is the tooltip font, 0x4526b8: created bold, but footage of the
+// original shows it regular, so it's drawn regular everywhere it's used)
+const BOX_FONTS = { 1: "bold 16px Arial, sans-serif", 2: "10.5px Arial, sans-serif", 3: "italic bold 14px Arial, sans-serif" };
 const hex = (c) => `#${c.toString(16).padStart(6, "0")}`;
 
 const imports = {
@@ -304,13 +306,14 @@ function uiTextEx(x, y, w, h, text, font, color, flags) {
 	});
 	tctx.restore();
 }
-// A tooltip as the original draws it (0x411fe0): Arial bold 12, moved left
-// so it ends 20 px short of the right edge, on a box of palette colour 2
-// (dark green in both variants) 2 px larger all round, outlined with the
-// tank's white pen, white text.
+// A tooltip as the original draws it (0x411fe0): Arial 12 (regular, as in
+// footage of the original, though the font is created bold), moved left so
+// it ends 20 px short of the right edge, on a box of palette colour 2 (dark
+// green in both variants) 2 px larger all round, outlined with the tank's
+// white pen, white text.
 function uiTip(x, y, text) {
 	tctx.save();
-	tctx.font = "bold 12px Arial, sans-serif";
+	tctx.font = "12px Arial, sans-serif";
 	tctx.textBaseline = "top";
 	const w = Math.ceil(tctx.measureText(text).width), h = 12;
 	if (x + w >= 640 - 20) x -= x + w - (640 - 20);

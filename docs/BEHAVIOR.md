@@ -702,7 +702,10 @@ Death (catch-up 0x415430): yucca to its last frame and both cacti (objects
 - Each tick everything is updated in last frame's draw order, back to
   front (spider, crickets and objects interleaved by depth), then the draw
   order is sorted again.
-- Tooltips: Arial bold 12 on a box of palette colour 2 (dark green), 2 px
+- Tooltips: Arial 12 (the font 0x4526b8 is created bold, weight 700, but
+  footage of the original shows it regular, so the port draws it regular
+  everywhere: tooltips, the object panel's names, the Options box's small
+  text) on a box of palette colour 2 (dark green), 2 px
   larger all round with a white outline, white text; moved left so they
   end 20 px short of the right edge.
 - The floor surface is rebuilt with the corner webs, then web pieces, then
