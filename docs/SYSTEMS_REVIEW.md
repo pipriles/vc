@@ -282,9 +282,9 @@ overlays.
 |---|------------|------|
 | D1 | Object hit boxes not trimmed (tall objects block and catch clicks too high) — **fixed** | Large |
 | D3 | Follow tool: the spider doesn't keep following the pointer — **fixed** | Large |
-| D4 | Follow tool: no reactions to being followed | Medium |
-| D2 | Yucca starts fully grown and never grows | Medium |
-| D5 | Right-click while carrying a cricket doesn't move it to/from the box | Medium |
+| D4 | Follow tool: no reactions to being followed — **fixed** | Medium |
+| D2 | Yucca starts fully grown and never grows — **fixed** | Medium |
+| D5 | Right-click while carrying a cricket doesn't move it to/from the box — **fixed** | Medium |
 | D8 | No low-crickets warning | Small |
 | D6 | Picking up a web-stuck cricket doesn't free it | Small |
 | D7 | Minute update every 60 s instead of 59 s | Small |

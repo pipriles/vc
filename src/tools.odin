@@ -114,6 +114,17 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 	// the pointer's tank position is kept whatever it's over (the
 	// Follow tool's goal and the tap use it)
 	if in_.view == .Tank && ev != .Leave do game.cursor_x, game.cursor_y = vx + game.scroll_x, vy
+	// the right button with a cricket in hand moves it between the tank
+	// and the box, switching the view with it (wnd_proc right button up)
+	if ev == .Right && in_.carry == .Cricket {
+		c := &game.crickets[in_.carry_id]
+		c.in_box = !c.in_box
+		in_.view = c.in_box ? .Box : .Tank
+		host_view(i32(in_.view))
+		debug_logf("cricket %d carried to the %s", c.id, c.in_box ? "box" : "tank")
+		pointer_event(.Move, vx, vy)
+		return
+	}
 	switch in_.view {
 	case .Whole:
 		whole_pointer(ev, vx, vy)
@@ -285,7 +296,7 @@ carry_release :: proc() {
 		c.carried = 2
 		force_sequence(c, game.cseq.drop)
 		debug_logf("cricket %d released", c.id)
-		spider_sees_cricket(&game.spider, c)
+		if !c.in_box do spider_sees_cricket(&game.spider, c) // (not when put back in the box)
 	case .Object:
 		o := &game.objects[in_.carry_id]
 		o.carried = 0

@@ -749,6 +749,12 @@ function setupTank() {
 			panX = e.clientX;
 			return;
 		}
+		// the right button pressed and released while the left one is held
+		// (carrying a cricket) arrives here, not as pointerdown / pointerup
+		if (e.pointerType === "mouse" && e.button === 2) {
+			if (!(e.buttons & 2)) mem.exports.tank_pointer(4, ...toCanvas(e));
+			return;
+		}
 		if (e.pointerType === "touch") showFinger(e);
 		mem.exports.tank_pointer(0, ...toCanvas(e));
 	};

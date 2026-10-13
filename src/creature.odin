@@ -724,8 +724,10 @@ goal_check :: proc(c: ^Creature) -> bool {
 		g.x, g.y = cr.x, cr.y
 	}
 	if g.type == .Cursor {
-		// the Follow tool: after the pointer wherever it is now (0x40bf10)
+		// the Follow tool: after the pointer wherever it is now, and being
+		// followed counts as an interaction the spider reacts to (0x40bf10)
 		g.x, g.y = game.cursor_x, game.cursor_y
+		if game.input.tool == .Follow do game.spider.tool = .Follow
 	}
 	if g.type == .Spider {
 		g.x, g.y = game.spider.x, game.spider.y

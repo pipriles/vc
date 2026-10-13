@@ -274,7 +274,11 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   pressed off the spider; the hover cursor shows the grabbing hand over
   them. Follow: pressed off the spider, the spider walks after the pointer,
   its goal (type 10) taking the pointer's position every tick, so it keeps
-  following as the pointer moves (LURK_D on arrival, interaction 4).
+  following as the pointer moves (LURK_D on arrival). Being followed is
+  interaction 4: the spider reacts to it every 2.5 s like to the other
+  tools (0x40bf10).
+- The right button with a cricket in hand moves it between the tank and
+  the box, switching the view; put down in the box it stays there.
 - The spider can be picked up unless something is carried, it is eating,
   hiding, above the floor line or dead. Hit test: hit rect shrunk by 1/8.
 - Pointer within 20 px of the left/right edge scrolls the viewfinder 20 px
@@ -426,7 +430,8 @@ comes back after ≥ 3 minutes):
   separately, where it stays if it lands against an object), facing 0 or
   1, the spider's size;
   it crumbles one frame per 1920 minutes and is gone after 3.
-- Yucca grows back one frame per 1440 minutes (wilted while dead).
+- Yucca starts small (frame 8) and grows one frame per 1440 minutes
+  (wilted while dead).
 
 ## Webs and footprints **confirmed** (0x408430, 0x408880, 0x408b70)
 - Decals are drawn into the 1200×480 floor surface once; they stay drawn

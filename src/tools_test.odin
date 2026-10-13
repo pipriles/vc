@@ -238,3 +238,59 @@ follow_tool_keeps_after_the_pointer :: proc(t: ^testing.T) {
 	}
 	testing.expectf(t, closest < 60, "went after the pointer (closest %d px)", closest)
 }
+
+@(test)
+right_click_moves_a_carried_cricket_to_the_box_and_back :: proc(t: ^testing.T) {
+	if !sim_setup(t, 49) do return
+	s := &game.spider
+	s.x, s.y = 1000, 300
+	creature_update_position(s)
+	cr := &game.crickets[0]
+	cr.in_box = false
+	cr.x, cr.y = 400, 350
+	cr.prev_x, cr.prev_y = cr.x, cr.y
+	creature_update_position(cr)
+	game.scroll_x = 0
+	game.input.tool = .Pickup
+	pointer_event(.Down, cr.x, cr.y)
+	testing.expect(t, game.input.carry == .Cricket, "carrying the cricket")
+	pointer_event(.Right, 300, 350)
+	testing.expect(t, cr.in_box && game.input.view == .Box, "into the box")
+	pointer_event(.Right, 300, 350)
+	testing.expect(t, !cr.in_box && game.input.view == .Tank, "and back to the tank")
+	pointer_event(.Right, 300, 350)
+	pointer_event(.Up, 300, 350)
+	testing.expect(t, cr.in_box && game.input.carry == .None, "put down in the box")
+	testing.expect(t, !game.spider.goal.active, "the spider doesn't go after a cricket in the box")
+}
+
+@(test)
+followed_spider_reacts :: proc(t: ^testing.T) {
+	if !sim_setup(t, 50) do return
+	for &o in game.objects do o.in_box = true
+	s := &game.spider
+	clear_goal(s)
+	clear_queue(s)
+	s.x, s.y = 300, 300
+	creature_update_position(s)
+	game.scroll_x = 0
+	game.input.tool = .Follow
+	pointer_event(.Down, 700, 300)
+	pointer_event(.Up, 700, 300)
+	reacted := false
+	for _ in 0 ..< 100 {
+		tank_tick()
+		reacted ||= s.prev_tool == .Follow
+	}
+	testing.expect(t, reacted, "being followed counts as an interaction")
+}
+
+@(test)
+yucca_starts_small_and_grows :: proc(t: ^testing.T) {
+	if !sim_setup(t, 51) do return
+	y := &game.objects[YUCCA]
+	testing.expect_value(t, y.frame, 8)
+	y.in_box = false
+	slow_anims(YUCCA_DAY)
+	testing.expect_value(t, y.frame, 7)
+}

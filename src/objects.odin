@@ -81,6 +81,7 @@ objects_init :: proc() {
 		o.anim_step = def.step
 		o.target_id = -1
 		if i == BOWL do o.frame = (def.frames - 1) / 2 // half full
+		if i == YUCCA do o.frame = 8 // a small plant that grows (0x41a790)
 		x := rand_n(TANK_W) - o.fw
 		y := rand_n(VIEW_H) - o.fh + FLOOR_TOP
 		o.x, o.y = x, y
