@@ -155,19 +155,12 @@ addEventListener("keydown", () => sound.unlock(), { capture: true });
 const noop = () => {};
 const tctx = $("ui-text")?.getContext("2d");
 let uiOps = null, uiShown = "[]"; // UI text: this frame's calls, what's drawn (uiFlush)
-// The text canvas matches the displayed size (the view is scaled up), so
-// text stays sharp; everything draws in 640 x 480 view coordinates.
+// The text layer is 640 x 480 like the view and scaled up the same way
+// (pixelated): the original drew its text with GDI into the 8-bit frame,
+// so it has no smoothing and grows in blocks with the picture.
 function fitText() {
-	const c = $("ui-text");
-	if (!c || !tctx) return;
-	const r = c.getBoundingClientRect();
-	const w = Math.max(640, Math.round(r.width * devicePixelRatio));
-	if (c.width !== w) {
-		c.width = w;
-		c.height = Math.round(w * 3 / 4);
-		uiShown = null; // resizing cleared it
-	}
-	tctx.setTransform(c.width / 640, 0, 0, c.height / 480, 0, 0);
+	if (!tctx) return;
+	tctx.setTransform(1, 0, 0, 1, 0, 0);
 	tctx.font = "bold 11px Arial, sans-serif";
 	tctx.textBaseline = "top";
 }
@@ -177,7 +170,7 @@ document.addEventListener("fullscreenchange", fitText);
 // Options box fonts by GDI cell height: Arial bold 18, bold 12, bold italic 16
 // (font 2 is the tooltip font, 0x4526b8: created bold, but footage of the
 // original shows it regular, so it's drawn regular everywhere it's used)
-const BOX_FONTS = { 1: "bold 16px Arial, sans-serif", 2: "10.5px Arial, sans-serif", 3: "italic bold 14px Arial, sans-serif" };
+const BOX_FONTS = { 1: "bold 16px Arial, sans-serif", 2: "11px Arial, sans-serif", 3: "italic bold 14px Arial, sans-serif" };
 const hex = (c) => `#${c.toString(16).padStart(6, "0")}`;
 
 const imports = {
@@ -283,12 +276,70 @@ function uiFlush() {
 		else uiText(...op.slice(1));
 	}
 }
+// Text as GDI drew it into the palette frame: each pixel either the text
+// colour or untouched, no smoothing, stems snapped to whole pixels, whole-
+// pixel advances and no kerning. The browser's text is smoothed and not
+// hinted, so each character is drawn alone at four sub-pixel offsets, the
+// one with the crispest coverage kept and cut at half coverage (cached).
+const crisp = document.createElement("canvas");
+crisp.width = crisp.height = 48;
+const cctx = crisp.getContext("2d", { willReadFrequently: true });
+const glyphs = new Map();
+const GLYPH = 48, GLYPH_PAD = 4;
+function glyph(font, ch) {
+	const key = font + "|" + ch;
+	let g = glyphs.get(key);
+	if (g) return g;
+	cctx.font = font;
+	cctx.textBaseline = "top";
+	const adv = Math.round(cctx.measureText(ch).width);
+	let best = null, bestScore = -1;
+	for (const off of [0, 0.25, 0.5, 0.75]) {
+		cctx.clearRect(0, 0, GLYPH, GLYPH);
+		cctx.fillStyle = "#fff";
+		cctx.fillText(ch, GLYPH_PAD + off, GLYPH_PAD);
+		const d = cctx.getImageData(0, 0, GLYPH, GLYPH).data;
+		let score = 0;
+		const mask = new Uint8Array(GLYPH * GLYPH);
+		for (let k = 0; k < mask.length; k++) {
+			const a = d[k * 4 + 3];
+			score += Math.abs(a - 127.5);
+			mask[k] = a >= 128 ? 1 : 0;
+		}
+		if (score > bestScore) { bestScore = score; best = mask; }
+	}
+	g = { adv, mask: best };
+	glyphs.set(key, g);
+	return g;
+}
+function crispText(text, x, y, color) {
+	if (!text) return;
+	const font = tctx.font;
+	const gs = [...text].map((ch) => glyph(font, ch));
+	const w = gs.reduce((n, g) => n + g.adv, 0) + GLYPH;
+	const img = tctx.createImageData(w, GLYPH), d = img.data;
+	const r = (color >> 16) & 255, g8 = (color >> 8) & 255, b = color & 255;
+	let pen = 0;
+	for (const g of gs) {
+		for (let yy = 0; yy < GLYPH; yy++) for (let xx = 0; xx < GLYPH; xx++) {
+			if (!g.mask[yy * GLYPH + xx]) continue;
+			const px = pen + xx;
+			if (px >= w) continue;
+			const k = (yy * w + px) * 4;
+			d[k] = r; d[k + 1] = g8; d[k + 2] = b; d[k + 3] = 255;
+		}
+		pen += g.adv;
+	}
+	crisp2.width = w; crisp2.height = GLYPH;
+	crisp2.getContext("2d").putImageData(img, 0, 0);
+	tctx.drawImage(crisp2, Math.round(x) - GLYPH_PAD, Math.round(y) - GLYPH_PAD);
+}
+const crisp2 = document.createElement("canvas");
 // text for the Options box: font 1 Arial bold 18, 2 bold 12, 3 bold
 // italic 16 (GDI cell heights); flags 1 centre, 2 word wrap, 4 clip
 function uiTextEx(x, y, w, h, text, font, color, flags) {
 	tctx.save();
 	tctx.font = BOX_FONTS[font] ?? BOX_FONTS[1];
-	tctx.fillStyle = hex(color);
 	if (flags & 4) { tctx.beginPath(); tctx.rect(x, y, w, h); tctx.clip(); }
 	let lines = [text];
 	if (flags & 2) {
@@ -302,18 +353,20 @@ function uiTextEx(x, y, w, h, text, font, color, flags) {
 	}
 	lines.forEach((l, k) => {
 		const lx = flags & 1 ? x + (w - tctx.measureText(l).width) / 2 : x;
-		tctx.fillText(l, lx, y + k * 12);
+		crispText(l, lx, y + k * 12, color);
 	});
 	tctx.restore();
 }
-// A tooltip as the original draws it (0x411fe0): Arial 12 (regular, as in
-// footage of the original, though the font is created bold), moved left so
+// A tooltip as the original draws it (0x411fe0): Arial with a 12 px cell
+// (11 px, which matches the text width in footage of the original; regular
+// as in the footage, though the font is created bold), unsmoothed, moved
+// left so
 // it ends 20 px short of the right edge, on a box of palette colour 2 (dark
 // green in both variants) 2 px larger all round, outlined with the tank's
 // white pen, white text.
 function uiTip(x, y, text) {
 	tctx.save();
-	tctx.font = "12px Arial, sans-serif";
+	tctx.font = "11px Arial, sans-serif";
 	tctx.textBaseline = "top";
 	const w = Math.ceil(tctx.measureText(text).width), h = 12;
 	if (x + w >= 640 - 20) x -= x + w - (640 - 20);
@@ -322,15 +375,12 @@ function uiTip(x, y, text) {
 	tctx.strokeStyle = "#fff";
 	tctx.lineWidth = 1;
 	tctx.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3);
-	tctx.fillStyle = "#fff";
-	tctx.fillText(text, x, y);
+	crispText(text, x, y, 0xffffff);
 	tctx.restore();
 }
 function uiText(x, y, text) {
-	tctx.fillStyle = "#000";
-	tctx.fillText(text, x + 1, y + 1);
-	tctx.fillStyle = "#fff";
-	tctx.fillText(text, x, y);
+	crispText(text, x + 1, y + 1, 0x000000);
+	crispText(text, x, y, 0xffffff);
 }
 
 function setupViewer() {
