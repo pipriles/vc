@@ -312,9 +312,23 @@ function glyph(font, ch) {
 	glyphs.set(key, g);
 	return g;
 }
+// The original's small font (tooltips, the object panel, the Options box's
+// small text) comes from the bitmap font in gdifont.js.
+const SMALL_FONT = "11px Arial, sans-serif";
+const bitmapFont = () => typeof GDI_FONT !== "undefined" && tctx.font === SMALL_FONT;
+function textWidth(text) {
+	if (!bitmapFont()) return tctx.measureText(text).width;
+	let w = 0;
+	for (const ch of text) w += GDI_FONT[ch]?.[0] ?? glyph(tctx.font, ch).adv;
+	return w;
+}
 function crispText(text, x, y, color) {
 	if (!text) return;
 	const font = tctx.font;
+	if (bitmapFont()) {
+		bitmapText(text, Math.round(x), Math.round(y), color);
+		return;
+	}
 	const gs = [...text].map((ch) => glyph(font, ch));
 	const w = gs.reduce((n, g) => n + g.adv, 0) + GLYPH;
 	const img = tctx.createImageData(w, GLYPH), d = img.data;
@@ -335,6 +349,57 @@ function crispText(text, x, y, color) {
 	tctx.drawImage(crisp2, Math.round(x) - GLYPH_PAD, Math.round(y) - GLYPH_PAD);
 }
 const crisp2 = document.createElement("canvas");
+function bitmapText(text, x, y, color) {
+	const w = Math.ceil(textWidth(text)) + 2, h = GDI_FONT_HEIGHT;
+	const img = tctx.createImageData(w, h), d = img.data;
+	const r = (color >> 16) & 255, g8 = (color >> 8) & 255, b = color & 255;
+	const set = (px, py) => {
+		if (px < 0 || px >= w || py < 0 || py >= h) return;
+		const k = (py * w + px) * 4;
+		d[k] = r; d[k + 1] = g8; d[k + 2] = b; d[k + 3] = 255;
+	};
+	let pen = 0;
+	const fallback = [];
+	for (const ch of text) {
+		const g = GDI_FONT[ch];
+		if (g) {
+			const [adv, row0] = g;
+			for (let j = 2; j < g.length; j++) {
+				const line = g[j];
+				for (let i = 0; i < line.length; i++) if (line[i] === "#") set(pen + i, row0 + j - 2);
+			}
+			pen += adv;
+		} else {
+			fallback.push([ch, pen]);
+			pen += glyph(tctx.font, ch).adv;
+		}
+	}
+	crisp2.width = w; crisp2.height = h;
+	crisp2.getContext("2d").putImageData(img, 0, 0);
+	tctx.drawImage(crisp2, x, y);
+	// (characters the bitmap font lacks: the thresholded rendering)
+	for (const [ch, at] of fallback) crispGlyphs([ch], x + at, y, color);
+}
+// thresholded characters (see glyph), drawn from (x, y)
+function crispGlyphs(chars, x, y, color) {
+	const font = tctx.font;
+	const gs = chars.map((ch) => glyph(font, ch));
+	const w = gs.reduce((n, g) => n + g.adv, 0) + GLYPH;
+	const img = tctx.createImageData(w, GLYPH), d = img.data;
+	const r = (color >> 16) & 255, g8 = (color >> 8) & 255, b = color & 255;
+	let pen = 0;
+	for (const g of gs) {
+		for (let yy = 0; yy < GLYPH; yy++) for (let xx = 0; xx < GLYPH; xx++) {
+			if (!g.mask[yy * GLYPH + xx] || pen + xx >= w) continue;
+			const k = (yy * w + pen + xx) * 4;
+			d[k] = r; d[k + 1] = g8; d[k + 2] = b; d[k + 3] = 255;
+		}
+		pen += g.adv;
+	}
+	crisp2.width = w; crisp2.height = GLYPH;
+	crisp2.getContext("2d").putImageData(img, 0, 0);
+	tctx.drawImage(crisp2, Math.round(x) - GLYPH_PAD, Math.round(y) - GLYPH_PAD);
+}
 // text for the Options box: font 1 Arial bold 18, 2 bold 12, 3 bold
 // italic 16 (GDI cell heights); flags 1 centre, 2 word wrap, 4 clip
 function uiTextEx(x, y, w, h, text, font, color, flags) {
@@ -347,12 +412,12 @@ function uiTextEx(x, y, w, h, text, font, color, flags) {
 		let line = "";
 		for (const word of text.split(" ")) {
 			const t = line ? `${line} ${word}` : word;
-			if (line && tctx.measureText(t).width > w) { lines.push(line); line = word; } else line = t;
+			if (line && textWidth(t) > w) { lines.push(line); line = word; } else line = t;
 		}
 		lines.push(line);
 	}
 	lines.forEach((l, k) => {
-		const lx = flags & 1 ? x + (w - tctx.measureText(l).width) / 2 : x;
+		const lx = flags & 1 ? x + Math.floor((w - textWidth(l)) / 2) : x;
 		crispText(l, lx, y + k * 12, color);
 	});
 	tctx.restore();
@@ -366,9 +431,9 @@ function uiTextEx(x, y, w, h, text, font, color, flags) {
 // white pen, white text.
 function uiTip(x, y, text) {
 	tctx.save();
-	tctx.font = "11px Arial, sans-serif";
+	tctx.font = SMALL_FONT;
 	tctx.textBaseline = "top";
-	const w = Math.ceil(tctx.measureText(text).width), h = 12;
+	const w = Math.ceil(textWidth(text)), h = 12;
 	if (x + w >= 640 - 20) x -= x + w - (640 - 20);
 	tctx.fillStyle = "#008000";
 	tctx.fillRect(x - 2, y - 2, w + 4, h + 4);
