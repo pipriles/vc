@@ -4,8 +4,12 @@ package vc
 // windpump. Table and behaviour from VC.EXE setup (0x41a790), the object
 // part of the main update (0x40ca70) and drinking (0x403e90).
 
-MAX_OBJECTS_IN_TANK :: 6 // the whole view's object panel only gives more while fewer are in the tank (0x40e360, 0x40e930)
-OBJECT_COUNT :: 10 // the 11th table row is the shed skin (kind 6), handled with moulting
+OBJECT_COUNT :: 10
+// Port: every object may be in the tank at once. The original's panel
+// only gave one out while fewer than 6 were in (3 unregistered; 0x40e360,
+// 0x40e930), most likely to keep room for the spider on 1999 hardware;
+// the port's route planning and unsticking cope with a crowded tank.
+MAX_OBJECTS_IN_TANK :: OBJECT_COUNT // the 11th table row is the shed skin (kind 6), handled with moulting
 BOWL         :: 0  // DAT_00455846: the drinking object
 BELL         :: 1  // DAT_00454a38: where a hungry spider waits
 CACTUS1      :: 4  // DAT_00451ef8: wilted (frame 1) while the spider is dead

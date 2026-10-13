@@ -213,8 +213,9 @@ tools button while hidden.
 
 ### 14. Views — Same (checked)
 
-Close-up, whole tank with the object panel (6 objects at most since the
-last fix), the cricket box with its counts.
+Close-up, whole tank with the object panel, the cricket box with its
+counts. Port: the original allowed at most 6 objects in the tank (3 when
+unregistered); the port lets all 10 in.
 
 ### 15. Options box — Same
 
@@ -274,7 +275,7 @@ Senses and hunting, route planning, unsticking, cricket rescue, the
 CRICKET command, live starvation, smooth motion and higher frame rates,
 the mixer modes and volume, the in-page screensaver, picture-in-picture,
 the mobile layout and touch input, panning, a New Spider button, the debug
-overlays.
+overlays, and no limit on objects in the tank (the original's was 6).
 
 ## Differences found in this review
 

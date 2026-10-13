@@ -179,7 +179,7 @@ climbing_spider_is_drawn_in_front :: proc(t: ^testing.T) {
 }
 
 @(test)
-at_most_eight_crickets_and_six_objects_in_the_tank :: proc(t: ^testing.T) {
+at_most_eight_crickets_and_all_objects_in_the_tank :: proc(t: ^testing.T) {
 	if !sim_setup(t, 8) do return
 	for _ in 0 ..< 10 do cricket_drop(400, 300)
 	testing.expect_value(t, crickets_in_tank(), 8)

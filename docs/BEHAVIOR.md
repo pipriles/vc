@@ -330,9 +330,11 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   640×256; below it a panel of 96×96 cells (5 per row from x 60, y 260)
   with the objects not in the tank (dithered background, colour 1, 2 when
   hovered; corners vcg_2009; names). Drag objects between the panel and
-  the tank; a click elsewhere returns and restores the tool. Only while
-  fewer than 6 objects (the bowl included) are in the tank can another be
-  dragged out (0x40e360, 0x40e930; the unregistered original allowed 3).
+  the tank; a click elsewhere returns and restores the tool. The original
+  only let another out while fewer than 6 objects (the bowl included) were
+  in the tank (0x40e360, 0x40e930; 3 of the first 5 unregistered). Port:
+  no limit, all 10 may be in the tank (agreed; the route planning and
+  unsticking handle a crowded tank).
 
 ## Pauses and frame events **confirmed** (`creature_post_frame`)
 Run on every frame advance. A pause (`+0xf8`) freezes the creature
