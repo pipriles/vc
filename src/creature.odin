@@ -723,6 +723,10 @@ goal_check :: proc(c: ^Creature) -> bool {
 		cr := &game.crickets[g.target]
 		g.x, g.y = cr.x, cr.y
 	}
+	if g.type == .Cursor {
+		// the Follow tool: after the pointer wherever it is now (0x40bf10)
+		g.x, g.y = game.cursor_x, game.cursor_y
+	}
 	if g.type == .Spider {
 		g.x, g.y = game.spider.x, game.spider.y
 		if c.kind == .Cricket do g.y += 40

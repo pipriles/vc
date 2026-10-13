@@ -215,7 +215,12 @@ Table built on the stack at startup (recovered by tracing the stores):
   class sets the floor clamp: y ≥ 170 + H/3, H/6 or H/12, where H is the
   *spider's* bitmap height (200, sic); bottom y + h/2 < 480 with the
   object's own h; x margin 180. Scale `min(100, 35 + 100·y/480)`.
-- Hit rect: non-key bounds of frame 0 (`object_content_bounds`), scaled.
+- Hit rect: non-key bounds of frame 0 (`object_content_bounds`), scaled,
+  then trimmed for the tall objects (0x41a790): the cacti and the fountain
+  keep their lower half (cactus #1 also loses its left third), the bell its
+  lower three quarters, the windpump its bottom quarter, the yucca loses
+  3/8 at the top, about 1/28 at the bottom and 1/16 each side. It is what
+  blocks, sorts the draw order and can be clicked. (Port: less the shadow.)
   Shadows are colour 49 in the object bitmaps, drawn in the shadow pass.
 - Start: random x = rand_n(1200) − w, y = rand_n(480) − h + 170 (then
   clamped); the bowl starts half full (frame 2).
@@ -267,8 +272,9 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   it plays DROP). Every tool but the tap drags an object (dropped below the
   tank it is put away), else a cricket in the tank (sound 407), when
   pressed off the spider; the hover cursor shows the grabbing hand over
-  them. Follow: pressed off the spider, the spider walks after the pointer
-  (goal type 10, LURK_D on arrival, interaction 4).
+  them. Follow: pressed off the spider, the spider walks after the pointer,
+  its goal (type 10) taking the pointer's position every tick, so it keeps
+  following as the pointer moves (LURK_D on arrival, interaction 4).
 - The spider can be picked up unless something is carried, it is eating,
   hiding, above the floor line or dead. Hit test: hit rect shrunk by 1/8.
 - Pointer within 20 px of the left/right edge scrolls the viewfinder 20 px

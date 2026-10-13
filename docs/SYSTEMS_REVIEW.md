@@ -280,8 +280,8 @@ overlays.
 
 | # | Difference | Size |
 |---|------------|------|
-| D1 | Object hit boxes not trimmed (tall objects block and catch clicks too high) | Large |
-| D3 | Follow tool: the spider doesn't keep following the pointer | Large |
+| D1 | Object hit boxes not trimmed (tall objects block and catch clicks too high) — **fixed** | Large |
+| D3 | Follow tool: the spider doesn't keep following the pointer — **fixed** | Large |
 | D4 | Follow tool: no reactions to being followed | Medium |
 | D2 | Yucca starts fully grown and never grows | Medium |
 | D5 | Right-click while carrying a cricket doesn't move it to/from the box | Medium |

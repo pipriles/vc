@@ -38,6 +38,7 @@ Game :: struct {
 	windpump_wait: int,
 	input:    Input,
 	cursor_x: int, // tank x of the pointer (DAT_004526fc)
+	cursor_y: int, // and y (DAT_004526f8)
 	release_mouse: bool,
 	pending_pointer: [32]Pending_Pointer,
 	pending_pointer_len: int,

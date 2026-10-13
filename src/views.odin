@@ -91,6 +91,7 @@ leave_view :: proc() {
 whole_pointer :: proc(ev: Pointer_Event, vx, vy: int) {
 	in_ := &game.input
 	in_.x, in_.y = whole_to_tank(vx, vy)
+	game.cursor_x, game.cursor_y = in_.x, in_.y
 	#partial switch ev {
 	case .Down:
 		if c := cell_at(vx, vy); c >= 0 && game.objects[c].active && game.objects[c].in_box && objects_in_tank() < MAX_OBJECTS_IN_TANK {

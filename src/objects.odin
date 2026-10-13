@@ -53,8 +53,8 @@ Object :: struct {
 	bmp:      Bitmap,
 	fw, fh:   int, // frame size
 	key:      u8,
-	content:  Rect, // non-key bounds of frame 0 (0x41c2e0), less the shadow (port)
-	shadow_bottom: int, // bottom of frame 0 with its shadow, in frame coordinates
+	content:  Rect, // hit box in frame coordinates: the original's (trimmed) box, less the shadow (port)
+	shadow_bottom: int, // bottom of the original's trimmed box (shadow included), in frame coordinates
 	sort_bottom:   int, // the original's hit-box bottom (shadow included), for the draw order
 	anim_left: int, // ticks until the next frame (+0x8a)
 	anim_step: int, // (+0x8c)
@@ -75,8 +75,9 @@ objects_init :: proc() {
 		o.bmp = bmp
 		o.fw, o.fh = bmp.w, bmp.h / def.frames
 		o.key = bmp.pixels[0]
-		o.content = content_bounds(&o)
-		o.shadow_bottom = shadow_bottom(&o)
+		box := trim_box(&o, full_bounds(&o))
+		o.content = rect_and(box, content_bounds(&o))
+		o.shadow_bottom = box.bottom
 		o.anim_step = def.step
 		o.target_id = -1
 		if i == BOWL do o.frame = (def.frames - 1) / 2 // half full
@@ -111,13 +112,50 @@ content_bounds :: proc(o: ^Object) -> Rect {
 	return r
 }
 
-// Bottom of frame 0's non-key pixels, shadow included (what the original's
-// hit box, and so its draw order, uses).
-shadow_bottom :: proc(o: ^Object) -> int {
-	for y := o.fh - 1; y >= 0; y -= 1 do for x in 0 ..< o.fw {
-		if o.bmp.pixels[y * o.fw + x] != o.key do return y
+// Bounds of frame 0's non-key pixels, shadow included (0x41c2e0).
+full_bounds :: proc(o: ^Object) -> Rect {
+	r := Rect{o.fw, o.fh, -1, -1}
+	for y in 0 ..< o.fh do for x in 0 ..< o.fw {
+		if o.bmp.pixels[y * o.fw + x] == o.key do continue
+		r.left, r.top = min(r.left, x), min(r.top, y)
+		r.right, r.bottom = max(r.right, x), max(r.bottom, y)
 	}
-	return o.fh - 1
+	if r.right < 0 do r = {0, 0, o.fw - 1, o.fh - 1}
+	return r
+}
+
+// Setup (0x41a790) shrinks the boxes of the tall objects so only their
+// lower parts block and can be grabbed: the cacti and the fountain keep
+// their lower half (cactus #1 also loses its left third), the bell its
+// lower three quarters, the windpump its bottom quarter, and the yucca is
+// trimmed all round.
+trim_box :: proc(o: ^Object, r: Rect) -> Rect {
+	r := r
+	switch o.def.bitmap {
+	case 3004, 3005, 3007: // cactus #2, cactus #1, fountain
+		r.top += (r.bottom - r.top) / 2
+		if o.def.bitmap == 3005 do r.left += (r.right - r.left) / 3
+	case 3006: // yucca
+		q := (r.bottom - r.top) / 4
+		r.top += q / 2 + q
+		v := int((i64(q) * 0x6db6db6d) >> 32) - q // (as compiled)
+		r.bottom += v / 4
+		w := (r.right - r.left) / 16
+		r.left += w
+		r.right -= w
+	case 3008: // bell
+		r.top += (r.bottom - r.top) / 4
+	case 3009: // windpump
+		r.top = r.bottom - (r.bottom - r.top) / 4
+	}
+	return r
+}
+
+// The overlap of two boxes (the first if they don't overlap).
+rect_and :: proc(a, b: Rect) -> Rect {
+	r := Rect{max(a.left, b.left), max(a.top, b.top), min(a.right, b.right), min(a.bottom, b.bottom)}
+	if r.left > r.right || r.top > r.bottom do return a
+	return r
 }
 
 OBJECT_MARGIN :: 180 // 0xb4: closest an object's centre gets to the side walls

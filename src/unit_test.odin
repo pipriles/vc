@@ -266,3 +266,20 @@ catch_up_frees_crickets_from_webs :: proc(t: ^testing.T) {
 	catch_up(10, host_time() - 600)
 	testing.expect(t, !cr.web_stuck, "free again")
 }
+
+@(test)
+tall_objects_only_block_low_down :: proc(t: ^testing.T) {
+	if !sim_setup(t, 47) do return
+	for id in ([?]int{CACTUS1, CACTUS2, FOUNTAIN, WINDPUMP, BELL, YUCCA}) {
+		o := &game.objects[id]
+		o.in_box = false
+		o.x, o.y = 600, 400
+		object_update_position(o)
+		dh := x87_scale_trunc(o.fh, o.scale)
+		// the untrimmed box's top, where the picture starts
+		top := x87_scale_trunc(full_bounds(o).top, o.scale) + o.y - dh / 2
+		// at least the top eighth is cut off the box (0x41a790)
+		testing.expectf(t, o.hit.top >= top + dh / 8, "%s: box top %d, picture top %d", o.name, o.hit.top, top)
+		testing.expectf(t, !hit_test(&o.c, o.x, top + 4), "%s can't be grabbed by its top", o.name)
+	}
+}

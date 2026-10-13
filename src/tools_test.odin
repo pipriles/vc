@@ -211,3 +211,30 @@ no_drinking_from_a_bowl_being_dragged :: proc(t: ^testing.T) {
 	pointer_event(.Up, s.x, s.y + 60)
 	testing.expect_value(t, bowl.carried, 0)
 }
+
+@(test)
+follow_tool_keeps_after_the_pointer :: proc(t: ^testing.T) {
+	if !sim_setup(t, 48) do return
+	for &o in game.objects do o.in_box = true // nothing in the way
+	s := &game.spider
+	clear_goal(s)
+	clear_queue(s)
+	s.x, s.y = 300, 300
+	s.prev_x, s.prev_y = s.x, s.y
+	creature_update_position(s)
+	game.scroll_x = 0
+	game.stats.temperament = 7 // calm: no reaction cutting it short
+	game.input.tool = .Follow
+	pointer_event(.Down, 500, 300)
+	pointer_event(.Up, 500, 300)
+	testing.expect(t, s.goal.active && s.goal.type == .Cursor, "following")
+	pointer_event(.Move, 300, 400) // the pointer moves on, without a click
+	closest := max(int)
+	for _ in 0 ..< 100 {
+		tank_tick()
+		if s.goal.active do testing.expect_value(t, s.goal.x, 300)
+		closest = min(closest, abs(s.x - 300) + abs(s.y - 400))
+		if !s.goal.active do break
+	}
+	testing.expectf(t, closest < 60, "went after the pointer (closest %d px)", closest)
+}

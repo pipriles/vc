@@ -111,6 +111,9 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 	in_ := &game.input
 	in_.inside = ev != .Leave
 	in_.vx, in_.vy = vx, vy
+	// the pointer's tank position is kept whatever it's over (the
+	// Follow tool's goal and the tap use it)
+	if in_.view == .Tank && ev != .Leave do game.cursor_x, game.cursor_y = vx + game.scroll_x, vy
 	switch in_.view {
 	case .Whole:
 		whole_pointer(ev, vx, vy)
@@ -130,7 +133,6 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 	if ev == .Right do return
 	if in_.view == .Tank {
 		in_.x, in_.y = vx + game.scroll_x, vy
-		game.cursor_x = in_.x
 	} else {
 		in_.x, in_.y = vx, vy
 	}
