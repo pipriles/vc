@@ -656,6 +656,9 @@ box_render :: proc() {
 	slice.sort_by(list, proc(a, b: ^Creature) -> bool {return a.y < b.y})
 	for c in list do draw_creature(c, .Shadow, 0)
 	for c in list do draw_creature(c, .Body, 0)
+	// the box has its own surface in the original: no tooltip from the tank
+	// carries over (the text layer starts empty)
+	ui_begin()
 	present_view(&b.palette)
 }
 
