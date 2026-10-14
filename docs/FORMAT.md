@@ -55,8 +55,10 @@ b-0x14); the last block of a record is cut short, so never slice a fixed
 Each frame = RLE `(u8 count, u8 palette_index)` pairs, row-major **bottom-up**
 (like DIBs; runs may cross rows),
 decoding to exactly width*height (64000) bytes. Palette = 8-bit palette of
-VCG bitmaps. Index 7 (spider) / 0xFA (others) = transparent key.
-Shadow drawn in a separate dark palette range (TBD: blend mode).
+VCG bitmaps. Index 7 (spider) / 0xFA (others) = transparent key (but see
+"Transparent colour" below). Shadow pixels are the direction's key2 colour
+(0x31 = 49), drawn as solid colour 49 in a shadow pass before the bodies;
+no blending.
 
 Animation pairs per DLL: VCG has 9000/9001 spider, 9002/9003 cricket,
 9004/9005 logo, 9006/9007 footprints, 9008/9009 web, 9010/9011 skin;

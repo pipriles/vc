@@ -21,20 +21,27 @@ python3 -I tools/serve.py   # no-cache dev server on :8081
 ```
 Open http://127.0.0.1:8081/ for the tank (`?v=rk` for Red Knee), `viewer.html` for the animation viewer.
 Controls are the original's, in the view: the hand button cycles the tools
-(or keys 1–5: tap on the glass, pick up, prod, stroke, follow), feed opens
-the cricket box (click a cricket to carry it into the tank), the tap fills
-the water bowl, the magnifiers show the close-up and the whole tank (drag
-objects between the tank and the panel there), the broom clears debris,
-options opens the settings panel (pet name, Resurrect Creature, New
-spider, life history), and the logo hides or shows the buttons and icons.
+(right-click in the tank, or keys 1–5: tap on the glass, pick up, prod,
+stroke, follow), feed opens the cricket box (click a cricket to carry it
+into the tank), the tap fills the water bowl, the magnifiers show the
+close-up and the whole tank (drag objects between the tank and the panel
+there; only the bowl starts in the tank), the broom clears debris, options
+opens the Options box (settings, help, stats, credits, and utilities:
+Download Crickets, Resurrect Creature, Version Info, Screensaver), and the
+logo hides or shows the buttons and icons. Right-click a button or
+indicator for its help page. Click the pet's name to edit it. The
+original's typed commands work (type the word, then Enter); the port adds
+CRICKET, which drops a cricket into the tank.
 The game saves every minute and when the page is hidden or closed; time
 away is replayed on return, so the spider gets hungry, drinks, eats and
-can die while you are gone. Move the pointer to the left or
-right edge to scroll in scan mode (right-drag also pans). `C` drops a
-cricket straight into the tank (debug). The Objects bar places or removes objects (only the bowl starts in the tank)
-and "Fill bowl" refills the water. Press `D` (or tick Debug) for the overlay: tank limits, drawn box, facing,
-blocked directions, goal target and tolerance, a state panel and a log of
-the spider's decisions. Sim speed runs the clock up to 20× faster.
+can die while you are gone. Right-drag (or two fingers) pans the view
+(switching to scan mode); while carrying something, the left/right edge
+scrolls. The top
+bar has the variant, sim speed (up to 20×), volume, audio mode, full
+screen (`Shift+F`), the pet's name and New spider. `Shift+D` (or tick
+Debug) shows the overlay: tank limits, drawn box, facing, blocked
+directions, goal target and tolerance, a state panel and a log of the
+spider's decisions.
 
 ## Tests
 ```sh

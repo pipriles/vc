@@ -17,14 +17,16 @@ Screens / assets (VCG.DLL bitmaps):
 - `5000` 640×480 splash screen.
 - Smaller bitmaps: tank objects, UI panels, icons, indicator bars (TBD).
 
-Gameplay (from UI strings, **confirmed** text, mechanics TBD):
+Gameplay (from UI strings, **confirmed**; the mechanics are in the sections
+below):
 - Stats: food (hunger), water (thirst), health, mood. Death + "Resurrect".
 - Real time: birth date, time alive, death date, "Freeze simulation".
 - Food: crickets (tank / box / storage counts). "Out of food" when none left.
 - Tank objects (unregistered: any 3): Waterbowl, Bell, Rock #1–3, Cactus
   #1–2, Yucca Plant, Water Fountain, Windpump, Skin (shed skin), log (plugin).
 - Player tools: water, feed, follow cursor, stroke, prod, pick up & move,
-  tap on the glass. "Remove all debris" (skins, cricket remains, footprints?).
+  tap on the glass. "Remove all debris" (cricket remains, footprints, webs,
+  the shed skin).
 - Name your pet. Sound on/off. Frame-rate display (`FPS:%02d`).
 
 Port decision: needs keep changing in real time while the page is closed
@@ -35,7 +37,8 @@ Out of scope for the port: registration / trial limits, registry storage,
 internet/website links, floppy-disk cricket "download", screensaver config.
 
 ## Timing **confirmed**
-- Main tick: `SetTimer(hwnd, 1, 100)` → 10 Hz simulation and animation.
+- Main tick: `SetTimer(hwnd, 1, 100)`; the game step runs when the chosen
+  frame time (100, 71 or 55 ms) has passed (see "Frame rate" below).
 - `now_ms` = `GetTickCount()` sampled per tick; cooldowns compare against it.
 
 ## Randomness **confirmed**
@@ -54,8 +57,10 @@ internet/website links, floppy-disk cricket "download", screensaver config.
   plays: web-laying continues at most once, a cricket doesn't flee again
   mid-jump). `enqueue_anim(c, seq, dir, p4, p5, p6)`:
   - `dir == 8` → keep current facing (`+0x9a`).
-  - `p5 != 0` (and creature not busy) → flush queue first (*tentative*).
-  - Rejected while creature not active (`+0x92 == 0`) or anim not loaded.
+  - `p5 != 0` → flush first: empty the queue and let the current play
+    finish (not while turning or eating).
+  - Rejected for CIRCLE (turns are implicit) and above the floor line,
+    unless coming out from under the rock.
   - p4 is the play count, but a pop first zeroes the count and runs the
     start rules (0x403210), and only uses p4 if the rule left it 0: LURK,
     LURK_D, THREAT, HAIR and CLEAN play their mood counts instead.
@@ -95,13 +100,14 @@ internet/website links, floppy-disk cricket "download", screensaver config.
    and still apply during a pause (only GLASS dir 4 has any: its climb).
    x step = `sx`; y step = `sx` straight up/down, `sy` on diagonals.
    Running doubles speeds while walking.
-5. `creature_update_position`: clamp x to [130, 1070] (walls) and y to
-   [170 + h/3, 480 - h/2]; hitting a side marks the 3 directions into it as
-   bumped for 5 ticks. Then
+5. `creature_update_position`: clamp x to [130, 1070] (walls; crickets
+   [80, 1120]) and y to ≥ 170 (crickets 180) with y + drawn_h/3 < 480;
+   hitting a side marks the 3 directions into it as walled until the next
+   position update. Then
    `scale% = min(100, trunc(y/480 * size + 35))` (kept on frames flagged
    lock-scale: GLASS's climb),
    `sx = trunc(base_sx / (100/scale))`, `sy` likewise.
-   Spider: base 5×3, size 40 when new (grows; SKIN = moult, TBD).
+   Spider: base 5×3, size 40 when new (grows, see "Growth and moulting").
 
 ## Goals: walk somewhere, then play **confirmed**
 `move_to_then_anim(c, target, type, x, y, dir, seq, timeout)` only stores a
@@ -149,15 +155,18 @@ carried (0x405900).
 
 ## Glass **confirmed**
 30% of idle picks, ≥ 3 min since GLASS last finished: goal type 12 (y only)
-to y = 375 + (100−size)/2, then GLASS facing 4. GLASS is re-validated when
-it comes off the queue and needs size > 49, so a young spider walks to the
-front and lurks instead; since GLASS never finishes, its cooldown never
-starts and it keeps going back (faithful to the original logic).
+to y = 375 + (100−size)/2 (timeout 60 s), then GLASS facing 4. GLASS is
+re-validated when it comes off the queue and needs size > 49, so a young
+spider walks to the front and lurks instead; in the original GLASS then
+never finishes, its cooldown never starts and it keeps going back. Port:
+the 3 minutes also count from the trip (see "Glass trips").
 
 ## Crickets and hunting **confirmed**
 - 12 crickets (kind 2) start in the cricket box at x 50–490, y 290–420
-  (box coordinates), base speed 8×6. In the tank: wall margin 80, floor
-  y ≥ 180. Their depth scale uses the *spider's* size.
+  (box coordinates), base speed 8×6, each on a sequence from the idle
+  chooser. In the box: x 50–590, y 286–460, scale 25 + 100·y/460 (≤ 100);
+  they only move while the box is on screen. In the tank: wall margin 80,
+  floor y ≥ 180, and their depth scale uses the *spider's* size.
 - The box view's board (top right) lists, in white Arial with a 16 px cell
   (weight 600, drawn as Arial Bold), "Crickets in Storage :", "Crickets in
   Box :", "Crickets in Tank :" and "Total Crickets :" at x 400, y 64, 80,
@@ -241,7 +250,7 @@ Table built on the stack at startup (recovered by tracing the stores):
   boxes leave out the shadow (colour 49); against objects only the
   spider's body counts (the middle 60 % of its frame box) and a cell needs
   a third of its size overlapped (the original: an eighth, a third only
-  while walking to a goal); and a spider that hasn't moved 20 px in 45 s
+  while walking to a goal); and a spider that hasn't moved 20 px in 15 s
   with objects and walls blocking at least 5 of its 8 directions (one an
   object) walks out away from the walls (preferring up) and may cross
   objects for 10 s.
@@ -262,8 +271,9 @@ Table built on the stack at startup (recovered by tracing the stores):
 (facing it): only if water < 81. A counter cycles 0..4.
 - Bowl in the tank, spider facing and touching it, level > 0: drink,
   +20 water, level −1, sound 457.
-- Otherwise every 5th call: go to the bowl (goal type 1, arrive on touch),
-  then LURK.
+- Otherwise every 5th call: go to the bowl (goal type 1, arrive on touch,
+  timeout 120 s), then LURK. Port: only to a bowl the spider has seen, and
+  not in the middle of a hunt (see "Senses").
 - No bowl: every 5th call with water < 51, go and wait at the bell.
 - Hungry (food < 26) with the bell in the tank: every 5th minute go and
   wait at the bell (in front of or behind it, by where the spider is).
@@ -294,11 +304,15 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
 - The spider can be picked up unless something is carried, it is eating,
   hiding, above the floor line or dead. Hit test: hit rect shrunk by 1/8.
 - Pointer within 20 px of the left/right edge scrolls the viewfinder 20 px
-  a tick for 8 ticks; follow mode re-centres on the spider every frame.
+  a tick for 8 ticks; follow mode re-centres on the spider every frame
+  (not while something is carried). Port: edge scrolling only while
+  carrying something; a right (or middle) drag or two fingers pan instead.
 - Buttons: feed opens the cricket box (click a cricket, < 8 in the tank,
   to carry it into the tank); water raises the bowl one level (sound 402;
   water < 35 sends the spider to the bowl); clear removes remains,
-  footprints and webs. Every button click plays 400.
+  footprints, webs and the skin. Every button click plays 400 (pouring
+  water plays 402 instead; the website button plays nothing). Changing
+  tool clears a Follow goal.
 
 ## Reactions to the tools **confirmed**
 `spider_react_tool` (every tick while an interaction is pending):
@@ -370,8 +384,8 @@ eating crunches 450–456 (they cut it off); everything else takes the first
 free channel of 1–3 and is skipped if all are busy or the same sound is
 already playing (the bell 466 excepted). Two loops: running water 465 while
 the fountain is in the tank (not in the box view, channel 1) and scraping
-403 while an object is dragged and moving (channel 2). The fountain splash
-419 is muted in the box view.
+403 while an object is dragged and moving (channel 2). The windpump creak
+419, the jump landing 409 and the footsteps 460 are muted in the box view.
 
 | id | sound | id | sound |
 |----|-------|----|-------|
@@ -404,8 +418,9 @@ the fountain is in the tank (not in the box view, channel 1) and scraping
 minutes M since it was closed (the port also runs it when a hidden page
 comes back after ≥ 3 minutes):
 - M < 3: nothing, except a hidden spider is put back under the rock.
-- M ≥ 60: mood becomes rand_n(200) − 100. Crickets in the tank are
-  moved to free spots.
+- M ≥ 60: mood becomes rand_n(200) − 100.
+- M ≥ 3: crickets in the tank (not stuck in a web) are moved to free
+  spots.
 - The current sequence ends and the spider is reset (0x408630): no goal,
   no turn, not eating, empty queue (dropping what ending the sequence
   queued), no tool, every sequence last played 5 minutes ago. At the end
@@ -443,8 +458,9 @@ comes back after ≥ 3 minutes):
 - Size = min(100, 40 + minutes alive / 360): one point every 6 hours,
   full grown after 15 days. Recomputed every game "minute", which is 59
   seconds: a per-second counter that resets after 58 (wnd_proc timer).
-- Moults are only checked while starting up (after time away): days 5–15,
-  and from day 28 in every 28-day cycle on its first 5 days. Never within
+- Moults are only checked while starting up (the port: each page load,
+  not when a hidden page comes back): days 5–15, and from day 28 on the
+  first six days of every 28-day cycle (days 28–33, 56–61, …). Never within
   a day of a new or resurrected spider (0x41f710 dates the skin then;
   moulting doesn't), and only when no shed skin is lying in the tank.
 - The skin lies at x 200–999, y 170–389 (its previous position drawn
@@ -514,7 +530,8 @@ Crickets: random sequence with frames in the current direction.
   fraction ≥ 0.7 → 0..7.
 - water −2 every 2.5 h, food −2 every 2 h (real time), mood −1 per minute
   (wraps −101 → 100, a bug in the original), interaction flag cleared.
-- Hungry (food < 26) with a cricket in the tank: every 5th minute stalk it.
+- Hungry (food < 26) with the bell in the tank: every 5th minute go and
+  wait at the bell (see "Water").
 
 ## Creature struct (partial)
 | off | type | meaning |
@@ -546,16 +563,6 @@ Crickets: random sequence with frames in the current direction.
 | 0x174 + 4s | u32 | time sequence s last played |
 | 0x1e6 | i16 | size / growth (40 new) |
 | 0x1ec..| | animation queue (above) |
-
-## Spider reaction to tools (`spider_react_tool`) — partial
-- Ignored within 2500 ms of the previous reaction, or while hiding under the log.
-- Repeated same tool keeps the mood step; a new tool sets it:
-  tools 1, 2, 5 → +3 if mood ≥ 0 else −3; tools 3, 4 → −3 if mood ≥ 0 else +3
-  (*tentative* sign reading). Mood clamped to ±100.
-- Tool 1 at low irritation: 40% walk off (random dir, 4–5 steps), else
-  threat or hair-flick (`THREAT` / `HAIR`), or retreat under the log
-  (`move_to_then_anim(…, 0x280, 0xaa, …, LOG_HIDE, 0x78)`).
-- Remaining cases (2..5) to be decoded.
 
 ## Frame rate, right button, screensaver **confirmed**
 - The whole game step (creatures, UI, cursor, scrolling) runs once per
@@ -628,14 +635,17 @@ when one is dropped near it (350 × 175 px) or stuck in a web close by
 straight at the target with one-obstacle detours. The port adds
 (`senses.odin`, `path.odin`), drawing no random numbers except in the new
 decisions:
-- Noticing area: an ellipse 220 × 110 px round the spider, 330 × 165 when
-  food < 50, 440 × 220 when food < 25; the bowl is noticed at twice that.
-  Checked once a second while the spider is out, awake and not handled.
+- Noticing area: an ellipse round the spider with half-axes 220 × 110 px,
+  330 × 165 when food < 50, 440 × 220 when food < 25; the bowl is noticed
+  at twice that. Checked once a second while the spider is out, awake,
+  not eating, not handled and not following the cursor or heading for the
+  rock.
 - Hunting a noticed cricket: not when too full (the original's
   food ≥ 65 + rand_n(25)), else a 30 / 60 / 90 % chance (food ≥ 50 / < 50 /
   < 30). Stalk: walk (no running) to a point at striking distance (half its
   box + 30 px), following the cricket; freeze 0.4–1.5 s; pounce: the chase
-  goal (running) ending in CATCH. Gives up when the cricket leaves 1.5× the
+  goal (running, 6 s) ending in CATCH. While hunting, the idle chooser's
+  trips to the rock and the glass and thirst's trips to the bowl wait. Gives up when the cricket leaves 1.5× the
   area, goes back to the box or is carried, or after 60 s of stalking; that
   cricket is then ignored for 15 s. Touching crickets out of reach are
   waited for (see above).
@@ -644,7 +654,8 @@ decisions:
   that's been taken away are abandoned.
 - Routes: walks to a target follow a breadth-first route over a 20 px grid
   of the squares where the spider's body fits between objects, heading 4
-  squares ahead; an unreachable target is approached as near as possible.
+  squares ahead in walks of 4 (the original walks ×6 straight at the
+  target); an unreachable target is approached as near as possible.
   The glass (only the height matters) is routed to the nearest reachable
   spot at that height. When the next step of a route is blocked, the
   neighbouring directions are tried before the original's detour.
