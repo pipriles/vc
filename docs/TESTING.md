@@ -109,6 +109,15 @@ of a core at 120 Hz). Skipping it needs to know nothing visible changed
   division in hot paths; cache what depends only on small inputs.
 - Long runs (thousands of ticks) are fine if they don't render; budget
   roughly tens of µs per tick in the optimised build.
+- Tests share the sim's globals. A test that changes what `sim_setup`
+  doesn't reset (`cmd`, the loaded variant via `assets.loaded` and
+  `data_dir`) puts it back before returning, as the fuzz test does.
+  `data_dir` must be a literal or persistent string if the test frees
+  the temp allocator.
+- The fuzz test (~0.9 s) runs a few seeds per variant for 6000 ticks,
+  drawing every 50th. To look wider, change the seeds or tick count
+  locally; a failure prints the variant, seed and tick to replay. Keep
+  seeds that once found a bug.
 - One test process at a time: parallel runs (e.g. several agents) heat
   the machine and skew timings. `test.sh` enforces it with a lock
   (`build/.test.lock`): a second run waits, and a lock left by a killed

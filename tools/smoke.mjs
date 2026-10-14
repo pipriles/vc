@@ -4,12 +4,18 @@
 // code paths, host imports).
 //
 // Usage: node tools/smoke.mjs [ticks]
+//
+// The game's clock (host_time, which also seeds its rng) starts at a fixed
+// time and moves on with each step, so a run is the same every time. Set
+// SMOKE_TIME (seconds since the epoch, or "now") to try other starts; a
+// failure prints the one to replay.
 
 import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
 
 const root = new URL("..", import.meta.url).pathname;
 const ticks = Number(process.argv[2] ?? 3000);
+const startTime = process.env.SMOKE_TIME === "now" ? Math.floor(Date.now() / 1000) : Number(process.env.SMOKE_TIME ?? 1_760_000_000);
 
 // odin.js is a browser script that sets window.odin
 globalThis.window = globalThis;
@@ -18,7 +24,7 @@ const wasmBytes = readFileSync(`${root}/build/vc.wasm`);
 
 function noop() {}
 
-async function run(variant, mode, saveJson = null) {
+async function run(variant, mode, saveJson = null, start = startTime) {
 	const base = `${root}/data/${variant}/`;
 	const manifest = JSON.parse(readFileSync(base + "manifest.json", "utf8"));
 	const files = new Map(manifest.files.map((n) => [n, new Uint8Array(readFileSync(base + n))]));
@@ -28,12 +34,13 @@ async function run(variant, mode, saveJson = null) {
 	const str = (p, n) => mem.loadString(p, n);
 	const log = [];
 	let saved = "";
+	let clock = start, sounds = 0;
 	const vc = {
 		file_size: (p, n) => files.get(str(p, n))?.length ?? -1,
 		file_read: (p, n, dst) => { const f = files.get(str(p, n)); mem.loadBytes(dst, f.length).set(f); },
-		present: noop, host_mode: () => mode, host_time: () => Date.now() / 1000,
+		present: noop, host_mode: () => mode, host_time: () => clock,
 		ui_add_anim: noop, ui_add_seq: noop, ui_status: noop, 
-		tank_status: noop, host_sound: noop, host_loop: noop, host_save: (p, n) => { saved = str(p, n); },
+		tank_status: noop, host_sound: () => { sounds++; }, host_loop: noop, host_save: (p, n) => { saved = str(p, n); },
 		host_message: noop,  host_cursor: noop, host_view: noop, host_tool: noop,
 		host_open: noop, ui_text_ex: noop, host_set_sound: noop, host_fullscreen: noop, host_settings: noop, host_saver: noop, host_name: noop, host_tz_offset: () => 0, ui_begin: noop, ui_text: noop, ui_tip: noop,
 		debug_begin: noop, debug_rect: noop, debug_line: noop, debug_text: noop,
@@ -47,6 +54,7 @@ async function run(variant, mode, saveJson = null) {
 	if (mode === 0) ex.tank_set_debug(1); // log the load / catch-up during start-up
 	ex._start();
 	const ctx = ex.default_context_ptr();
+	const step = (dt) => { clock += dt; return ex.step(dt, ctx); };
 
 	if (mode === 0) {
 		ex.tank_set_debug(1);
@@ -68,17 +76,22 @@ async function run(variant, mode, saveJson = null) {
 			ex.tank_pointer(1, 20 + ((t / 50) % 10) * 52 + 20, 440);
 			ex.tank_pointer(2, 20 + ((t / 50) % 10) * 52 + 20, 440);
 		}
-		if (!ex.step(0.1, ctx)) throw new Error("step returned false");
+		if (!step(0.1)) throw new Error("step returned false");
 	}
 	if (mode === 0) {
 		ex.tank_save();
 		if (!saved.startsWith("{")) throw new Error("tank_save wrote nothing");
 		ex.tank_resume(600); // ten hours away
+		// hidden for five minutes: replayed tick by tick, without a sound
+		sounds = 0;
+		clock += 300;
+		ex.tank_away(300);
+		if (sounds !== 0) throw new Error(`${sounds} sounds while replaying time away`);
 		ex.tank_resurrect();
 		ex.tank_new_spider();
 		ex.tank_set_frame_rate(2, 1); // 18 fps, smooth
 		ex.tank_set_saver(1);
-		for (let t = 0; t < 50; t++) ex.step(0.016, ctx);
+		for (let t = 0; t < 50; t++) step(0.016);
 		ex.tank_set_saver(0);
 		// touch: padded buttons, and what's under a finger
 		ex.tank_set_touch(1);
@@ -92,13 +105,13 @@ async function run(variant, mode, saveJson = null) {
 			"URSULLA", "GLOBALBEACH"]) {
 			for (const ch of w) ex.tank_char(ch.charCodeAt(0));
 			ex.tank_char(13);
-			for (let t = 0; t < 10; t++) ex.step(0.1, ctx);
+			for (let t = 0; t < 10; t++) step(0.1);
 		}
 		ex.tank_intro(); // the opening sequence, drawn
-		for (let t = 0; t < 200; t++) ex.step(0.1, ctx);
+		for (let t = 0; t < 200; t++) step(0.1);
 		ex.tank_skip_intro();
 		ex.tank_set_frame_rate(1, 0);
-		for (let t = 0; t < 50; t++) ex.step(0.1, ctx);
+		for (let t = 0; t < 50; t++) step(0.1);
 	}
 	return mode === 0 && !saveJson ? { lines: log.length, saved } : { lines: log.length, log };
 }
@@ -112,15 +125,16 @@ for (const variant of ["cr", "rk"]) {
 			if (mode === 0) {
 				// load that save as if it was written 30 hours ago
 				const old = JSON.parse(r.saved);
+				const now = old.saved_at;
 				old.saved_at -= 30 * 3600;
-				const r2 = await run(variant, 0, JSON.stringify(old));
+				const r2 = await run(variant, 0, JSON.stringify(old), now);
 				const caught = r2.log.some((l) => l.includes("catching up 1800 minutes"));
 				if (!caught) throw new Error("save not loaded / no catch-up");
 				console.log(`ok   ${variant} tank loads a 30-hour-old save`);
 			}
 		} catch (e) {
 			failed = true;
-			console.log(`FAIL ${variant} ${name}: ${e.message}`);
+			console.log(`FAIL ${variant} ${name}: ${e.message} (replay: SMOKE_TIME=${startTime} node tools/smoke.mjs ${ticks})`);
 		}
 	}
 }

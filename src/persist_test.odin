@@ -142,3 +142,65 @@ save_keeps_what_creatures_are_doing :: proc(t: ^testing.T) {
 	testing.expect(t, after > used, "remains left from the meal")
 	testing.expect(t, !s.eating, "finished eating")
 }
+
+// Time with the page hidden replays tick by tick: the same as running the
+// sim on screen for that long, short absences included.
+@(test)
+time_away_is_replayed_tick_by_tick :: proc(t: ^testing.T) {
+	if !sim_setup(t, 9) do return
+	for _ in 0 ..< 300 do tank_tick()
+	start := now_ms
+	tank_away(150) // two and a half minutes: under the catch-up's 3
+	ticks := int(now_ms - start) / tick_ms()
+	testing.expectf(t, ticks == 1500 || ticks == 1499, "150 s of 100 ms ticks, got %d", ticks)
+	away := make_save()
+
+	// the same start, on screen
+	if !sim_setup(t, 9) do return
+	for _ in 0 ..< 300 + ticks do tank_tick()
+	here := make_save()
+	testing.expect_value(t, away.spider, here.spider)
+	testing.expect_value(t, away.crickets, here.crickets)
+	testing.expect_value(t, away.food, here.food)
+	testing.expect_value(t, away.water, here.water)
+	testing.expect_value(t, away.objects, here.objects)
+	testing.expect(t, !replaying, "sounds back on after the replay")
+}
+
+// Over an hour away: the catch-up takes the whole minutes, the odd
+// seconds are replayed.
+@(test)
+long_time_away_takes_the_catch_up :: proc(t: ^testing.T) {
+	if !sim_setup(t, 10) do return
+	st := &game.stats
+	st.food, st.water = 60, 60
+	game.objects[BOWL].frame = 0
+	start := now_ms
+	tank_away(4 * 3600 + 30)
+	ticks := int(now_ms - start) / tick_ms()
+	testing.expectf(t, ticks == 300 || ticks == 299, "only the 30 odd seconds ticked, got %d", ticks)
+	testing.expectf(t, st.food < 60 && st.water < 60, "four hours of needs (food %d, water %d)", st.food, st.water)
+}
+
+// What became of save.json, for the page's warning.
+@(test)
+save_status_tells_an_unusable_save :: proc(t: ^testing.T) {
+	if !sim_setup(t, 11) do return
+	testing.expect_value(t, save_status, Save_Status.None)
+	tank_save()
+	good := saved_json
+	tank_reset()
+	testing.expect(t, load_game(), "loads")
+	testing.expect_value(t, save_status, Save_Status.Loaded)
+
+	saved_json = good[:len(good) / 2]
+	tank_reset()
+	testing.expect(t, !load_game(), "a cut-off save isn't loaded")
+	testing.expect_value(t, save_status, Save_Status.Unreadable)
+
+	saved_json = `{"version": 99}`
+	tank_reset()
+	testing.expect(t, !load_game(), "another version isn't loaded")
+	testing.expect_value(t, save_status, Save_Status.Wrong_Version)
+	saved_json = ""
+}

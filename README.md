@@ -47,7 +47,7 @@ spider's decisions.
 ```sh
 ./test.sh   # native tests, then wasm build + Node smoke test
 ```
-Native `odin test` (about 2 s of tests after a ~30 s `-o:speed` build),
+Native `odin test` (about 3.5 s of tests after a ~30 s `-o:speed` build),
 single-threaded because tests share the simulation's globals. Data tests
 skip themselves when `data/` is missing. One test: `./test.sh
 -define:ODIN_TEST_NAMES=vc.<name>`.
@@ -60,8 +60,16 @@ skip themselves when `data/` is missing. One test: `./test.sh
 - **Simulation:** 100k headless ticks checking invariants (bounds, valid
   frames, sequence preconditions) and determinism for a fixed seed; a run
   with every object placed; a sweep of 3000 start seeds.
+- **Fuzz:** random pointer, tool, button, typed-command, object, box,
+  save/reload, catch-up and new-spider input on fixed seeds (both
+  variants), invariants checked after every tick (`fuzz_test.odin`).
+- **Time away and saves:** hidden-page time replays exactly like ticks on
+  screen; over an hour the catch-up runs; save round trip; unusable saves
+  are reported; `step` lets go of each frame's temp allocations.
 - **Browser build:** `tools/smoke.mjs` runs the real `vc.wasm` in Node with
-  both variants and both pages (needs Node), catching wasm-only failures.
+  both variants and both pages (needs Node), catching wasm-only failures,
+  and checks a hidden-time replay is silent. Its clock starts at a fixed
+  time (`SMOKE_TIME=<seconds>` or `now` for another), so runs repeat.
 
 Keeping the suite fast:
 - Sim tests step with `tank_tick()` or `tank_advance(TICK)`, never
