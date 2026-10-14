@@ -704,7 +704,10 @@ Death (catch-up 0x415430): yucca to its last frame and both cacti (objects
   order is sorted again.
 - Text is drawn by GDI into the 8-bit frame: no smoothing, stems on whole
   pixels, whole-pixel advances. The port draws its text layer at 640×480
-  and scales it up with the picture. The small font (tooltips, the object
+  and scales it up with the picture: blockily to the next whole multiple,
+  then smoothly down to the shown size, so at sizes that aren't a whole
+  multiple every pixel stays the same width (plain blocky scaling made some
+  pixels one screen pixel wide and others two, so letters looked uneven). The small font (tooltips, the object
   panel, the Options box's small text) is a 1-bit bitmap font in the style
   of Windows' unsmoothed Arial at 11 px (`web/gdifont.js`): browsers don't
   hint text, and thresholding their smoothed glyphs at that size breaks

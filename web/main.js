@@ -153,20 +153,51 @@ window.vcSound = sound; // for debugging in the console
 addEventListener("pointerdown", () => sound.unlock(), { capture: true });
 addEventListener("keydown", () => sound.unlock(), { capture: true });
 const noop = () => {};
-const tctx = $("ui-text")?.getContext("2d");
+// The text is drawn at 640 x 480 like the view (the original drew it with
+// GDI into its 8-bit frame: blocky, unsmoothed). Shown at a size that isn't
+// a whole multiple, blocky scaling would make some pixels one screen pixel
+// wide and others two, so strokes would vary letter to letter. Instead it's
+// scaled up with no smoothing to the next whole multiple, then smoothly
+// down to the shown size, so every pixel stays the same size with only a
+// sub-pixel of softness at the edges.
+const textShown = $("ui-text");
+const textOut = textShown?.getContext("2d");
+const textSrc = document.createElement("canvas");
+textSrc.width = 640; textSrc.height = 480;
+const tctx = textShown ? textSrc.getContext("2d") : null;
+const textMid = document.createElement("canvas");
 let uiOps = null, uiShown = "[]"; // UI text: this frame's calls, what's drawn (uiFlush)
-// The text layer is 640 x 480 like the view and scaled up the same way
-// (pixelated): the original drew its text with GDI into the 8-bit frame,
-// so it has no smoothing and grows in blocks with the picture.
 function fitText() {
 	if (!tctx) return;
+	const r = textShown.getBoundingClientRect();
+	const w = Math.max(640, Math.round(r.width * devicePixelRatio));
+	const h = Math.max(480, Math.round(r.height * devicePixelRatio));
+	if (textShown.width !== w || textShown.height !== h) { textShown.width = w; textShown.height = h; }
 	tctx.setTransform(1, 0, 0, 1, 0, 0);
 	tctx.font = "bold 11px Arial, sans-serif";
 	tctx.textBaseline = "top";
+	presentText();
+}
+function presentText() {
+	if (!textOut) return;
+	const w = textShown.width, h = textShown.height;
+	// (to the next whole multiple above, then smoothly down: sharper than
+	// up from the one below, and every pixel still the same size)
+	const k = Math.max(1, Math.ceil(Math.min(w / 640, h / 480)));
+	if (textMid.width !== 640 * k || textMid.height !== 480 * k) { textMid.width = 640 * k; textMid.height = 480 * k; }
+	const m = textMid.getContext("2d");
+	m.imageSmoothingEnabled = false;
+	m.clearRect(0, 0, textMid.width, textMid.height);
+	m.drawImage(textSrc, 0, 0, textMid.width, textMid.height);
+	textOut.clearRect(0, 0, w, h);
+	textOut.imageSmoothingEnabled = true;
+	textOut.imageSmoothingQuality = "high";
+	textOut.drawImage(textMid, 0, 0, w, h);
 }
 fitText();
 addEventListener("resize", fitText);
 document.addEventListener("fullscreenchange", fitText);
+if (textShown) new ResizeObserver(fitText).observe(textShown);
 // Options box fonts by GDI cell height: Arial bold 18, bold 12, bold italic 16
 // (font 2 is the tooltip font, 0x4526b8: created bold, but footage of the
 // original shows it regular, so it's drawn regular everywhere it's used)
@@ -275,6 +306,7 @@ function uiFlush() {
 		else if (op[0] === "tip") uiTip(...op.slice(1));
 		else uiText(...op.slice(1));
 	}
+	presentText();
 }
 // Text as GDI drew it into the palette frame: each pixel either the text
 // colour or untouched, no smoothing, stems snapped to whole pixels, whole-
