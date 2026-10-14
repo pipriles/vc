@@ -415,8 +415,10 @@ the fountain is in the tank (not in the box view, channel 1) and scraping
 
 ## Time away, death and resurrection **confirmed**
 `offline_catch_up` (0x415430) runs when the program starts and replays the
-minutes M since it was closed (the port also runs it when a hidden page
-comes back after ≥ 3 minutes):
+minutes M since it was closed. While minimized the original kept running,
+so the port replays the time a page was hidden tick by tick when it comes
+back, sounds off and nothing drawn (`tank_away`); only an absence over an
+hour takes the catch-up for its whole minutes, then the rest tick by tick:
 - M < 3: nothing, except a hidden spider is put back under the rock.
 - M ≥ 60: mood becomes rand_n(200) − 100.
 - M ≥ 3: crickets in the tank (not stuck in a web) are moved to free

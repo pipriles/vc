@@ -205,15 +205,34 @@ apply_save :: proc(sv: ^Save) {
 	rng.seed = sv.seed // last: the position updates above may draw random numbers
 }
 
+// What became of save.json at start-up; the page warns (and keeps a copy)
+// when there was one the game couldn't use, as a new pet replaces it.
+Save_Status :: enum i32 {
+	None,
+	Loaded,
+	Unreadable,
+	Wrong_Version,
+}
+save_status: Save_Status
+
+@(export)
+tank_save_status :: proc "contextless" () -> Save_Status {return save_status}
+
 // Loads save.json if there is one and replays the time since it was saved.
 load_game :: proc() -> bool {
+	save_status = .None
 	data := load_file("save.json")
 	if len(data) == 0 do return false
 	sv: Save
-	if err := json.unmarshal(data, &sv); err != nil || sv.version != SAVE_VERSION {
-		fmt.eprintln("ignoring unreadable save:", err)
+	if err := json.unmarshal(data, &sv); err != nil {
+		save_status = .Unreadable
 		return false
 	}
+	if sv.version != SAVE_VERSION {
+		save_status = .Wrong_Version
+		return false
+	}
+	save_status = .Loaded
 	apply_save(&sv)
 	minutes := int((host_time() - sv.saved_at) / 60)
 	debug_logf("loaded, %d minutes since the last save", minutes)
@@ -239,6 +258,36 @@ tank_resume :: proc "c" (minutes: i32) {
 	catch_up(int(minutes), host_time() - f64(minutes) * 60)
 	free_all(context.temp_allocator)
 }
+
+// The page was hidden for `seconds`. The original kept running while
+// minimized, so an absence of up to REPLAY_MAX_S is replayed tick by tick,
+// as if the tank had been on screen (silently, without drawing). A longer
+// one takes the catch-up for the whole minutes, then replays the rest.
+REPLAY_MAX_S :: 60 * 60
+
+@(export)
+tank_away :: proc "c" (seconds: f64) {
+	context = runtime.default_context()
+	if mode != .Tank || !running || seconds <= 0 do return
+	rest := seconds
+	if rest > REPLAY_MAX_S {
+		minutes := int(rest / 60)
+		catch_up(minutes, host_time() - rest)
+		rest -= f64(minutes) * 60
+	}
+	replaying = true
+	defer replaying = false
+	tick := f64(tick_ms()) / 1000
+	game.accum += rest
+	for game.accum >= tick {
+		game.accum -= tick
+		tank_tick()
+		free_all(context.temp_allocator)
+	}
+}
+
+// True while tank_away replays: the sounds stay quiet.
+replaying: bool
 
 // --- catch-up (0x415430) ----------------------------------------------------
 

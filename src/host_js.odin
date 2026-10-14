@@ -24,7 +24,8 @@ foreign host {
 	debug_text ::  proc(x, y: i32, text: string, color: u32) ---
 	debug_panel :: proc(text: string) ---
 	debug_log ::   proc(text: string) ---
-	host_sound ::  proc(id: int) --- // WAVE resource id
+	@(link_name = "host_sound")
+	host_play ::   proc(id: int) --- // WAVE resource id
 	host_loop ::   proc(id: int, on: bool) ---
 	host_save ::   proc(json: string) ---
 	host_message :: proc(title, text: string) ---
@@ -42,4 +43,9 @@ foreign host {
 	ui_begin ::    proc() ---
 	ui_text ::     proc(x, y: int, text: string) ---
 	ui_tip ::      proc(x, y: int, text: string) --- // a tooltip (0x411fe0): boxed, moved left to fit
+}
+
+// A sound effect, unless tank_away is replaying time spent hidden.
+host_sound :: proc "contextless" (id: int) {
+	if !replaying do host_play(id)
 }

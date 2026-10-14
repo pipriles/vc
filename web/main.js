@@ -632,6 +632,14 @@ function setupTank() {
 	const save = () => { if (!window.vcNoSave) mem.exports.tank_save(); }; // vcNoSave: for testing
 	setInterval(save, 60_000);
 	addEventListener("pagehide", save);
+	// a save the game couldn't use is replaced by a new pet: warn, and keep a
+	// copy before the next save writes over it
+	const status = mem.exports.tank_save_status();
+	if (status >= 2) {
+		const why = status === 2 ? "unreadable" : "from another version";
+		console.warn(`The saved game was ${why}, so a new spider was started. The old save is kept in localStorage as "${SAVE_KEY}-unusable".`);
+		try { localStorage.setItem(`${SAVE_KEY}-unusable`, localStorage.getItem(SAVE_KEY) ?? ""); } catch {}
+	}
 	let hiddenAt = 0;
 	// while floating the simulation keeps running: nothing to catch up
 	window.vcFloatingChanged = (on) => { if (document.hidden) hiddenAt = on ? 0 : Date.now(); };
@@ -640,9 +648,10 @@ function setupTank() {
 			hiddenAt = floating() ? 0 : Date.now();
 			save();
 		} else if (hiddenAt) {
-			const minutes = Math.floor((Date.now() - hiddenAt) / 60_000);
+			// the time away is replayed, every second of it
+			const seconds = (Date.now() - hiddenAt) / 1000;
 			hiddenAt = 0;
-			if (minutes >= 3) mem.exports.tank_resume(minutes);
+			mem.exports.tank_away(seconds);
 		}
 	});
 

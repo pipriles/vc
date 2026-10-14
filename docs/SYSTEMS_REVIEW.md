@@ -160,8 +160,9 @@ death and its date, resurrection. Line by line after the last two rounds.
 - **D10 (fixed):** Clear (and resurrection) stops every cricket's current
   play, and frees the stuck ones.
 - Port: the spider can starve while you watch (the original only checked
-  for death in the start-up catch-up); the catch-up also runs when a page
-  hidden for 3 minutes or more comes back.
+  for death in the start-up catch-up). Time with the page hidden is
+  replayed tick by tick when it comes back, as the original ran on while
+  minimized (silently; over an hour, the catch-up takes the whole minutes).
 
 ### 9. Player input and tools
 
@@ -253,7 +254,9 @@ modes and a volume control.
 The original writes its whole state to vc.dat every 5 minutes and on exit
 (the creature structs, objects, crickets, prints, webs, settings, name).
 The port saves its own JSON (`localStorage`, one save per variant) every
-minute, when the page is hidden and when it's closed.
+minute, when the page is hidden and when it's closed. A save the game
+can't use (unreadable, or another save version) gives way to a new pet; the
+page warns in the console and keeps a copy as `vc-save-<variant>-unusable`.
 
 - **D13 (fixed): what each creature is doing is kept**: sequence, frame,
   plays, bounces, holds, pause, goal (with its elapsed time), eating, the
