@@ -266,6 +266,10 @@ Box_Art :: struct {
 	titles:                 [6]Bitmap, // 2017 STATS 2018 CREDITS 2019 OPTIONS 2020 SETTINGS 2021 HELP 2022 UTILITIES
 }
 
+// Cold (start-up only). Not optimised: each Bitmap comes back by value with
+// its 768-byte palette, and LLVM splits those copies into thousands of
+// loads and stores that took ~8 s of a ~27 s -o:speed build to schedule.
+@(optimization_mode = "none")
 box_art_load :: proc(a: ^Box_Art) {
 	ld :: proc(id: int) -> Bitmap {
 		b, _ := bmp_load(load_file(fmt.tprintf("bitmaps/vcg_%d.bmp", id)))

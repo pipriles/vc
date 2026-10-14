@@ -71,6 +71,34 @@ cache only saved ~10% on the render-heavy movement tests, but ~13× on the
 sim tests. Measure the whole suite, and per test group, before ranking
 causes.
 
+## Build time (2026-10-14)
+
+The `-o:speed` build took ~27 s native and ~13 s for wasm, against 0.4 s
+with `-o:none`. `-show-timings` put 99% in LLVM; `llc -time-passes` on the
+optimised IR put 85% of the backend in instruction scheduling and
+selection, and `llvm-extract` per function showed three cold procedures
+cost ~14 s of the 16 s backend:
+
+| Procedure | Optimised IR | Backend alone |
+|---|---:|---:|
+| `box_art_load` | 28k instructions | 7.6 s |
+| `apply_save` | 12k | 3.7 s |
+| `make_save` | 12k | 2.5 s |
+| (next largest, `tank_tick`) | 4.8k | 0.08 s |
+
+Each copies big structs by value (`Bitmap` with its 768-byte palette;
+`Save`), and LLVM splits those copies into thousands of scalar loads and
+stores in a single basic block, where the schedulers are superlinear. All
+three run only at start-up or once a minute, so they're marked
+`@(optimization_mode = "none")`: native build ~6 s, wasm ~4.5 s, backend
+1.9 s. (`"favor_size"` made it worse, 34 s; not inlining `bmp_load` alone
+changed nothing.)
+
+If the build slows down again: emit the IR with
+`odin build src -o:speed -build-mode:llvm-ir -out:<dir>`, list the
+largest functions, and time them one by one with `llvm-extract --func=...`
+and `llc -O3` (Homebrew `llvm@22`, matching `odin report`).
+
 ## Browser loop (2026-10-09)
 
 `odin.js` calls `step` on every `requestAnimationFrame`: up to 120 Hz on a

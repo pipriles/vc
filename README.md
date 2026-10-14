@@ -47,7 +47,7 @@ spider's decisions.
 ```sh
 ./test.sh   # native tests, then wasm build + Node smoke test
 ```
-Native `odin test` (about 3.5 s of tests after a ~30 s `-o:speed` build),
+Native `odin test` (about 3.5 s of tests after a ~6 s `-o:speed` build),
 single-threaded because tests share the simulation's globals. Data tests
 skip themselves when `data/` is missing. One test: `./test.sh
 -define:ODIN_TEST_NAMES=vc.<name>`.

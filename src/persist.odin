@@ -117,6 +117,10 @@ Life :: struct {
 
 // --- save / load ------------------------------------------------------------
 
+// Cold (once a minute and at start-up). Not optimised: the Save copies by
+// value split into thousands of loads and stores that took ~6 s of the
+// -o:speed build to schedule (see box_art_load).
+@(optimization_mode = "none")
 make_save :: proc() -> Save {
 	s := &game.spider
 	st := &game.stats
@@ -149,6 +153,7 @@ make_save :: proc() -> Save {
 	return sv
 }
 
+@(optimization_mode = "none") // cold, see make_save
 apply_save :: proc(sv: ^Save) {
 	s := &game.spider
 	st := &game.stats
