@@ -158,6 +158,11 @@ starts and it keeps going back (faithful to the original logic).
 - 12 crickets (kind 2) start in the cricket box at x 50–490, y 290–420
   (box coordinates), base speed 8×6. In the tank: wall margin 80, floor
   y ≥ 180. Their depth scale uses the *spider's* size.
+- The box view's board (top right) lists, in white Arial with a 16 px cell
+  (weight 600, drawn as Arial Bold), "Crickets in Storage :", "Crickets in
+  Box :", "Crickets in Tank :" and "Total Crickets :" at x 400, y 64, 80,
+  96 and 128, each number as %03d at x 560; the tank count blinks while
+  the tank is full (8), the total while it's zero (0x40ca70, view 3).
 - Feeding: in the box view click a cricket (only while < 8 are in the
   tank), it is carried (PICKUP) and released into the tank (DROP). On
   release the spider decides (`spider_sees_cricket`): within 350×175 px,

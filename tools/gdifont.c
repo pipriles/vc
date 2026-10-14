@@ -24,6 +24,8 @@ static const Font FONTS[] = {
 	{"11px Arial, sans-serif", "/System/Library/Fonts/Supplemental/Arial.ttf", 12},             // tooltips (0x4526b8)
 	{"bold 16px Arial, sans-serif", "/System/Library/Fonts/Supplemental/Arial Bold.ttf", 18},   // Options box (0x451744)
 	{"italic bold 14px Arial, sans-serif", "/System/Library/Fonts/Supplemental/Arial Bold Italic.ttf", 16}, // (0x44f798)
+	// weight 600: the font mapper picks Arial Bold (no semi-bold face)
+	{"bold 14px Arial, sans-serif", "/System/Library/Fonts/Supplemental/Arial Bold.ttf", 16},   // cricket box counts (0x44d9c4)
 };
 
 int main(void) {

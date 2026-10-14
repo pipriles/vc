@@ -201,7 +201,8 @@ if (textShown) new ResizeObserver(fitText).observe(textShown);
 // Options box fonts by GDI cell height: Arial bold 18, bold 12, bold italic 16
 // (font 2 is the tooltip font, 0x4526b8: created bold, but footage of the
 // original shows it regular, so it's drawn regular everywhere it's used)
-const BOX_FONTS = { 1: "bold 16px Arial, sans-serif", 2: "11px Arial, sans-serif", 3: "italic bold 14px Arial, sans-serif" };
+const BOX_FONTS = { 1: "bold 16px Arial, sans-serif", 2: "11px Arial, sans-serif", 3: "italic bold 14px Arial, sans-serif",
+	4: "bold 14px Arial, sans-serif" }; // 4: the cricket box counts (16 px cell, weight 600)
 const hex = (c) => `#${c.toString(16).padStart(6, "0")}`;
 
 const imports = {

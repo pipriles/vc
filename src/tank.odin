@@ -659,7 +659,30 @@ box_render :: proc() {
 	// the box has its own surface in the original: no tooltip from the tank
 	// carries over (the text layer starts empty)
 	ui_begin()
+	box_counts()
 	present_view(&b.palette)
+}
+
+// The board in the cricket box: how many crickets are where (main update
+// 0x40ca70, view 3), Arial with a 16 px cell, weight 600, white. The tank
+// count blinks while the tank is full, the total while it's zero.
+FONT_COUNTS :: 4
+box_counts :: proc() {
+	box := 0
+	for &c in game.crickets do if c.active && c.in_box do box += 1
+	tank := crickets_in_tank()
+	total := game.storage + box + tank
+	blink_on := game.ui.blink < 5
+	label :: proc(y: int, s: string) {ui_text_ex(400, y, 0, 0, s, FONT_COUNTS, 0xffffff, 0)}
+	value :: proc(y, n: int) {ui_text_ex(0x230, y, 0, 0, fmt.tprintf("%03d", n), FONT_COUNTS, 0xffffff, 0)}
+	label(0x40, "Crickets in Storage :")
+	label(0x50, "Crickets in Box :")
+	label(0x60, "Crickets in Tank :")
+	label(0x80, "Total Crickets :")
+	value(0x40, game.storage)
+	value(0x50, box)
+	if tank < MAX_IN_TANK || blink_on do value(0x60, tank)
+	if total > 0 || blink_on do value(0x80, total)
 }
 
 // Blits a bitmap, skipping its top-left colour (0x412600).
