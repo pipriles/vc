@@ -242,6 +242,15 @@ handle_pending_drops :: proc() {
 // jumps there. Checked every 2 seconds while the spider is out and awake.
 RESCUE_WAIT_MS :: 10_000
 
+// A cricket in the tank already on the grid square at (x, y).
+@(private = "file")
+cricket_on_square :: proc(x, y: int) -> bool {
+	for c in game.crickets {
+		if c.active && !c.in_box && abs(c.x - x) < GRID / 2 && abs(c.y - y) < GRID / 2 do return true
+	}
+	return false
+}
+
 cricket_rescue :: proc() {
 	s := &game.spider
 	if s.hide != 0 || s.carried != 0 || game.life.dead || s.y < FLOOR_TOP do return
@@ -256,7 +265,9 @@ cricket_rescue :: proc() {
 			c.rescue_ms = 0
 			continue
 		}
-		x, y, ok := grid_nearest_reached(c.x, c.y)
+		// a free square, so rescued crickets don't pile up on one spot
+		x, y, ok := grid_nearest_reached(c.x, c.y, cricket_on_square)
+		if !ok do x, y, ok = grid_nearest_reached(c.x, c.y)
 		if !ok do continue
 		if c.rescue_ms == 0 {
 			c.rescue_ms = max(now_ms, 1)
@@ -268,8 +279,8 @@ cricket_rescue :: proc() {
 			clear_queue(&c)
 			stop_current(&c)
 			c.x, c.y = x, y
-			c.prev_x, c.prev_y = x, y
 			creature_update_position(&c)
+			c.prev_x, c.prev_y = c.x, c.y // the clamped spot
 			enqueue_anim(&c, game.cseq.jump, -1, 1, flush = true)
 			c.rescue_ms = 0
 			debug_logf("cricket %d stuck out of reach: jumps to (%d, %d)", i, x, y)

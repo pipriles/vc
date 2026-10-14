@@ -45,5 +45,8 @@ step :: proc(dt: f64) -> bool {
 	case .Viewer:
 		viewer_step(dt)
 	}
+	// the frame's formatted text (fmt.tprintf and the like): without this
+	// the temp arena grows for as long as a text screen stays open
+	free_all(context.temp_allocator)
 	return true
 }

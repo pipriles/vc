@@ -168,12 +168,14 @@ grid_near_reached :: proc(x, y: int) -> bool {
 	return false
 }
 
-// After grid_reach: the reachable square nearest to (x, y).
-grid_nearest_reached :: proc(x, y: int) -> (rx, ry: int, ok: bool) {
+// After grid_reach: the reachable square nearest to (x, y), leaving out the
+// squares skip rejects.
+grid_nearest_reached :: proc(x, y: int, skip: proc(x, y: int) -> bool = nil) -> (rx, ry: int, ok: bool) {
 	best := max(int)
 	for i in 0 ..< GRID_W * GRID_H {
 		if grid_from[i] == -1 do continue
 		px, py := grid_pos(i % GRID_W, i / GRID_W)
+		if skip != nil && skip(px, py) do continue
 		if d := (px - x) * (px - x) + (py - y) * (py - y); d < best do best, rx, ry, ok = d, px, py, true
 	}
 	return

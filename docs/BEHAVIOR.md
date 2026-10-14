@@ -707,7 +707,8 @@ a corner web · FLINT no frame-rate limit · SHOWFPS "FPS:nn" at (10, 464)
 · GLOBALBEACH the spider wears the Global Beach logo (vcg_2013 tiled at a
 size bouncing 2 px every other frame). The port's own shortcuts (debug,
 full screen) need Shift so typing doesn't set them off. Port addition:
-CRICKET drops a cricket from the box into the tank.
+CRICKET drops a cricket from the box into the tank. Port: New spider turns
+the toggles (size, FLINT, SHOWFPS, GLOBALBEACH) off again.
 
 ## Plants on death **confirmed**
 Death (catch-up 0x415430): yucca to its last frame and both cacti (objects

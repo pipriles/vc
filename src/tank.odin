@@ -418,6 +418,7 @@ tank_tick :: proc() {
 	remember_positions()
 	now_ms += u32(tick_ms())
 	if game.pending_new {
+		cmd = {} // the typed cheats (giant, FLINT, SHOWFPS...) don't carry over
 		tank_reset()
 		name_changed()
 		host_message("NEW SPIDER", "A new spider has hatched.")

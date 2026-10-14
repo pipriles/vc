@@ -256,8 +256,9 @@ place_free :: proc(o: ^Object) {
 place_free_creature :: proc(c: ^Creature) {
 	x, y := rand_n(TANK_W), rand_n(VIEW_H)
 	for _ in 0 ..< 1000 {
+		// prev stays where the creature was: a blocked spot puts it back
+		// there, never on an unclamped candidate (0x4086b0 leaves it too)
 		c.x, c.y = x, y
-		c.prev_x, c.prev_y = x, y
 		creature_update_position(c)
 		if c.x == x && c.y == y do break
 		x += 50
