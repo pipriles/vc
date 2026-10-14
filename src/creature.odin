@@ -413,6 +413,7 @@ creature_tick :: proc(c: ^Creature) {
 		next_sequence(c)
 		d = creature_dir(c)
 	}
+	if c.frame < 0 || c.frame >= len(d.frames) do c.frame = clamp(c.frame, 0, len(d.frames) - 1)
 	f := d.frames[c.frame]
 	// the frame's own displacement is taken before advancing, flipped when
 	// playing backward on frames marked so (GLASS's climb, 0x406780)
@@ -611,6 +612,14 @@ collide_mark :: proc(a, b: ^Creature) -> bool {
 	case:
 		minw, minh = cw / 8, ch / 8
 	}
+	// the original's object rules (0x407d00), on the overlap's height:
+	// shallower than a quarter of the box it only blocks sideways (2, 6);
+	// walking to a goal, the bell doesn't block while it overlaps at most
+	// half (it still counts as touched)
+	over_h := min(box.bottom, b.hit.bottom) - max(box.top, b.hit.top)
+	box_h := box.bottom - box.top
+	shallow := b.kind == .Object && over_h < box_h / 4
+	bell_near := b.kind == .Object && b.id == BELL && a.goal.active && over_h <= box_h / 2
 	hit := false
 	for row in 0 ..< 3 {
 		for col in 0 ..< 3 {
@@ -620,7 +629,14 @@ collide_mark :: proc(a, b: ^Creature) -> bool {
 			iy := min(cell.bottom, b.hit.bottom) - max(cell.top, b.hit.top)
 			if ix <= 0 || iy <= 0 || ix < minw || iy < minh do continue
 			d := CELL_DIR[row * 3 + col]
-			is_target := a.goal.active && int(a.goal.type) == int(b.kind) && a.goal.target == b.id
+			// what the creature is after never blocks it, except the bell
+			is_target := a.goal.active && int(a.goal.type) == int(b.kind) && a.goal.target == b.id &&
+				!(b.kind == .Object && b.id == BELL)
+			if !is_target && bell_near {
+				hit = true
+				continue
+			}
+			if !is_target && shallow && d != 2 && d != 6 do continue
 			if is_target {
 				// the creature being chased never blocks the chaser
 				a.blocks[d] = {active = false, kind = int(b.kind), id = b.id}

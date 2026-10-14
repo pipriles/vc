@@ -273,6 +273,10 @@ place_free_creature :: proc(c: ^Creature) {
 		if !c.blocks[d].active do break
 	}
 	c.dir = d
+	// facing another way, the current play stops and the idle chooser runs
+	// (0x405900, 0x407830); the frame must exist in the new direction
+	n := len(creature_dir(c).frames)
+	if n == 0 || c.frame >= n do c.frame = 0
 }
 
 overlaps_anything :: proc(o: ^Object) -> bool {

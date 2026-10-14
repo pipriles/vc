@@ -297,4 +297,4 @@ overlays, and no limit on objects in the tank (the original's was 6).
 | D15 | Tooltips not moved left to fit — **fixed** | Small |
 | D16 | Fresh start: bowl placed in a free spot, crickets start on LURK — **fixed** | Small |
 | D14 | Sprite edge clipping (original glitch) | Info |
-| 14 | Collision rules (open from the last audit) | Large, conflicts with narrow gaps |
+| 14 | Collision rules (open from the last audit) — **fixed** (the three missing rules added on top of the port's body box) | Large |

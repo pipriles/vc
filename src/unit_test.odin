@@ -1,6 +1,7 @@
 #+build !js
 package vc
 
+import "core:log"
 import "core:testing"
 
 // Expected values here are derived by hand from the VC.EXE disassembly
@@ -307,4 +308,42 @@ warns_once_when_few_crickets_are_left :: proc(t: ^testing.T) {
 	last_message = ""
 	for _ in 0 ..< 100 do tank_tick()
 	testing.expect_value(t, last_message, "") // once a run
+}
+
+@(test)
+original_object_collision_rules :: proc(t: ^testing.T) {
+	if !sim_setup(t, 55) do return
+	cr := &game.crickets[0]
+	cr.in_box = false
+	cr.x, cr.y = 600, 300
+	creature_update_position(cr)
+	rock := &game.objects[2]
+	rock.in_box = false
+	// a rock just overlapping the cricket's bottom edge: only sideways counts
+	rock.x = cr.x
+	rock.y = cr.y + 40
+	for _ in 0 ..< 4 {
+		object_update_position(rock)
+		rock.y += (cr.hit.bottom - 2) - rock.hit.top // 2 px of overlap
+	}
+	object_update_position(rock)
+	testing.expect(t, cr.hit.bottom - rock.hit.top < (cr.hit.bottom - cr.hit.top) / 4, "setup: a shallow overlap")
+	cr.blocks = {}
+	collide_mark(cr, &rock.c)
+	for d in ([?]int{3, 4, 5}) do testing.expectf(t, !cr.blocks[d].active, "a shallow overlap doesn't block %d", d)
+
+	// walking to a goal, the bell doesn't block while it overlaps at most half
+	s := &game.spider
+	s.x, s.y = 600, 300
+	creature_update_position(s)
+	bell := &game.objects[BELL]
+	bell.in_box = false
+	bell.x, bell.y = s.x, s.y + 100
+	object_update_position(bell)
+	move_to(s, .Point, 900, 300, -1, game.seq.lurk, 60)
+	s.blocks = {}
+	collide_mark(s, &bell.c)
+	any_block := false
+	for b in s.blocks do any_block ||= b.active
+	testing.expect(t, !any_block, "a bell at the edge doesn't stop a spider on its way")
 }

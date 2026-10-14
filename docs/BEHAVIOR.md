@@ -172,7 +172,13 @@ starts and it keeps going back (faithful to the original logic).
   scaled, at the drawn position, split into 3×3 cells mapped to directions
   `7 0 1 / 6 8 2 / 5 4 3`. Cells overlapping another creature (≥ 1/20 of a
   cell for crickets) mark that direction slot {active, kind, id}; the
-  creature being chased is marked inactive (never blocks). Spiders and
+  creature being chased is marked inactive (never blocks), except the bell.
+  Against objects (0x407d00): an overlap shallower than a quarter of the
+  box only blocks sideways (directions 2, 6); while walking to a goal the
+  bell doesn't block as long as it overlaps at most half the box (it still
+  counts as touched). Port: the spider's box against objects is its body
+  (the middle 60 %) with a one-third cell threshold, so these rules apply
+  to that box. Spiders and
   crickets don't block each other; other kinds do (move undone). Walking
   into anything marked in the facing direction ends the walk after this
   play.
