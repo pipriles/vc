@@ -37,7 +37,7 @@ out on purpose.
 | 8 | Needs, growth, life cycle | 0x401000, 0x403ac0, 0x403c90, 0x404230, 0x404490, 0x404580, 0x408350, 0x408630, 0x408b70, 0x408d50, 0x415430, 0x415cc0, 0x41f4d0, 0x41f710, 0x41d0f0/0x41d460/0x41d710 | `spider.odin`, `growth.odin`, `persist.odin`, `floor.odin` | Same (line by line), except D2, D7, D10 |
 | 9 | Player input and tools | 0x417e00 (mouse, keys), 0x403a60, 0x416be0, 0x4062d0, 0x41c890, 0x408140 | `tools.odin`, `ui.odin`, `web/main.js` | Differs: D3, D4, D5, D6; Port: touch, pan |
 | 10 | Typed commands | 0x409de0 | `commands.odin` | Same (line by line) |
-| 11 | Rendering | 0x40ca70, 0x416d20, 0x416e40, 0x417180, 0x417390, 0x412600, 0x4126d0, 0x4127b0, 0x412880, 0x41c160, 0x41c2e0, 0x408c70, 0x408430/0x408550, 0x408880/0x408af0, 0x417600, 0x41c9b0/0x41ca80 | `tank.odin`, `floor.odin`, `objects.odin`, `bmp.odin`, `views.odin` | Same (checked), except D9, D14 |
+| 11 | Rendering | 0x40ca70, 0x416d20, 0x416e40, 0x417180, 0x417390, 0x412600, 0x4126d0, 0x4127b0, 0x412880, 0x41c160, 0x41c2e0, 0x408c70, 0x408430/0x408550, 0x408880/0x408af0, 0x417600, 0x41c9b0/0x41ca80 | `tank.odin`, `floor.odin`, `objects.odin`, `bmp.odin`, `views.odin` | Same (checked), except D9; D14 addressed |
 | 12 | Intro | 0x40ca70 (stage < 3), 0x412940, 0x41c9b0, 0x41ca80 | `intro.odin` | Same (line by line) |
 | 13 | Interface: buttons, indicators, tooltips, name | 0x4060b0, 0x4064b0, 0x4065b0, 0x40e990, 0x411fe0, 0x412130, 0x412280, 0x40e2a0, 0x41c4b0 | `ui.odin` | Same (checked), except D10, D15; Port: smooth slide |
 | 14 | Views: close-up, whole tank, cricket box | 0x40ca70 (views 1–3), 0x40e360, 0x40e930 | `views.odin`, `cricket.odin`, `tools.odin` | Same (checked) |
@@ -296,5 +296,5 @@ overlays, and no limit on objects in the tank (the original's was 6).
 | D11 | Update order within a tick — **fixed** | Small |
 | D15 | Tooltips not moved left to fit — **fixed** | Small |
 | D16 | Fresh start: bowl placed in a free spot, crickets start on LURK — **fixed** | Small |
-| D14 | Sprite edge clipping (original glitch) | Info |
+| D14 | Sprite edge clipping (original glitch) — **addressed**: left as is (agreed), the port clips properly | Info |
 | 14 | Collision rules (open from the last audit) — **fixed** (the three missing rules added on top of the port's body box) | Large |
