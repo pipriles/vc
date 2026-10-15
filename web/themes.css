@@ -194,6 +194,19 @@
 :root[data-theme] .gear { padding: 0; place-items: center; }
 :root[data-theme] .gear svg { display: block; }
 
+/* ---------- the debug panel docked in the settings (phones): its wells ---------- */
+:root[data-theme="win98"] body.room-below .bar > .debug { --dbg-state-bg: transparent; --dbg-log-bg: #fff; --dbg-log-fg: #000;
+  --dbg-edge: #808080 #fff #fff #808080; --dbg-shadow: inset 1px 1px #404040, inset -1px -1px #dfdfdf; --dbg-radius: 0;
+  --dbg-stripe: #00008010; --dbg-time: #000080; --dbg-time-alpha: 1; }
+:root[data-theme="xp"] body.room-below .bar > .debug { --dbg-state-bg: #f6f5ee; --dbg-log-bg: #fff; --dbg-log-fg: #000;
+  --dbg-edge: #7f9db9; --dbg-shadow: none; --dbg-radius: 0; --dbg-stripe: #2f71cd0f; --dbg-time: #2f71cd; --dbg-time-alpha: 1; }
+:root[data-theme="mac9"] body.room-below .bar > .debug { --dbg-state-bg: transparent; --dbg-log-bg: #fff; --dbg-log-fg: #000;
+  --dbg-edge: #555 #fff #fff #555; --dbg-shadow: inset 1px 1px #999; --dbg-radius: 0; --dbg-stripe: #3333cc0f; --dbg-time: #33c; --dbg-time-alpha: 1; }
+:root[data-theme="web90"] body.room-below .bar > .debug { --dbg-state-bg: #000; --dbg-log-bg: #000060; --dbg-log-fg: #fff;
+  --dbg-edge: #808080 #eee #eee #808080; --dbg-shadow: none; --dbg-radius: 0; --dbg-stripe: #ffffff12; --dbg-time: #ff0; --dbg-time-alpha: 1; }
+:root[data-theme="vcweb"] body.room-below .bar > .debug { --dbg-state-bg: #050c05; --dbg-log-bg: #000; --dbg-log-fg: #cfe9cf;
+  --dbg-edge: #2c4a2c; --dbg-shadow: 0 0 10px #3f8f3f22; --dbg-radius: 0 10px 0 10px; --dbg-stripe: #6fc06f10; --dbg-time: #6fc06f; --dbg-time-alpha: 1; }
+
 /* ---------- loading dialog per theme ---------- */
 :root[data-theme="win98"] .win-title { background: linear-gradient(90deg, #000080, #1084d0); }
 :root[data-theme="win98"] #loader-fill { background: repeating-linear-gradient(90deg, #000080 0 0.55em, transparent 0.55em 0.75em); }

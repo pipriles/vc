@@ -62,18 +62,36 @@
   .stage.saver, .stage.saver * { cursor: none !important; }
   #view { display: block; width: 100%; image-rendering: pixelated; touch-action: none; }
   #overlay, #ui-text { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-  /* debug tools: small see-through windows over the page, fixed in place
-     so they never move the layout; long lines wrap, overflow scrolls */
-  .debug, #status { display: none; }
-  body.show-debug .debug, body.show-debug #status { display: block; }
-  .dbg { position: fixed; z-index: 20; margin: 0; padding: 6px 9px; box-sizing: border-box;
+  /* debug tools: one see-through window at the top right (under the
+     toolbar on wide screens), fixed in place so it never moves the
+     layout, as tall as the window allows up to 560 px. Three parts: the
+     creature's line at the top, then the state and the log in wells of
+     their own, the log the larger; long lines wrap, overflow scrolls. The
+     wells' colours are variables, set per page style for the panel docked
+     in the settings (phones, themes.css) */
+  .debug { display: none; position: fixed; z-index: 20; top: calc(64px + var(--chrome-top)); right: 12px;
+    width: min(380px, calc(100vw - 24px)); height: min(560px, calc(100dvh - 76px - var(--chrome-top) - var(--chrome-bottom)));
+    flex-direction: column; gap: 4px; padding: 6px 9px;
     background: rgb(8 8 10 / 0.68); color: #cfd2cf; border: 1px solid rgb(255 255 255 / 0.12); border-radius: 8px;
     box-shadow: 0 4px 16px rgb(0 0 0 / 0.4);
-    font: 10.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums;
+    --dbg-state-bg: rgb(255 255 255 / 0.06); --dbg-log-bg: rgb(0 0 0 / 0.5); --dbg-log-fg: #e6e8e4;
+    --dbg-edge: rgb(255 255 255 / 0.1); --dbg-shadow: none; --dbg-radius: 5px; }
+  body.show-debug .debug { display: flex; }
+  .dbg { margin: 0; font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums;
     white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; }
-  #debug-panel { top: 84px; left: 12px; width: 400px; max-width: calc(100vw - 24px); max-height: calc(100vh - 290px); }
-  #debug-log { bottom: 12px; left: 12px; width: 400px; max-width: calc(100vw - 24px); height: 150px; }
-  #status { bottom: 12px; right: 12px; max-width: 360px; }
+  #status { flex: none; padding: 0 2px; }
+  #debug-panel, #debug-log { min-height: 0; border: 1px solid; border-color: var(--dbg-edge); border-radius: var(--dbg-radius);
+    box-shadow: var(--dbg-shadow); }
+  #debug-panel { flex: 1 1 0; padding: 5px 7px; background: var(--dbg-state-bg); }
+  #debug-log { flex: 1.3 1 0; padding: 3px; font-size: 11.5px; line-height: 1.45; color: var(--dbg-log-fg); background: var(--dbg-log-bg); }
+  /* the log: one row per entry, its time in a column of its own, rows
+     striped so long entries stay apart */
+  #debug-log > div { display: grid; grid-template-columns: 7ch minmax(0, 1fr); gap: 1.2ch; padding: 2px 5px; border-radius: 3px; }
+  #debug-log > div:nth-child(even) { background: var(--dbg-stripe, color-mix(in srgb, currentColor 8%, transparent)); }
+  #debug-log > div > span { text-align: right; color: var(--dbg-time, inherit); opacity: var(--dbg-time-alpha, 0.6); }
+  /* the docked panel's Back button and the menu's way back to it (phones) */
+  .dbg-head, #debug-open { display: none; }
+  .dbg-toggle { display: flex; gap: 8px; align-items: center; }
   .message { position: fixed; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 0.55); }
   .message[hidden] { display: none; }
   .message-box { max-width: 420px; padding: 16px 20px; border-radius: 12px; border: 1px solid #000;
@@ -123,7 +141,6 @@
     body.room-below .cabinet { order: 0; margin: 0; }
     body.room-below .gear { display: none; }
     body.room-below .bar { display: flex; position: static; order: 1; width: calc(var(--w) + 38px); max-height: none; }
-    body.room-below #status, body.room-below .debug { order: 3; }
   }
   /* small screens: the cabinet becomes a thin bezel and the tank takes the
      room there is: full width in portrait, the full height in landscape */
@@ -142,6 +159,51 @@
   @media (max-width: 760px) and (min-aspect-ratio: 5/4), (max-height: 600px) and (min-aspect-ratio: 5/4) {
     .gear { right: auto; left: calc(8px + env(safe-area-inset-left)); }
     .bar { right: auto; left: calc(8px + env(safe-area-inset-left)); }
+  }
+
+  /* settings folded: under the gear at the top right; settings below
+     the tank: nothing above it */
+  @media (max-width: 1224px), (max-height: 600px) {
+    body.room-below .debug { top: calc(12px + var(--chrome-top)); height: min(560px, calc(100dvh - 24px - var(--chrome-top) - var(--chrome-bottom))); }
+    body:where(:not(.room-below)) .debug { top: calc(54px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right));
+      width: min(380px, calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+      height: min(560px, calc(100dvh - 62px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); }
+  }
+  @media (max-width: 760px), (max-height: 600px) {
+    /* the settings below the tank (portrait phones): the tools take the
+       settings' place instead (from "Show panel", body.debug-open), in the
+       settings' own box and size, with a Back button to the settings; the
+       script moves .debug into .bar for this. Back and the creature's line
+       share the top row; the state is a tinted well, the log a field in the
+       page style's own colours (Canvas: white in the light styles) */
+    body.room-below .bar { position: relative; inset: auto; }
+    body.room-below .bar > .debug { position: absolute; inset: 0; z-index: auto; width: auto; height: auto; padding: inherit;
+      color: inherit; background: none; border: 0; border-radius: inherit; box-shadow: none;
+      grid-template: "head status" auto "panel panel" minmax(0, 1fr) "log log" minmax(0, 1.3fr) / auto minmax(0, 1fr); gap: 6px 8px; }
+    body.room-below.show-debug.debug-open .bar > .debug { display: grid; }
+    body.room-below.show-debug:not(.debug-open) .bar > .debug { display: none; }
+    body.room-below.show-debug.debug-open .bar > :not(.debug) { visibility: hidden; }
+    body.room-below .bar .dbg-head { display: flex; grid-area: head; align-self: center; }
+    body.room-below .bar #status { grid-area: status; align-self: center; font-size: 10.5px; line-height: 1.3; }
+    body.room-below .bar #debug-panel { grid-area: panel; }
+    body.room-below .bar #debug-log { grid-area: log; }
+    /* the base style's wells: pressed into the gunmetal, the log the
+       deeper, its times in the accent */
+    body.room-below .bar > .debug { --dbg-state-bg: rgb(0 0 0 / 0.2); --dbg-log-bg: rgb(0 0 0 / 0.42); --dbg-log-fg: #d8d6d2;
+      --dbg-edge: #000; --dbg-shadow: inset 0 1px 3px #0009, 0 1px 0 #ffffff12; --dbg-radius: 6px;
+      --dbg-stripe: rgb(255 255 255 / 0.035); --dbg-time: var(--accent); --dbg-time-alpha: 0.8; }
+    /* "Show panel" always takes its room (it's taller than the checkbox),
+       shown only while there's a panel to show: the settings keep their
+       height whether debug is on or off */
+    body.room-below #debug-open { display: block; visibility: hidden; }
+    body.room-below.show-debug:not(.debug-open) #debug-open { visibility: visible; }
+  }
+  /* landscape (the gear at the left), the screen about the window's
+     height or less: the whole height, at the right */
+  @media (max-width: 760px) and (min-aspect-ratio: 5/4), (max-height: 600px) and (min-aspect-ratio: 5/4) {
+    body .debug { top: 0; right: 0; height: 100dvh; border-width: 0 0 0 1px; border-radius: 0;
+      padding: calc(6px + env(safe-area-inset-top)) calc(9px + env(safe-area-inset-right))
+        calc(6px + env(safe-area-inset-bottom)) 9px; }
   }
 </style>
 <link rel="stylesheet" href="themes.css">
@@ -164,7 +226,7 @@
   <label>Audio <select id="audio" title="How sounds are produced"><option value="gritty">Original, gritty</option><option value="smooth">Original, smooth</option><option value="modern">Modern</option></select></label>
   <button id="fullscreen" title="Full screen (Shift+F)">Full screen</button>
   <button id="new-spider">New spider</button>
-  <label title="Debug overlay (Shift+D)">Debug <input id="debug" type="checkbox"></label>
+  <label title="Debug overlay (Shift+D)">Debug <span class="dbg-toggle"><button id="debug-open" type="button">Show panel</button><input id="debug" type="checkbox"></span></label>
   <a href="viewer.html" id="viewer-link" hidden>Animation viewer →</a>
 </div>
 <div class="cabinet">
@@ -203,8 +265,9 @@
   <span class="tray"><a class="tray-heart" href="https://ko-fi.com/pipriles" target="_blank" rel="noopener" title="Support the project"
     aria-label="Support the project on Ko-fi"><svg width="13" height="11" viewBox="0 0 13 11" shape-rendering="crispEdges" aria-hidden="true"><path fill="#e01818" d="M2 0h3v1h-3zM8 0h3v1h-3zM1 1h5v1h-5zM7 1h5v1h-5zM0 2h13v1h-13zM0 3h13v1h-13zM0 4h13v1h-13zM1 5h11v1h-11zM2 6h9v1h-9zM3 7h7v1h-7zM4 8h5v1h-5zM5 9h3v1h-3zM6 10h1v1h-1z"/><path fill="#fff" d="M2 1h2v1h-2zM1 2h1v1h-1z"/></svg></a><span class="clock" aria-hidden="true"></span></span></div>
 <div class="menubar" aria-hidden="true"><span>File</span><span>Edit</span><span>View</span><span>Special</span><span>Help</span><span class="clock"></span></div>
-<div id="status" class="dbg"></div>
-<div class="debug">
+<div class="debug" id="debug-tools">
+  <div class="dbg-head"><button id="debug-back" type="button">Back</button></div>
+  <div id="status" class="dbg"></div>
   <pre id="debug-panel" class="dbg"></pre>
   <pre id="debug-log" class="dbg"></pre>
 </div>
@@ -215,13 +278,20 @@
   // page style puts round it).
   (() => {
     const fold = matchMedia("(max-width: 1224px), (max-height: 600px)");
+    const small = matchMedia("(max-width: 760px), (max-height: 600px)");
     const root = document.documentElement;
+    const tools = document.getElementById("debug-tools"), home = tools.nextSibling;
+    const bar = document.querySelector(".bar");
     const layout = () => {
       const b = document.body;
       b.classList.toggle("room-below", fold.matches);
       // (against innerHeight, which follows a phone's toolbars like the
       // page's 100dvh does; a pixel of slack, as those can be fractional)
       if (fold.matches && root.scrollHeight > innerHeight + 1) b.classList.remove("room-below");
+      // a phone with the settings below the tank: the debug tools go in
+      // their box (shown in their place)
+      const dock = small.matches && b.classList.contains("room-below");
+      if (dock !== (tools.parentNode === bar)) dock ? bar.append(tools) : b.insertBefore(tools, home);
     };
     layout();
     addEventListener("resize", layout);

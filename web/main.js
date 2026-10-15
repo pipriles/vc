@@ -65,7 +65,6 @@ const seqs = []; // viewer: per animation [{name, mask}]
 const overlay = $("overlay");
 const octx = overlay?.getContext("2d");
 if (octx) { octx.font = "12px ui-monospace, Menlo, monospace"; octx.lineWidth = 1; }
-const debugLines = [];
 
 // The original's 4-channel mixer (play_sound, 0x415f00): channel 0 for the
 // eating crunches (they cut it off), channels 1-3 for everything else
@@ -310,11 +309,18 @@ const imports = {
 		},
 		debug_panel: (p, n) => { $("debug-panel").textContent = mem.loadString(p, n); },
 		debug_log: (p, n) => {
+			// one row per entry, its time ("12.3s  ...") in a column of its
+			// own; kept at the newest unless scrolled up to read
 			const log = $("debug-log");
-			debugLines.push(mem.loadString(p, n));
-			if (debugLines.length > 200) debugLines.shift();
-			log.textContent = debugLines.join("\n");
-			log.scrollTop = log.scrollHeight;
+			const atEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 24;
+			const text = mem.loadString(p, n);
+			const cut = text.indexOf("  ");
+			const row = document.createElement("div"), time = document.createElement("span");
+			time.textContent = cut < 0 ? "" : text.slice(0, cut);
+			row.append(time, cut < 0 ? text : text.slice(cut + 2));
+			log.append(row);
+			if (log.childElementCount > 200) log.firstElementChild.remove();
+			if (atEnd) log.scrollTop = log.scrollHeight;
 		},
 		host_sound: (id) => sound.play(id),
 		host_loop: (id, on) => sound.loop(id, !!on),
@@ -883,11 +889,15 @@ function setupTank() {
 	const setDebug = (on) => {
 		$("debug").checked = on;
 		document.body.classList.toggle("show-debug", on);
+		document.body.classList.remove("debug-open");
 		if (!on) octx.clearRect(0, 0, overlay.width, overlay.height);
 		mem.exports.tank_set_debug(on ? 1 : 0);
-		try { localStorage.setItem("vc-debug", on ? "1" : ""); } catch {}
 	};
 	$("debug").onchange = () => setDebug($("debug").checked);
+	// phones with the settings below the tank: "Show panel" puts the tools
+	// in the settings' place, Back shows the settings again
+	$("debug-open").onclick = () => document.body.classList.add("debug-open");
+	$("debug-back").onclick = () => document.body.classList.remove("debug-open");
 	addEventListener("keydown", (e) => {
 		mem.exports.tank_skip_intro(); // a key skips the opening (as the original)
 		if (e.target.tagName === "INPUT" && e.target.type !== "checkbox" && e.target.type !== "range") return;
@@ -912,9 +922,10 @@ function setupTank() {
 		if (e.shiftKey && e.key.toUpperCase() === "F") $("fullscreen").click();
 		if (e.key >= "1" && e.key <= "5") mem.exports.tank_set_tool(+e.key - 1);
 	});
-	let saved = false;
-	try { saved = localStorage.getItem("vc-debug") === "1"; } catch {}
-	setDebug(saved);
+	// debug starts off on every load (not kept); the checkbox too, which a
+	// browser may restore on reload
+	setDebug(false);
+	try { localStorage.removeItem("vc-debug"); } catch {} // kept by earlier versions
 
 	$("speed").oninput = () => {
 		$("speedv").textContent = `${$("speed").value}×`;
