@@ -9,6 +9,10 @@ const $ = (id) => document.getElementById(id);
 const mode = document.body.dataset.mode === "viewer" ? 1 : 0;
 const params = new URLSearchParams(location.search);
 const variant = params.get("v") ?? "cr";
+// ?embed=1: the tank alone, filling the frame (X's player card shows the
+// page this way inside a post); it stays like that
+const embed = params.has("embed");
+if (embed && mode === 0) document.body.classList.add("fill");
 const base = `data/${variant}/`;
 
 // Loading: a bar over the screen while the data files come in (about
@@ -699,6 +703,7 @@ function setSound(on) {
 // For no browser bars at all, add the page to the home screen.
 const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || document.body.classList.contains("fill");
 function setFill(on) {
+	if (embed) on = true;
 	if (document.body.classList.contains("fill") === on) return;
 	document.body.classList.toggle("fill", on);
 	document.dispatchEvent(new Event("fullscreenchange")); // the same follow-ups as the real thing

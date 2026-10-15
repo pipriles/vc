@@ -24,7 +24,16 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A Red Knee tarantula by its water bowl in the tank, with the game's gauges and buttons">
-<meta name="twitter:card" content="summary_large_image">
+<!-- X: the game itself inside the post (a player card: the frame loads
+     ?embed=1, the tank alone at 640 x 480) -->
+<meta name="twitter:card" content="player">
+<meta name="twitter:title" content="Virtual Creatures">
+<meta name="twitter:description" content="A 1999 virtual pet tarantula, running inside this post. Tap to open its tank.">
+<meta name="twitter:image" content="https://vc.pipriles.xyz/og.jpg">
+<meta name="twitter:image:alt" content="A Red Knee tarantula by its water bowl in the tank, with the game's gauges and buttons">
+<meta name="twitter:player" content="https://vc.pipriles.xyz/?embed=1">
+<meta name="twitter:player:width" content="640">
+<meta name="twitter:player:height" content="480">
 <script>
   // the page style (themes.css), set before anything is drawn
   try { document.documentElement.dataset.theme = localStorage.getItem("vc-theme") || "cabinet"; }
@@ -333,7 +342,9 @@
     const wide = document.getElementById("wide");
     let wideChoice = false, sidewaysWide = null, wasSideways = false; // (null: on, not unticked)
     try { wideChoice = localStorage.getItem("vc-wide") === "1"; } catch {}
-    const wideOn = () => sideways.matches ? sidewaysWide ?? true : wideChoice;
+    // (never in an embed: X's player is 640 x 480, the plain view's shape)
+    const embedded = new URLSearchParams(location.search).has("embed");
+    const wideOn = () => !embedded && (sideways.matches ? sidewaysWide ?? true : wideChoice);
     window.vcViewWidth = 640;
     const viewWidth = () => {
       if (!wideOn()) return 640;
