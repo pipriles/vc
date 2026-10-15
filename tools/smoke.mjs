@@ -14,7 +14,8 @@ import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
 
 const root = new URL("..", import.meta.url).pathname;
-const ticks = Number(process.argv[2] ?? 3000);
+// 1000 ticks pokes every tool and button at least once (one each 50 ticks).
+const ticks = Number(process.argv[2] ?? 1000);
 const startTime = process.env.SMOKE_TIME === "now" ? Math.floor(Date.now() / 1000) : Number(process.env.SMOKE_TIME ?? 1_760_000_000);
 
 // odin.js is a browser script that sets window.odin
@@ -24,7 +25,7 @@ const wasmBytes = readFileSync(`${root}/build/vc.wasm`);
 
 function noop() {}
 
-async function run(variant, mode, saveJson = null, start = startTime) {
+async function run(variant, mode, saveJson = null, start = startTime, runTicks = ticks) {
 	const base = `${root}/data/${variant}/`;
 	const manifest = JSON.parse(readFileSync(base + "manifest.json", "utf8"));
 	const files = new Map(manifest.files.map((n) => [n, new Uint8Array(readFileSync(base + n))]));
@@ -61,7 +62,7 @@ async function run(variant, mode, saveJson = null, start = startTime) {
 		for (const ch of "ICK4 7") ex.tank_name_char(ch.charCodeAt(0));
 		for (let i = 0; i < 10; i++) ex.tank_set_object(i, 1);
 	}
-	for (let t = 0; t < ticks; t++) {
+	for (let t = 0; t < runTicks; t++) {
 		if (mode === 0 && t % 200 === 0) ex.tank_drop_cricket();
 		if (mode === 0 && t % 50 === 0) {
 			// poke at the tank with every tool, the buttons and the box
@@ -123,11 +124,12 @@ for (const variant of ["cr", "rk"]) {
 			const r = await run(variant, mode);
 			console.log(`ok   ${variant} ${name} (${ticks} ticks${mode === 0 ? `, ${r.lines} log lines` : ""})`);
 			if (mode === 0) {
-				// load that save as if it was written 30 hours ago
+				// load that save as if it was written 30 hours ago; only the
+				// catch-up is checked, so skip the poking about
 				const old = JSON.parse(r.saved);
 				const now = old.saved_at;
 				old.saved_at -= 30 * 3600;
-				const r2 = await run(variant, 0, JSON.stringify(old), now);
+				const r2 = await run(variant, 0, JSON.stringify(old), now, 0);
 				const caught = r2.log.some((l) => l.includes("catching up 1800 minutes"));
 				if (!caught) throw new Error("save not loaded / no catch-up");
 				console.log(`ok   ${variant} tank loads a 30-hour-old save`);

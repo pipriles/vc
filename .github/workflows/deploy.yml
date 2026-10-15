@@ -3,6 +3,10 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # Docs don't reach the site; skip the build for docs-only pushes.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
 
 permissions:
