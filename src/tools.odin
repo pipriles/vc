@@ -152,7 +152,14 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 	switch ev {
 	case .Right: // handled above
 	case .Leave:
-		if in_.carry == .None do in_.down = false
+		// port: the pointer gone (or a second finger panning) ends a press
+		// like a release would, so the knock, prod or stroke cursor stops
+		// repeating; something carried stays carried
+		if in_.carry == .None && in_.down {
+			in_.down = false
+			in_.prodding, in_.stroking = false, false
+			pointer_event(.Move, vx, vy)
+		}
 	case .Down:
 		in_.down = true
 		if in_.view == .Box {

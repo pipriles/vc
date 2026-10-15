@@ -310,3 +310,19 @@ picking_a_cricket_out_of_a_web_frees_it :: proc(t: ^testing.T) {
 	pointer_event(.Down, cr.x, cr.y)
 	testing.expect(t, game.input.carry == .Cricket && !cr.web_stuck, "picked up and free")
 }
+
+// A second finger turns a touch into a pan: the page sends Leave, which ends
+// the press, so the knock (or prod, or stroke) cursor stops repeating.
+@(test)
+leave_ends_a_press :: proc(t: ^testing.T) {
+	if !sim_setup(t, 3) do return
+	game.follow = false
+	game.input.tool = .Tap
+	press(.Down, 300, 300)
+	for _ in 0 ..< 5 do tank_tick()
+	testing.expect_value(t, game.input.cursor_set, 5) // knocking
+	press(.Leave, 300, 300)
+	for _ in 0 ..< 5 do tank_tick()
+	testing.expect(t, game.input.cursor_set != 5, "the knocking stops")
+	testing.expect(t, !game.input.down, "the press is over")
+}

@@ -926,6 +926,22 @@ function setupTank() {
 		mem.exports.tank_char(13);
 	};
 	canvas.oncontextmenu = (e) => e.preventDefault();
+	// A finger's press on the tank is held back a moment: a second finger
+	// landing meanwhile makes it a two-finger pan, and the press (a knock on
+	// the glass, a prod...) never happens. Lifting or sliding sends it.
+	const TWO_FINGER_MS = 150;
+	let pendingPress = null; // {x, y, at: [cx, cy], timer}
+	const sendPress = () => {
+		if (!pendingPress) return;
+		const p = pendingPress;
+		pendingPress = null;
+		clearTimeout(p.timer);
+		mem.exports.tank_pointer(1, p.x, p.y);
+	};
+	const dropPress = () => {
+		if (pendingPress) clearTimeout(pendingPress.timer);
+		pendingPress = null;
+	};
 	canvas.onpointerdown = (e) => {
 		canvas.setPointerCapture(e.pointerId);
 		if (e.pointerType === "touch") {
@@ -937,6 +953,7 @@ function setupTank() {
 			if (touches.size === 2) {
 				// a second finger: stop what the first was doing, pan instead
 				twoFinger = true;
+				dropPress();
 				if (uiTouch) { clearTimeout(uiTouch.timer); uiTouch = null; }
 				hideFinger();
 				mem.exports.tank_pointer(3, ...toCanvas(e));
@@ -964,6 +981,8 @@ function setupTank() {
 				return;
 			}
 			showFinger(e);
+			pendingPress = { x, y, at: [e.clientX, e.clientY], timer: setTimeout(sendPress, TWO_FINGER_MS) };
+			return;
 		} else if (e.button !== 0) {
 			panX = e.clientX;
 			panFrom = [e.clientX, e.clientY, e.button];
@@ -993,6 +1012,9 @@ function setupTank() {
 				mem.exports.tank_pointer(3, t.x, t.y); // no hover left behind
 				return;
 			}
+			// a quick tap: the press, then the release (a cancelled touch: neither)
+			if (e.type === "pointercancel") dropPress();
+			else sendPress();
 			mem.exports.tank_pointer(2, ...toCanvas(e));
 			mem.exports.tank_pointer(3, ...toCanvas(e));
 			return;
@@ -1033,7 +1055,11 @@ function setupTank() {
 			if (!(e.buttons & 2)) mem.exports.tank_pointer(4, ...toCanvas(e));
 			return;
 		}
-		if (e.pointerType === "touch") showFinger(e);
+		if (e.pointerType === "touch") {
+			showFinger(e);
+			// sliding: a drag, not the start of a pan
+			if (pendingPress && Math.hypot(e.clientX - pendingPress.at[0], e.clientY - pendingPress.at[1]) > 8) sendPress();
+		}
 		mem.exports.tank_pointer(0, ...toCanvas(e));
 	};
 	canvas.onpointerleave = (e) => mem.exports.tank_pointer(3, ...toCanvas(e));
