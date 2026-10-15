@@ -1,6 +1,6 @@
 /* Page styles round the tank, picked in the toolbar (Style) and kept in the
-   browser: <html data-theme="...">. "cabinet" is the base look in
-   index.html; each theme here restyles the page, the frame round the
+   browser: <html data-theme="...">, "win98" until one is picked.
+   "cabinet" is the base look in index.html; each theme here restyles the page, the frame round the
    screen, the toolbar, the dialogs and the loading box, and shows its own
    decorations (.titlebar, .taskbar, .menubar, .marquee), all hidden by
    default.

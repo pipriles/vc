@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Virtual Creatures">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#08080a">
+<meta name="theme-color" content="#008080">
 <!-- link previews -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Virtual Creatures">
@@ -36,8 +36,8 @@
 <meta name="twitter:player:height" content="480">
 <script>
   // the page style (themes.css), set before anything is drawn
-  try { document.documentElement.dataset.theme = localStorage.getItem("vc-theme") || "cabinet"; }
-  catch { document.documentElement.dataset.theme = "cabinet"; }
+  try { document.documentElement.dataset.theme = localStorage.getItem("vc-theme") || "win98"; }
+  catch { document.documentElement.dataset.theme = "win98"; }
 </script>
 <style>
   /* the page around the tank: a gunmetal cabinet in the spirit of the
@@ -392,7 +392,7 @@
     // the page style
     const theme = document.getElementById("theme");
     theme.value = root.dataset.theme;
-    if (theme.value !== root.dataset.theme) root.dataset.theme = theme.value = "cabinet";
+    if (theme.value !== root.dataset.theme) root.dataset.theme = theme.value = "win98";
     // the browser's bar follows the page style's background
     const themeColor = document.querySelector('meta[name="theme-color"]');
     const tint = () => { themeColor.content = getComputedStyle(document.body).backgroundColor; };
