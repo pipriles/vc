@@ -15,8 +15,8 @@ help_lines_match_the_original_table :: proc(t: ^testing.T) {
 	testing.expect_value(t, HELP[120].text, "FLOATING PANEL")
 	testing.expect_value(t, HELP[127].text, "SETTINGS OPTIONS")
 	testing.expect_value(t, HELP[152].text, "ADDITIONAL HELP")
-	testing.expect_value(t, HELP[159].text, "http://www.virtualcreatures.com/vc")
-	testing.expect_value(t, CREDITS[39].text, "Stephen Rose")
+	testing.expect_value(t, HELP[159].text, "https://github.com/pipriles/vc")
+	testing.expect_value(t, CREDITS[40].text, "Stephen Rose")
 	for l, i in HELP do if l.icon == 1 {
 		testing.expectf(t, l.index >= 0 && l.index < 10, "line %d: button %d", i, l.index)
 	}
@@ -78,4 +78,36 @@ download_crickets_fills_the_box :: proc(t: ^testing.T) {
 	for c in game.crickets do if c.active && c.in_box do n += 1
 	testing.expect_value(t, n, 12)
 	testing.expect_value(t, game.storage, 0)
+}
+
+@(test)
+credits_link_is_under_the_pointer :: proc(t: ^testing.T) {
+	if !sim_setup(t, 4) do return
+	b := &game.ui.box
+	testing.expect_value(t, CREDITS[LINK_LINE].text, "Support the project here")
+	testing.expect_value(t, CREDITS[LINK_LINE].icon, 3)
+	button(Button(6))
+	run_box(10)
+	y, _, _ := item_row(.Menu, 3) // Credits
+	box_pointer(.Down, BOX_CX + 20, y + 5)
+	box_pointer(.Up, BOX_CX + 20, y + 5)
+	run_box(40)
+	testing.expect_value(t, b.page, Box_Page.Credits)
+
+	lx, ly, ok := link_word(scroll_pos(b.top, b.sub))
+	testing.expect(t, ok, "the link shows when the credits open")
+	hit, _ := box_hit(lx + 2, ly + 5)
+	testing.expect_value(t, hit, Box_Hit.Link)
+	hit, _ = box_hit(lx - 20, ly + 5) // "project", not the link
+	testing.expect_value(t, hit, Box_Hit.None)
+
+	// scrolled away, it's off the page and can't be hit
+	b.top, b.sub = 20, 0
+	_, _, ok = link_word(scroll_pos(b.top, b.sub))
+	testing.expect(t, !ok, "the link is off the page")
+	hit, _ = box_hit(lx + 2, ly + 5)
+	testing.expect(t, hit != .Link, "no link hit once scrolled away")
+
+	button(Button(6))
+	run_box(10)
 }

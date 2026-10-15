@@ -444,7 +444,7 @@ button :: proc(b: Button) {
 	case .Clear:
 		clear_debris()
 	case Button(8):
-		// the website (long gone: the host offers an archived copy)
+		// the website (long gone: the host opens the port's GitHub page)
 		host_open(0)
 		click = false
 	case Button(5):

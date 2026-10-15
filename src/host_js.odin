@@ -32,7 +32,7 @@ foreign host {
 	host_cursor :: proc(set, frame: i32) ---
 	host_view ::   proc(view: i32) ---
 	host_tool ::   proc(tool: i32, follow: bool) ---
-	host_open ::    proc(what: i32) --- // 0 = the website, 1 = floating panel
+	host_open ::    proc(what: i32) --- // 0 = the website, 1 = floating panel, 2 = support link
 	ui_text_ex ::   proc(x, y, w, h: int, text: string, font, color, flags: i32) --- // flags: 1 centre, 2 wrap, 4 clip
 	host_set_sound :: proc(on: bool) ---
 	host_fullscreen :: proc() ---

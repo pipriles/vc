@@ -220,10 +220,11 @@ when unregistered); the port lets all 10 in.
 ### 15. Options box — Same
 
 Pages, wipes, help (161 lines), credits, prognosis, stats, settings and
-utilities. All strings match. Port: the settings show Full Screen where
+utilities. All strings match, except the help's website entry and its
+closing link, which point at the port's GitHub page. Port: the settings show Full Screen where
 the original had Window Mode, Smooth Motion in the Freeze Simulation slot,
 a Screensaver item with its idle time in Utilities, a Browser Port section
-at the start of the credits, and Download Crickets adds 12 crickets
+(with a support link) at the start of the credits, and Download Crickets adds 12 crickets
 offline.
 
 ### 16. Messages

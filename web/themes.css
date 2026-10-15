@@ -15,7 +15,10 @@
 /* taskbar and menu bar: over the page, under the debug windows (20) and the gear (29-30) */
 .taskbar { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; align-items: center; gap: 4px; user-select: none; }
 .taskbar .task { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.taskbar .clock { margin-left: auto; }
+.taskbar .tray { display: flex; align-items: center; margin-left: auto; }
+/* the tray's heart: the support link (port) */
+.tray-heart { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; cursor: pointer; }
+.tray-heart:focus-visible { outline: 1px dotted currentColor; }
 .menubar { display: none; }
 .marquee { display: none; }
 
@@ -52,7 +55,8 @@
   text-transform: capitalize; }
 :root[data-theme="win98"] .taskbar .task { width: 160px; height: 22px; padding: 3px 6px; font-weight: bold;
   background: repeating-conic-gradient(#c0c0c0 0 25%, #fff 0 50%) 0 0 / 2px 2px; }
-:root[data-theme="win98"] .taskbar .clock { height: 22px; padding: 3px 10px; border: 1px solid; border-color: #808080 #fff #fff #808080; }
+:root[data-theme="win98"] .taskbar .tray { height: 22px; padding: 0 0 0 3px; border: 1px solid; border-color: #808080 #fff #fff #808080; }
+:root[data-theme="win98"] .taskbar .clock { padding: 3px 10px 3px 6px; }
 :root[data-theme="win98"] .message-box strong { color: #000; }
 :root[data-theme="win98"] .gear { color: #000; border-radius: 0; }
 
@@ -96,9 +100,11 @@
 :root[data-theme="xp"] .taskbar .task::before { content: ""; position: absolute; left: -10px; top: 3px; bottom: 3px; width: 3px;
   background: radial-gradient(circle, #a8c4f7 1px, transparent 1.4px) 0 0 / 3px 4px; }
 :root[data-theme="xp"] .taskbar .task-icon { flex: none; width: 16px; height: 16px; background: url("data/cr/bitmaps/vcg_2000.bmp") center / cover; }
-:root[data-theme="xp"] .taskbar .clock { height: 30px; padding: 8px 14px; color: #fff;
+:root[data-theme="xp"] .taskbar .tray { height: 30px; padding-left: 8px; color: #fff;
   background: linear-gradient(#0c59b9, #139ee9 10%, #18b9ed 50%, #0f8ee0 90%, #0c6bc9);
   border-left: 1px solid #092e8c; box-shadow: inset 1px 0 #1ac5f7; }
+:root[data-theme="xp"] .taskbar .clock { padding: 8px 14px 8px 6px; }
+:root[data-theme="xp"] .tray-heart svg { filter: drop-shadow(1px 1px 0 #0005); }
 :root[data-theme="xp"] .gear { background: #ece9d8; color: #000; border: 1px solid #0831d9; }
 
 /* ======================= Mac OS 9 ======================= */

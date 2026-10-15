@@ -51,7 +51,7 @@ button_tip :: proc(cmd: int) -> string {
 	case 1: return "View the entire tank and select tank objects."
 	case 9: return "Removes all debris from the tank."
 	case 6: return game.ui.box.state == .Open || game.ui.box.state == .Opening ? "Close the Options box." : "Open the Options box."
-	case 8: return "Visit the Virtual Creatures Website."
+	case 8: return "Visit the Virtual Creatures project on GitHub."
 	case 5: return "Run Virtual Creatures as Floating Panel."
 	}
 	return ""

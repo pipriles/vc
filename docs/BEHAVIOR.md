@@ -335,7 +335,8 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   button: ring animation (vc_320, 14 frames) and its tooltip 16 px above;
   pressed: drawn at 70 %.
 - Website (8): asks first (the program had to close), then opened
-  virtualcreatures.com; the port offers the Wayback Machine's copy.
+  virtualcreatures.com. Port: it opens the port's GitHub page instead
+  (github.com/pipriles/vc), and its tooltip and help entry say so.
 - Floating panel (5): a miniature always-on-top tank window (refused while
   the simulation is frozen); the port uses picture-in-picture of the view
   and keeps stepping the simulation while the tab is hidden.
@@ -609,7 +610,9 @@ Crickets: random sequence with frames in the current direction.
   held (to 20).
 - Port additions: Smooth Motion in Settings (the Freeze Simulation slot),
   Screensaver in Utilities (start now, full screen; −/+ idle time, default
-  never), a Browser Port section at the start of the credits. With smooth
+  never), a Browser Port section at the start of the credits (its
+  "Support the project here" line links to Ko-fi: "here" is orange and
+  underlined, white while pointed at). With smooth
   motion the UI slides, the box's growth and wipe, and help / credits
   scrolling are drawn between steps too.
 - Registering added 25 crickets to the store; Download Crickets fetched

@@ -23,7 +23,7 @@ ARROW_Y :: 0x134
 CLOSE_Y :: 0x91
 
 HELP_LINES :: 161 // 0x42dd68
-CREDIT_LINES :: 41 // the port's 9, then 0x42d2e8's 32
+CREDIT_LINES :: 42 // the port's 10, then 0x42d2e8's 32
 
 Box_Page :: enum {
 	Menu,
@@ -70,13 +70,14 @@ Box_Hit :: enum {
 	Up, // help and credits scrolling
 	Down,
 	Close,
+	Link, // port: the credits' support link
 }
 
 Line :: struct {
 	text:        string,
 	style:       int, // 1 heading, 2 highlighted
 	center:      bool,
-	icon:        int, // 0 none, 1 button (index, frame), 2 gauge bitmap (index, frame)
+	icon:        int, // 0 none, 1 button (index, frame), 2 gauge bitmap (index, frame), 3 link (port)
 	index, frame: int,
 }
 
@@ -154,9 +155,9 @@ HELP := [HELP_LINES]Line {
 	{"OPTIONS", 2, false, 1, 7, 0},
 	{"This icon is used to access the various option pages.", 0, false, 0, 0, 0}, {}, {},
 	{"VC WEB-SITE", 2, false, 1, 8, 0},
-	{"A direct link to the hatching website for Virtual", 0, false, 0, 0, 0},
-	{"Creatures. Visit here for the latest news on", 0, false, 0, 0, 0},
-	{"Virtual Creatures.", 0, false, 0, 0, 0}, {}, {},
+	{"A direct link to the home of this browser port of", 0, false, 0, 0, 0},
+	{"Virtual Creatures on GitHub. Visit here for the", 0, false, 0, 0, 0},
+	{"latest news, the source code and to report bugs.", 0, false, 0, 0, 0}, {}, {},
 	{"FLOATING PANEL", 2, false, 1, 9, 0},
 	{"Miniaturize your spider tank using this mode and", 0, false, 0, 0, 0},
 	{"keep watch on your spider while doing other", 0, false, 0, 0, 0},
@@ -182,14 +183,15 @@ HELP := [HELP_LINES]Line {
 	{"ADDITIONAL HELP", 1, false, 0, 0, 0}, {},
 	{"Additional help can be found in the README.DOC", 0, false, 0, 0, 0},
 	{"that shipped with the installation. Alternatively,", 0, false, 0, 0, 0},
-	{"for up to the minute hints and tips, visit the", 0, false, 0, 0, 0},
-	{"Help/FAQ pages on the VC Website found at :", 0, false, 0, 0, 0}, {},
-	{"http://www.virtualcreatures.com/vc", 0, false, 1, 8, 0}, {},
+	{"for up to the minute news on this port, visit its", 0, false, 0, 0, 0},
+	{"pages on GitHub found at :", 0, false, 0, 0, 0}, {},
+	{"https://github.com/pipriles/vc", 0, false, 1, 8, 0}, {},
 }
 
 CREDITS := [CREDIT_LINES]Line {
 	// the browser port first
-	{"Browser Port", 2, true, 0, 0, 0}, {"Oswald Capriles", 0, true, 0, 0, 0}, {},
+	{"Browser Port", 2, true, 0, 0, 0}, {"Oswald Capriles", 0, true, 0, 0, 0},
+	{"Support the project here", 0, true, 3, 0, 0}, {},
 	{"Rescued from the original Windows release: the", 0, false, 0, 0, 0},
 	{"program and its data were reverse engineered", 0, false, 0, 0, 0},
 	{"from the old binaries and rebuilt in Odin for", 0, false, 0, 0, 0},
@@ -467,6 +469,10 @@ box_hit :: proc(px, py: int) -> (Box_Hit, int) {
 		if in_rect(px, py, BOX_CX + 0xd7, ARROW_Y, a.up.w, a.up.h / 3) do return .Up, 0
 		if in_rect(px, py, BOX_CX + 0xd7 + a.up.w, ARROW_Y, a.down.w, a.down.h / 3) do return .Down, 0
 	}
+	if b.page == .Credits {
+		x, y, ok := link_word(scroll_pos(b.top, b.sub))
+		if ok && in_rect(px, py, x, y, LINK_W, 13) do return .Link, 0
+	}
 	return .None, 0
 }
 
@@ -526,6 +532,9 @@ box_activate :: proc(hit: Box_Hit, i: int) {
 	case .Saver_Plus:
 		settings.saver_idle = (settings.saver_idle + 1) % len(SAVER_IDLE)
 		settings_changed()
+		return
+	case .Link:
+		host_open(2)
 		return
 	case .Item:
 	case:
@@ -758,6 +767,22 @@ draw_arrows :: proc() {
 	draw_keyed_part(&a.down, BOX_CX + 0xd7 + a.up.w, ARROW_Y, ctl_frame(.Down, 0) * dh, dh)
 }
 
+// The credits' link line: the text before the link, then the link word,
+// centred together. Widths in the small font (web/gdifont.js, 11px Arial).
+LINK_LINE :: 2 // in CREDITS
+LINK_PRE_W :: 95 // "Support the project "
+LINK_W :: 22 // "here"
+
+// Where the link word is drawn at scroll position pos: false when it's
+// off the page.
+link_word :: proc(pos: int) -> (x, y: int, ok: bool) {
+	y = LINK_LINE * 20 - pos + BOX_Y
+	if y < BOX_Y || y + 12 > BOX_CLIP do return
+	left := BOX_CX + 5
+	x = left + (BOX_TEXT_R - left - LINK_PRE_W - LINK_W) / 2 + LINK_PRE_W
+	return x, y, true
+}
+
 // Scrolling lines of help or credits: nine rows 20 px apart, clipped at
 // the box's lower edge.
 draw_lines :: proc(lines: []Line, help: bool) {
@@ -791,6 +816,16 @@ draw_lines :: proc(lines: []Line, help: bool) {
 			left = BOX_CX + g.w + 6
 		}
 		if l.text == "" do continue
+		if l.icon == 3 {
+			// the link word orange and underlined, white while pointed at
+			x := left + (BOX_TEXT_R - left - LINK_PRE_W - LINK_W) / 2
+			pre, word := l.text[:len(l.text) - 4], l.text[len(l.text) - 4:]
+			ui_text_ex(x, y, BOX_TEXT_R - x, bottom - y, pre, FONT_SMALL, WHITE, 4)
+			color := ctl_frame(.Link, 0) > 0 ? WHITE : ORANGE
+			ui_text_ex(x + LINK_PRE_W, y, BOX_TEXT_R - x - LINK_PRE_W, bottom - y, word, FONT_SMALL, i32(color), 4)
+			if y + 11 < BOX_CLIP do fill_rect(x + LINK_PRE_W, y + 11, LINK_W - 1, 1, color)
+			continue
+		}
 		font, color := FONT_SMALL, WHITE
 		switch l.style {
 		case 1: font = FONT_BIG

@@ -303,7 +303,11 @@ const imports = {
 		host_cursor: (set, frame) => setCursor(set, frame),
 		host_view: (view) => setView(view),
 		host_tool: noop,
-		host_open: (what) => (what === 0 ? openWebsite() : toggleFloatingPanel()),
+		host_open: (what) => {
+			if (what === 0) openWebsite();
+			else if (what === 1) toggleFloatingPanel();
+			else window.open(SUPPORT, "_blank", "noopener"); // the credits' link
+		},
 		ui_begin: () => uiBegin(),
 		ui_text_ex: (x, y, w, h, p, n, font, color, flags) =>
 			uiOps?.push(["ex", x, y, w, h, mem.loadString(p, n), font, color, flags]),
@@ -573,11 +577,12 @@ function setView(view) {
 	document.body.dataset.view = view === 3 ? "box" : "tank";
 }
 
-// The website button: the original site is gone, so offer the Wayback
-// Machine's copy (the original asked first, as it had to close down).
-const WEBSITE = "https://web.archive.org/web/2000/http://www.virtualcreatures.com/vc";
+// The website button: the original site is gone, so it goes to the port's
+// home on GitHub (the original asked first, as it had to close down).
+const WEBSITE = "https://github.com/pipriles/vc";
+const SUPPORT = "https://ko-fi.com/pipriles";
 function openWebsite() {
-	if (confirm("Visiting the VC Website opens an archived copy of it in a new tab.\nDo you wish to continue?")) {
+	if (confirm("Visiting the Virtual Creatures project opens its GitHub page in a new tab.\nDo you wish to continue?")) {
 		window.open(WEBSITE, "_blank", "noopener");
 	}
 }
