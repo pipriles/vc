@@ -9,5 +9,7 @@
   browser calls `step` every display frame, up to 120 Hz.
 - In tests, advance the sim with `tank_tick()` or `tank_advance(TICK)`.
   Don't loop over `tank_step()`: it renders a full frame every step.
-- See README.md "Tests", and docs/TESTING.md for why (profiling how-to,
-  measurements).
+- `test.sh` output: native failures show as `ERROR`, the Node smoke and
+  mixer tests print `FAIL` lines. Check for both.
+- See docs/TESTING.md: what the tests cover, rules for new tests (shared
+  globals, the fuzz seeds), and why (profiling how-to, measurements).
