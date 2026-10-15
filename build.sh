@@ -15,5 +15,11 @@ mkdir -p build
 odin build src -target:js_wasm32 -o:speed -out:build/vc.wasm
 cp web/* build/
 cp "$(odin root)/core/sys/wasm/js/odin.js" build/
-ln -sfn ../data build/data
+# Symlink locally; CI copies, since the deploy uploads build/ as-is.
+rm -rf build/data
+if [ -n "$CI" ]; then
+	cp -R data build/data
+else
+	ln -s ../data build/data
+fi
 echo "built build/vc.wasm ($(wc -c < build/vc.wasm | tr -d ' ') bytes)"

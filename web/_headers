@@ -1,0 +1,4 @@
+# Cloudflare static-asset headers. Everything else keeps the default
+# (max-age=0, must-revalidate), so new deploys show up on the next load.
+/data/*
+  Cache-Control: public, max-age=86400

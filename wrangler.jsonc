@@ -1,0 +1,9 @@
+// Static site on Cloudflare Workers: no Worker script, just the assets that
+// build.sh assembles in build/. Deployed by .github/workflows/deploy.yml.
+{
+  "name": "vc",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./build"
+  }
+}
