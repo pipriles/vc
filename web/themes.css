@@ -58,11 +58,7 @@
 
 /* ======================= Windows XP ======================= */
 :root[data-theme="xp"] { --chrome-v: 64px; --chrome-bottom: 30px; --accent: #2f71cd; --fg: #000; color-scheme: light; }
-:root[data-theme="xp"] body { color: #000; font: 11px/1.3 Tahoma, Verdana, sans-serif;
-  background:
-    radial-gradient(ellipse 140% 55% at 35% 108%, #6dbb3e 0 45%, #3f8f22 70%, transparent 71%) fixed,
-    radial-gradient(ellipse 120% 50% at 90% 112%, #5fae35 0 50%, transparent 51%) fixed,
-    linear-gradient(#245fd6, #5f97ea 45%, #a9cdf6 75%, #d7e9fb) fixed; }
+:root[data-theme="xp"] body { color: #000; font: 11px/1.3 Tahoma, Verdana, sans-serif; background: #254e93; }
 :root[data-theme="xp"] .cabinet { padding: 0 3px 3px; border-radius: 8px 8px 0 0; border: 1px solid #0831d9;
   background: #ece9d8; box-shadow: inset 0 0 0 2px #166aee, 0 6px 24px #0006; }
 :root[data-theme="xp"] .cabinet::before, :root[data-theme="xp"] .cabinet::after, :root[data-theme="xp"] .leds,
@@ -86,14 +82,22 @@
 :root[data-theme="xp"] button:active { background: linear-gradient(#e5e4dd, #f2f1ec); }
 :root[data-theme="xp"] select { background: #fff; border-color: #7f9db9; border-radius: 0; padding: 2px 4px; }
 :root[data-theme="xp"] .message-box strong { color: #0b2e9a; }
-:root[data-theme="xp"] .taskbar { display: flex; height: 30px; padding: 0 0 0 0; color: #fff;
-  background: linear-gradient(#3168d5, #4993e6 8%, #2157d7 40%, #2663e0 88%, #1941a5); }
-:root[data-theme="xp"] .taskbar .start { display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 22px 0 10px;
-  font: italic bold 17px Trebuchet MS, Tahoma, sans-serif; text-shadow: 1px 1px 2px #0008; border-radius: 0 12px 12px 0;
-  background: linear-gradient(#3c8f3c, #48a848 15%, #3a9a3a 60%, #2a7d2a); box-shadow: inset -2px 0 3px #0005; }
-:root[data-theme="xp"] .taskbar .task { width: 170px; height: 24px; margin-left: 8px; padding: 4px 8px; border-radius: 3px;
-  background: #1e52b7; box-shadow: inset 1px 1px 2px #0006; }
-:root[data-theme="xp"] .taskbar .clock { height: 30px; padding: 7px 14px; background: linear-gradient(#0c59b9, #139ee9 10%, #18b9ed 50%, #0f8ee0);
+:root[data-theme="xp"] .taskbar { display: flex; height: 30px; padding: 0; gap: 0; color: #fff; font: 11px Tahoma, sans-serif;
+  background: linear-gradient(#3f6ec4 0, #5e8eed 9%, #4a74e0 18%, #4468e5 40%, #3b60d3 72%, #3960d4 90%, #1a39a0); }
+:root[data-theme="xp"] .taskbar .start { display: flex; align-items: center; gap: 5px; height: 30px; padding: 0 24px 0 9px;
+  font: italic bold 18px/1 "Franklin Gothic Medium", "Trebuchet MS", Tahoma, sans-serif; text-shadow: 1px 1px 2px #1d4d1d;
+  border-radius: 0 12px 12px 0;
+  background: linear-gradient(#3d8e3d 0, #5fb55f 10%, #48a648 22%, #3e9b3e 55%, #378c37 85%, #2b742b);
+  box-shadow: inset -3px 0 4px #1d4d1d88, inset 0 1px #8fd08f; }
+:root[data-theme="xp"] .taskbar .start svg { width: 18px; height: 16px; filter: drop-shadow(1px 1px 0 #0006); }
+/* the quick launch grip, then the open program's button, pressed in */
+:root[data-theme="xp"] .taskbar .task { position: relative; display: flex; align-items: center; gap: 6px; width: 160px; height: 24px;
+  margin-left: 16px; padding: 0 8px; border-radius: 3px; background: #1e4fb8; box-shadow: inset 1px 1px 2px #0a2a6e, inset -1px -1px 0 #3d6fd8; }
+:root[data-theme="xp"] .taskbar .task::before { content: ""; position: absolute; left: -10px; top: 3px; bottom: 3px; width: 3px;
+  background: radial-gradient(circle, #a8c4f7 1px, transparent 1.4px) 0 0 / 3px 4px; }
+:root[data-theme="xp"] .taskbar .task-icon { flex: none; width: 16px; height: 16px; background: url("data/cr/bitmaps/vcg_2000.bmp") center / cover; }
+:root[data-theme="xp"] .taskbar .clock { height: 30px; padding: 8px 14px; color: #fff;
+  background: linear-gradient(#0c59b9, #139ee9 10%, #18b9ed 50%, #0f8ee0 90%, #0c6bc9);
   border-left: 1px solid #092e8c; box-shadow: inset 1px 0 #1ac5f7; }
 :root[data-theme="xp"] .gear { background: #ece9d8; color: #000; border: 1px solid #0831d9; }
 
