@@ -1,0 +1,215 @@
+/* Page styles round the tank, picked in the toolbar (Style) and kept in the
+   browser: <html data-theme="...">. "cabinet" is the base look in
+   index.html; each theme here restyles the page, the frame round the
+   screen, the toolbar, the dialogs and the loading box, and shows its own
+   decorations (.titlebar, .taskbar, .menubar, .marquee), all hidden by
+   default.
+   --chrome-v: height the decorations take from the tank's room;
+   --chrome-top / -bottom: page padding for fixed bars. */
+
+/* ---------- shared: window title bar, taskbar, Win9x-style controls ---------- */
+.titlebar { display: none; align-items: center; gap: 4px; user-select: none; }
+.titlebar .tb-text { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.titlebar .tb-btns { display: flex; gap: 2px; }
+.titlebar .tb-btns i { display: grid; place-items: center; font-style: normal; }
+/* taskbar and menu bar: over the page, under the debug windows (20) and the gear (29-30) */
+.taskbar { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; align-items: center; gap: 4px; user-select: none; }
+.taskbar .task { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.taskbar .clock { margin-left: auto; }
+.menubar { display: none; }
+.marquee { display: none; }
+
+/* ======================= Windows 98 ======================= */
+:root[data-theme="win98"] { --chrome-v: 56px; --chrome-bottom: 30px; --accent: #000080; --fg: #000; --dim: #404040; color-scheme: light; }
+:root[data-theme="win98"] body { background: #008080; color: #000; font: 11px/1.3 Tahoma, "MS Sans Serif", "Microsoft Sans Serif", Verdana, sans-serif; }
+:root[data-theme="win98"] .bar, :root[data-theme="win98"] .cabinet, :root[data-theme="win98"] .message-box, :root[data-theme="win98"] .gear,
+:root[data-theme="win98"] .taskbar {
+  background: #c0c0c0; color: #000; border: 1px solid; border-color: #dfdfdf #000 #000 #dfdfdf; border-radius: 0;
+  box-shadow: inset 1px 1px #fff, inset -1px -1px #808080; }
+:root[data-theme="win98"] .bar { padding: 4px 8px; }
+:root[data-theme="win98"] .cabinet { padding: 3px; }
+:root[data-theme="win98"] .cabinet::before, :root[data-theme="win98"] .cabinet::after, :root[data-theme="win98"] .leds,
+:root[data-theme="win98"] .grill { display: none; }
+:root[data-theme="win98"] .titlebar { display: flex; height: 18px; margin-bottom: 2px; padding: 0 2px 0 3px; color: #fff; font-weight: bold;
+  background: linear-gradient(90deg, #000080, #1084d0); }
+:root[data-theme="win98"] .titlebar .tb-icon { width: 16px; height: 16px; background: url("data/cr/bitmaps/vcg_2000.bmp") center / cover; }
+:root[data-theme="win98"] .titlebar .tb-btns i, :root[data-theme="win98"] button, :root[data-theme="win98"] select,
+:root[data-theme="win98"] .taskbar .start, :root[data-theme="win98"] .taskbar .task {
+  font: inherit; color: #000; background: #c0c0c0; border: 1px solid; border-color: #fff #000 #000 #fff; border-radius: 0;
+  box-shadow: inset -1px -1px #808080, inset 1px 1px #dfdfdf; }
+:root[data-theme="win98"] .titlebar .tb-btns i { width: 16px; height: 14px; font: bold 9px/1 Tahoma, sans-serif; }
+:root[data-theme="win98"] button { padding: 3px 10px; }
+:root[data-theme="win98"] button:hover { background: #c0c0c0; }
+:root[data-theme="win98"] button:active, :root[data-theme="win98"] .taskbar .task {
+  border-color: #000 #fff #fff #000; box-shadow: inset 1px 1px #808080; }
+:root[data-theme="win98"] select { background: #fff; border-color: #808080 #fff #fff #808080; box-shadow: inset 1px 1px #000; padding: 2px 4px; }
+:root[data-theme="win98"] .stage { margin-top: 0; border: 2px solid; border-color: #808080 #fff #fff #808080; box-shadow: none; }
+:root[data-theme="win98"] .foot { margin-top: 3px; gap: 2px; }
+:root[data-theme="win98"] .plate { flex: 1; font: inherit; letter-spacing: 0; text-shadow: none; color: #000; padding: 2px 6px; border-radius: 0;
+  background: none; border: 1px solid; border-color: #808080 #fff #fff #808080; }
+:root[data-theme="win98"] .taskbar { display: flex; height: 30px; padding: 2px 3px; border-width: 1px 0 0; box-shadow: inset 0 1px #fff; }
+:root[data-theme="win98"] .taskbar .start { display: flex; align-items: center; gap: 3px; height: 22px; padding: 0 5px; font-weight: bold;
+  text-transform: capitalize; }
+:root[data-theme="win98"] .taskbar .task { width: 160px; height: 22px; padding: 3px 6px; font-weight: bold;
+  background: repeating-conic-gradient(#c0c0c0 0 25%, #fff 0 50%) 0 0 / 2px 2px; }
+:root[data-theme="win98"] .taskbar .clock { height: 22px; padding: 3px 10px; border: 1px solid; border-color: #808080 #fff #fff #808080; }
+:root[data-theme="win98"] .message-box strong { color: #000; }
+:root[data-theme="win98"] .gear { color: #000; border-radius: 0; }
+
+/* ======================= Windows XP ======================= */
+:root[data-theme="xp"] { --chrome-v: 64px; --chrome-bottom: 30px; --accent: #2f71cd; --fg: #000; color-scheme: light; }
+:root[data-theme="xp"] body { color: #000; font: 11px/1.3 Tahoma, Verdana, sans-serif;
+  background:
+    radial-gradient(ellipse 140% 55% at 35% 108%, #6dbb3e 0 45%, #3f8f22 70%, transparent 71%) fixed,
+    radial-gradient(ellipse 120% 50% at 90% 112%, #5fae35 0 50%, transparent 51%) fixed,
+    linear-gradient(#245fd6, #5f97ea 45%, #a9cdf6 75%, #d7e9fb) fixed; }
+:root[data-theme="xp"] .cabinet { padding: 0 3px 3px; border-radius: 8px 8px 0 0; border: 1px solid #0831d9;
+  background: #ece9d8; box-shadow: inset 0 0 0 2px #166aee, 0 6px 24px #0006; }
+:root[data-theme="xp"] .cabinet::before, :root[data-theme="xp"] .cabinet::after, :root[data-theme="xp"] .leds,
+:root[data-theme="xp"] .grill { display: none; }
+:root[data-theme="xp"] .titlebar { display: flex; height: 28px; margin: 0 -3px 3px; padding: 0 5px 0 7px; border-radius: 7px 7px 0 0;
+  color: #fff; font: bold 13px Trebuchet MS, Tahoma, sans-serif; text-shadow: 1px 1px #0f1089;
+  background: linear-gradient(#0997ff, #0053ee 8%, #0050ee 40%, #06f 88%, #0b5ff0 93%, #003dd7); }
+:root[data-theme="xp"] .titlebar .tb-icon { width: 16px; height: 16px; background: url("data/cr/bitmaps/vcg_2000.bmp") center / cover; }
+:root[data-theme="xp"] .titlebar .tb-btns i { width: 21px; height: 21px; border: 1px solid #fff; border-radius: 3px; color: #fff;
+  font: bold 12px/1 Tahoma, sans-serif; background: radial-gradient(circle at 30% 30%, #3c8cf8, #1b5ee4); }
+:root[data-theme="xp"] .titlebar .tb-btns i:last-child { background: radial-gradient(circle at 30% 30%, #e7826c, #c5401f); }
+:root[data-theme="xp"] .stage { margin-top: 0; border: 1px solid #7f9db9; box-shadow: none; }
+:root[data-theme="xp"] .foot { margin-top: 3px; }
+:root[data-theme="xp"] .plate { flex: 1; font: inherit; letter-spacing: 0; text-shadow: none; color: #000; padding: 2px 6px;
+  border-radius: 0; border: 0; background: none; box-shadow: inset 1px 1px #aca899, inset -1px -1px #fff; }
+:root[data-theme="xp"] .bar, :root[data-theme="xp"] .message-box { background: #ece9d8; color: #000; border: 1px solid #0831d9;
+  border-radius: 8px; box-shadow: 0 4px 14px #0005; }
+:root[data-theme="xp"] button, :root[data-theme="xp"] select { font: inherit; color: #000; border: 1px solid #003c74; border-radius: 3px;
+  background: linear-gradient(#fff, #ecebe6 85%, #d6d0c5); box-shadow: none; padding: 3px 9px; }
+:root[data-theme="xp"] button:hover { box-shadow: inset 0 0 0 2px #fbc761; background: linear-gradient(#fff, #ecebe6 85%, #d6d0c5); }
+:root[data-theme="xp"] button:active { background: linear-gradient(#e5e4dd, #f2f1ec); }
+:root[data-theme="xp"] select { background: #fff; border-color: #7f9db9; border-radius: 0; padding: 2px 4px; }
+:root[data-theme="xp"] .message-box strong { color: #0b2e9a; }
+:root[data-theme="xp"] .taskbar { display: flex; height: 30px; padding: 0 0 0 0; color: #fff;
+  background: linear-gradient(#3168d5, #4993e6 8%, #2157d7 40%, #2663e0 88%, #1941a5); }
+:root[data-theme="xp"] .taskbar .start { display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 22px 0 10px;
+  font: italic bold 17px Trebuchet MS, Tahoma, sans-serif; text-shadow: 1px 1px 2px #0008; border-radius: 0 12px 12px 0;
+  background: linear-gradient(#3c8f3c, #48a848 15%, #3a9a3a 60%, #2a7d2a); box-shadow: inset -2px 0 3px #0005; }
+:root[data-theme="xp"] .taskbar .task { width: 170px; height: 24px; margin-left: 8px; padding: 4px 8px; border-radius: 3px;
+  background: #1e52b7; box-shadow: inset 1px 1px 2px #0006; }
+:root[data-theme="xp"] .taskbar .clock { height: 30px; padding: 7px 14px; background: linear-gradient(#0c59b9, #139ee9 10%, #18b9ed 50%, #0f8ee0);
+  border-left: 1px solid #092e8c; box-shadow: inset 1px 0 #1ac5f7; }
+:root[data-theme="xp"] .gear { background: #ece9d8; color: #000; border: 1px solid #0831d9; }
+
+/* ======================= Mac OS 9 ======================= */
+:root[data-theme="mac9"] { --chrome-v: 48px; --chrome-top: 22px; --accent: #33c; --fg: #000; color-scheme: light; }
+:root[data-theme="mac9"] body { color: #000; font: 12px/1.35 Charcoal, Chicago, Geneva, "Lucida Grande", sans-serif;
+  background: repeating-linear-gradient(45deg, #6b74b4 0 2px, #646dac 2px 4px) fixed, #6670b0; }
+:root[data-theme="mac9"] .menubar { display: flex; gap: 18px; align-items: center; position: fixed; z-index: 15; top: 0; left: 0; right: 0;
+  height: 22px; padding: 0 12px; background: linear-gradient(#f2f2f2, #d8d8d8); border-bottom: 1px solid #555; font-weight: bold; }
+:root[data-theme="mac9"] .menubar .clock { margin-left: auto; font-weight: normal; }
+:root[data-theme="mac9"] .cabinet, :root[data-theme="mac9"] .bar, :root[data-theme="mac9"] .message-box, :root[data-theme="mac9"] .gear {
+  background: #ddd; color: #000; border: 1px solid #222; border-radius: 0; box-shadow: inset 1px 1px #fff, inset -1px -1px #999, 2px 2px 0 #0004; }
+:root[data-theme="mac9"] .cabinet { padding: 0 5px 5px; }
+:root[data-theme="mac9"] .cabinet::before, :root[data-theme="mac9"] .cabinet::after, :root[data-theme="mac9"] .leds,
+:root[data-theme="mac9"] .grill { display: none; }
+:root[data-theme="mac9"] .titlebar { display: flex; height: 20px; margin: 0 -5px 4px; padding: 0 6px; font-weight: bold; justify-content: center;
+  background: repeating-linear-gradient(#ddd 0 1px, #999 1px 2px) 0 4px / 100% 12px no-repeat, #ddd; border-bottom: 1px solid #888; }
+:root[data-theme="mac9"] .titlebar .tb-icon { order: -1; width: 12px; height: 12px; border: 1px solid #333; background: #ddd; box-shadow: inset 1px 1px #fff; }
+:root[data-theme="mac9"] .titlebar .tb-text { flex: none; padding: 0 8px; background: #ddd; }
+:root[data-theme="mac9"] .titlebar::before { content: ""; flex: 1; }
+:root[data-theme="mac9"] .titlebar .tb-btns { flex: 1; justify-content: flex-end; }
+:root[data-theme="mac9"] .titlebar .tb-btns i { width: 12px; height: 12px; border: 1px solid #333; background: #ddd; box-shadow: inset 1px 1px #fff; font-size: 0; }
+:root[data-theme="mac9"] .titlebar .tb-btns i:first-child { display: none; }
+:root[data-theme="mac9"] .stage { margin-top: 0; border: 1px solid #555; box-shadow: 1px 1px #fff; }
+:root[data-theme="mac9"] .foot { margin-top: 4px; }
+:root[data-theme="mac9"] .plate { flex: 1; font: inherit; letter-spacing: 0; text-shadow: none; color: #000; padding: 1px 6px; border-radius: 0;
+  border: 1px solid #888; background: #eee; }
+:root[data-theme="mac9"] button, :root[data-theme="mac9"] select { font: inherit; color: #000; border: 1px solid #222; border-radius: 4px;
+  background: linear-gradient(#fafafa, #ccc); box-shadow: inset 1px 1px #fff; padding: 2px 10px; }
+:root[data-theme="mac9"] button:hover { background: linear-gradient(#fafafa, #ccc); }
+:root[data-theme="mac9"] button:active { background: linear-gradient(#777, #999); color: #fff; }
+:root[data-theme="mac9"] .message-box strong { color: #000; }
+
+/* ======================= 90s homepage ======================= */
+:root[data-theme="web90"] { --chrome-v: 40px; --accent: #ff0; --fg: #fff; }
+:root[data-theme="web90"] body { color: #fff; font: 15px/1.3 "Times New Roman", Times, serif;
+  background:
+    radial-gradient(1px 1px at 20px 30px, #fff, transparent), radial-gradient(1px 1px at 120px 80px, #ccf, transparent),
+    radial-gradient(1.5px 1.5px at 60px 150px, #fff, transparent), radial-gradient(1px 1px at 170px 190px, #ffc, transparent),
+    radial-gradient(1px 1px at 90px 110px, #fff, transparent) #000;
+  background-size: 200px 200px; }
+:root[data-theme="web90"] a { color: #00f; color: #6cf; }
+:root[data-theme="web90"] .marquee { display: block; order: -1; width: min(960px, 100%); overflow: hidden; white-space: nowrap;
+  color: #ff0; font: bold 18px "Comic Sans MS", "Comic Sans", cursive; text-shadow: 2px 2px #f0f; }
+:root[data-theme="web90"] .marquee span { display: inline-block; padding-left: 100%; animation: marquee 22s linear infinite; }
+@keyframes marquee { to { transform: translateX(-100%); } }
+:root[data-theme="web90"] .bar { border-radius: 0; background: #000; border: 3px ridge #c0c0c0; box-shadow: none; }
+:root[data-theme="web90"] button, :root[data-theme="web90"] select { font: 14px "Times New Roman", serif; color: #000; border-radius: 0;
+  background: #c0c0c0; border: 2px outset #eee; box-shadow: none; padding: 1px 8px; }
+:root[data-theme="web90"] button:hover { background: #c0c0c0; }
+:root[data-theme="web90"] button:active { border-style: inset; }
+:root[data-theme="web90"] .cabinet { padding: 8px; border-radius: 0; background: #808080; border: 6px ridge #c0c0c0; box-shadow: none; }
+:root[data-theme="web90"] .cabinet::before, :root[data-theme="web90"] .cabinet::after, :root[data-theme="web90"] .leds { display: none; }
+:root[data-theme="web90"] .stage { margin-top: 0; border: 4px inset #c0c0c0; box-shadow: none; }
+:root[data-theme="web90"] .grill { height: 6px; border: 0; border-radius: 0;
+  background: linear-gradient(90deg, red, orange, yellow, lime, cyan, blue, magenta); box-shadow: none; }
+:root[data-theme="web90"] .plate { font: bold 16px "Comic Sans MS", cursive; letter-spacing: 0; color: #0f0; background: #000;
+  border: 2px inset #c0c0c0; border-radius: 0; text-shadow: none; }
+:root[data-theme="web90"] .message-box { border-radius: 0; background: #c0c0c0; color: #000; border: 3px outset #eee; }
+:root[data-theme="web90"] .message-box strong { color: #000080; }
+
+/* ======================= Virtual Creatures website (1999) ======================= */
+:root[data-theme="vcweb"] { --chrome-v: 0px; --accent: #6fc06f; --fg: #fff; }
+:root[data-theme="vcweb"] body { color: #fff; font: bold 13px/1.35 Arial, Helvetica, sans-serif; background: #000; }
+:root[data-theme="vcweb"] .bar { border-radius: 0; border: 0; border-bottom: 1px solid #2c4a2c; padding: 8px 14px;
+  background: linear-gradient(180deg, #0b1a0b, #000 70%), #000; box-shadow: 0 1px 0 #6fc06f33; }
+:root[data-theme="vcweb"] .bar label { color: #9fd49f; }
+:root[data-theme="vcweb"] button, :root[data-theme="vcweb"] select { font: bold 12px Arial, sans-serif; color: #cfe9cf; border: 1px solid #3f6e3f;
+  border-radius: 9px; background: linear-gradient(#1d331d, #050a05); box-shadow: inset 0 1px 0 #6fc06f40; padding: 3px 10px; }
+:root[data-theme="vcweb"] button:hover { background: linear-gradient(#2a4a2a, #0a140a); color: #fff; }
+:root[data-theme="vcweb"] input[type=range] { accent-color: #6fc06f; }
+:root[data-theme="vcweb"] .cabinet { padding: 10px 12px 10px; border-radius: 0 28px 0 28px; border: 1px solid #355a35;
+  background:
+    radial-gradient(ellipse 60% 22px at 70% 0, #8fe08f55, transparent),
+    linear-gradient(90deg, #0d1f0d, #000 30%, #000 70%, #0d1f0d);
+  box-shadow: 0 0 22px #3f8f3f33; }
+:root[data-theme="vcweb"] .cabinet::before, :root[data-theme="vcweb"] .cabinet::after { display: none; }
+:root[data-theme="vcweb"] .leds i, :root[data-theme="vcweb"] .leds i + i { background: radial-gradient(circle at 35% 35%, #d8ffd8, #4fbf4f 60%, #0f3f0f);
+  box-shadow: 0 0 6px #4fbf4f; }
+:root[data-theme="vcweb"] .stage { border: 1px solid #355a35; box-shadow: 0 0 0 1px #000, 0 0 14px #6fc06f22; }
+:root[data-theme="vcweb"] .grill { height: 4px; border: 0; border-radius: 2px; background: linear-gradient(90deg, transparent, #6fc06f, transparent); box-shadow: none; }
+:root[data-theme="vcweb"] .plate { font: bold 12px Arial, sans-serif; letter-spacing: 0.3em; color: #9fd49f; border: 0; background: none;
+  text-shadow: 0 0 6px #6fc06f; }
+:root[data-theme="vcweb"] .message-box { border-radius: 0 16px 0 16px; background: #000; border: 1px solid #3f6e3f; box-shadow: 0 0 20px #3f8f3f44; }
+:root[data-theme="vcweb"] .message-box strong { color: #6fc06f; }
+:root[data-theme="vcweb"] .gear { background: #0b1a0b; color: #9fd49f; border: 1px solid #3f6e3f; }
+/* the gear keeps its own size and centring whatever a theme does to buttons */
+:root[data-theme] .gear { padding: 0; place-items: center; }
+:root[data-theme] .gear svg { display: block; }
+
+/* ---------- loading dialog per theme ---------- */
+:root[data-theme="win98"] .win-title { background: linear-gradient(90deg, #000080, #1084d0); }
+:root[data-theme="win98"] #loader-fill { background: repeating-linear-gradient(90deg, #000080 0 0.55em, transparent 0.55em 0.75em); }
+:root[data-theme="xp"] .win { background: #ece9d8; border: 1px solid #0831d9; border-radius: 8px 8px 0 0; box-shadow: none; padding: 0 0.25em 0.25em; }
+:root[data-theme="xp"] .win-title { margin: 0 -0.25em; padding: 0.35em 0.6em; border-radius: 7px 7px 0 0; font-family: Trebuchet MS, Tahoma, sans-serif;
+  background: linear-gradient(#0997ff, #0053ee 8%, #0050ee 40%, #06f 88%, #003dd7); }
+:root[data-theme="xp"] .win-track { border: 1px solid #7f9db9; border-radius: 3px; box-shadow: none; background: #fff; }
+:root[data-theme="xp"] #loader-fill { background: repeating-linear-gradient(90deg, #2fc03f 0 0.55em, transparent 0.55em 0.7em); }
+:root[data-theme="mac9"] .win { background: #ddd; border: 1px solid #222; box-shadow: 2px 2px 0 #0004; font-family: Charcoal, Chicago, Geneva, sans-serif; }
+:root[data-theme="mac9"] .win-title { color: #000; text-align: center; background: repeating-linear-gradient(#ddd 0 1px, #999 1px 2px); }
+:root[data-theme="mac9"] .win-track { border: 1px solid #555; box-shadow: none; background: #ccc; }
+:root[data-theme="mac9"] #loader-fill { background: linear-gradient(#aab4ff, #5560c0); }
+:root[data-theme="web90"] .win { font-family: "Times New Roman", serif; }
+:root[data-theme="vcweb"] .win { background: #000; color: #fff; border: 1px solid #3f6e3f; box-shadow: 0 0 20px #3f8f3f44; font-family: Arial, sans-serif; }
+:root[data-theme="vcweb"] .win-title { background: linear-gradient(90deg, #1d331d, #000); color: #6fc06f; }
+:root[data-theme="vcweb"] .win-track { border: 1px solid #3f6e3f; box-shadow: none; }
+:root[data-theme="vcweb"] #loader-fill { background: repeating-linear-gradient(90deg, #6fc06f 0 0.55em, transparent 0.55em 0.75em); }
+:root[data-theme="vcweb"] .loader .win-button { background: #1d331d; color: #cfe9cf; border-color: #3f6e3f; }
+
+/* ---------- small screens: only the window's title bar stays ---------- */
+@media (max-width: 760px), (max-height: 600px) {
+  .taskbar, .menubar { display: none !important; }
+  :root[data-theme] { --chrome-top: 0px; --chrome-bottom: 0px; }
+  :root[data-theme="win98"], :root[data-theme="mac9"] { --chrome-v: 24px; }
+  :root[data-theme="xp"] { --chrome-v: 30px; }
+  :root[data-theme="web90"] { --chrome-v: 28px; }
+  :root[data-theme="web90"] .marquee { font-size: 14px; }
+  :root[data-theme="win98"] .foot, :root[data-theme="xp"] .foot, :root[data-theme="mac9"] .foot { display: none; }
+}

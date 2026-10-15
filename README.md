@@ -1,4 +1,4 @@
-# vc_port
+# Virtual Creatures
 
 Browser port of an old virtual pet tarantula game. Written in Odin, compiled to WebAssembly, drawn on a canvas.
 

@@ -706,6 +706,7 @@ function setupTank() {
 	mem.exports.tank_intro(); // the opening sequence
 	canvas.addEventListener("pointerdown", () => mem.exports.tank_skip_intro()); // port: a tap skips it too
 	if ($("plate")) $("plate").textContent = variant === "rk" ? "RED KNEE TARANTULA" : "CHILE ROSE TARANTULA";
+	if ($("tb-text")) $("tb-text").textContent = `Virtual Creatures - ${variant === "rk" ? "Red Knee" : "Chile Rose"} Tarantula`;
 	$("fullscreen").onclick = toggleFullscreen;
 	// small screens: the settings fold into the gear button
 	if ($("menu")) $("menu").onclick = () => document.body.classList.toggle("bar-open");

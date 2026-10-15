@@ -4,19 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Virtual Creatures</title>
+<script>
+  // the page style (themes.css), set before anything is drawn
+  try { document.documentElement.dataset.theme = localStorage.getItem("vc-theme") || "cabinet"; }
+  catch { document.documentElement.dataset.theme = "cabinet"; }
+</script>
 <style>
   /* the page around the tank: a gunmetal cabinet in the spirit of the
      game's own window frame */
   :root { color-scheme: dark; --fg: #d8d6d2; --dim: #8c8a86; --accent: #ff7a1a; --panel: #1d1e21;
     /* the view: 1.5 x the original 640 x 480, smaller when the window is */
-    --w: min(960px, calc(100vw - 72px), calc((100vh - 250px) * 4 / 3)); }
+    --w: min(960px, calc(100vw - 72px), calc((100vh - 250px - var(--chrome-v)) * 4 / 3));
+    /* what a page style's decorations take (themes.css) */
+    --chrome-v: 0px; --chrome-top: 0px; --chrome-bottom: 0px; }
   * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; padding: 12px 16px 24px; color: var(--fg);
+  body { margin: 0; min-height: 100vh; color: var(--fg);
+    padding: calc(12px + var(--chrome-top)) 16px calc(24px + var(--chrome-bottom)) 16px;
     font: 13px/1.4 Verdana, Tahoma, system-ui, sans-serif;
     background: radial-gradient(ellipse 80% 60% at 50% 0%, #3a1d0c 0%, #140d0a 45%, #08080a 100%) fixed, #08080a;
     display: flex; flex-direction: column; align-items: center; gap: 14px; }
-  .bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; align-items: center;
-    padding: 6px 14px; border-radius: 10px; border: 1px solid #000;
+  .bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 9px; align-items: center;
+    padding: 6px 10px; border-radius: 10px; border: 1px solid #000;
     background: linear-gradient(#3a3c41, #1e1f22); box-shadow: inset 0 1px 0 #ffffff26, 0 4px 14px #0009; }
   .bar a { color: var(--accent); }
   label { display: flex; gap: 6px; align-items: center; }
@@ -25,7 +33,7 @@
   button:hover { background: linear-gradient(#5a5c63, #33353a); }
   button:active { background: linear-gradient(#25262a, #3a3c41); }
   kbd { font: 10px Verdana, sans-serif; color: var(--dim); }
-  input[type=range] { accent-color: var(--accent); }
+  input[type=range] { width: 84px; accent-color: var(--accent); }
 
   .cabinet { position: relative; margin: auto 0; padding: 14px 18px 12px; border-radius: 22px; border: 1px solid #000;
     background:
@@ -104,7 +112,7 @@
      with the settings below it, they go there (body.room-below, set by the
      script at the end of the page), the two centred together */
   @media (max-width: 1224px), (max-height: 600px) {
-    :root { --w: min(960px, calc(100vw - 72px), calc((100dvh - 130px) * 4 / 3)); }
+    :root { --w: min(960px, calc(100vw - 72px), calc((100dvh - 130px - var(--chrome-v)) * 4 / 3)); }
     .gear { display: grid; place-items: center; position: fixed; z-index: 30; width: 38px; height: 38px; padding: 0;
       top: calc(8px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right));
       font-size: 20px; border-radius: 50%; background: rgb(30 31 34 / 0.85); }
@@ -124,8 +132,9 @@
   /* small screens: the cabinet becomes a thin bezel and the tank takes the
      room there is: full width in portrait, the full height in landscape */
   @media (max-width: 760px), (max-height: 600px) {
-    :root, body.room-below { --w: min(960px, calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)),
-      calc((100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 4 / 3)); }
+    :root { --w: min(960px, calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)),
+      calc((100dvh - 24px - var(--chrome-v) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 4 / 3)); }
+    body.room-below { --w: min(960px, calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right))); }
     body { padding: calc(6px + env(safe-area-inset-top)) calc(6px + env(safe-area-inset-right))
       calc(6px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left)); gap: 8px; }
     .cabinet { margin: 0; padding: 4px; border-radius: 10px; box-shadow: inset 0 1px 0 #ffffff40, 0 8px 24px #000c; }
@@ -139,20 +148,31 @@
     .bar { right: auto; left: calc(8px + env(safe-area-inset-left)); }
   }
 </style>
+<link rel="stylesheet" href="themes.css">
 </head>
 <body data-mode="tank">
 <button id="menu" class="gear" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+<div class="marquee" aria-hidden="true"><span>*** Welcome to my Virtual Creatures page!!! *** Feed your spider every day *** Best viewed in Netscape Navigator 4 at 800x600 ***</span></div>
 <div class="bar">
   <label>Variant <select id="variant"><option value="cr">Chile Rose</option><option value="rk">Red Knee</option></select></label>
-  <label>Sim speed <input id="speed" type="range" min="1" max="20" step="1" value="1"><span id="speedv">1×</span></label>
+  <label>Style <select id="theme" title="The page round the tank">
+    <option value="cabinet">2000s cabinet</option>
+    <option value="vcweb">VC website, 1999</option>
+    <option value="web90">90s homepage</option>
+    <option value="win98">Windows 98</option>
+    <option value="xp">Windows XP</option>
+    <option value="mac9">Mac OS 9</option>
+  </select></label>
+  <label>Speed <input id="speed" type="range" min="1" max="20" step="1" value="1"><span id="speedv">1×</span></label>
   <label>Volume <input id="volume" type="range" min="0" max="100" step="5" value="100"></label>
   <label>Audio <select id="audio" title="How sounds are produced"><option value="gritty">Original, gritty</option><option value="smooth">Original, smooth</option><option value="modern">Modern</option></select></label>
-  <button id="fullscreen">Full screen <kbd>⇧F</kbd></button>
+  <button id="fullscreen" title="Full screen (Shift+F)">Full screen</button>
   <button id="new-spider">New spider</button>
-  <label>Debug <kbd>⇧D</kbd> <input id="debug" type="checkbox"></label>
+  <label title="Debug overlay (Shift+D)">Debug <input id="debug" type="checkbox"></label>
   <a href="viewer.html" id="viewer-link" hidden>Animation viewer →</a>
 </div>
 <div class="cabinet">
+<div class="titlebar" aria-hidden="true"><span class="tb-icon"></span><span class="tb-text" id="tb-text">Virtual Creatures</span><span class="tb-btns"><i>_</i><i>□</i><i>×</i></span></div>
 <span class="leds"><i></i><i></i></span>
 <div class="stage" id="stage">
   <div class="screen">
@@ -183,6 +203,9 @@
 </div>
 <div class="foot"><span class="grill"></span><span class="plate" id="plate">SPIDER TANK</span><span class="grill"></span></div>
 </div>
+<div class="taskbar" aria-hidden="true"><span class="start"><svg width="16" height="14" viewBox="0 0 16 14"><path fill="#f25022" d="M0 0h7v6H0z"/><path fill="#7fba00" d="M8 0h8v6H8z"/><path fill="#00a4ef" d="M0 7h7v7H0z"/><path fill="#ffb900" d="M8 7h8v7H8z"/></svg>start</span>
+  <span class="task">Virtual Creatures</span><span class="clock"></span></div>
+<div class="menubar" aria-hidden="true"><span>File</span><span>Edit</span><span>View</span><span>Special</span><span>Help</span><span class="clock"></span></div>
 <div id="status" class="dbg"></div>
 <div class="debug">
   <pre id="debug-panel" class="dbg"></pre>
@@ -190,19 +213,36 @@
 </div>
 <script>
   // Room for the settings below the tank? Only where they'd fold (up to
-  // 1224 px wide), and only if the tank keeps its full width: its height,
-  // the cabinet round it, the settings as a column (BAR_H) and the gaps.
+  // 1224 px wide), and only if the tank keeps its full width: the stacked
+  // layout is tried, and kept if the page doesn't overflow (whatever the
+  // page style puts round it).
   (() => {
     const fold = matchMedia("(max-width: 1224px), (max-height: 600px)");
-    const bezel = matchMedia("(max-width: 760px), (max-height: 600px)");
-    const BAR_H = 215; // measured; the cabinet adds 67 px, the thin bezel 8
+    const root = document.documentElement;
     const layout = () => {
-      const w = Math.min(960, innerWidth - (bezel.matches ? 20 : 72));
-      const need = w * 3 / 4 + (bezel.matches ? 8 : 70) + BAR_H + (bezel.matches ? 28 : 56);
-      document.body.classList.toggle("room-below", fold.matches && innerHeight >= need);
+      const b = document.body;
+      b.classList.toggle("room-below", fold.matches);
+      if (fold.matches && root.scrollHeight > innerHeight) b.classList.remove("room-below");
     };
     layout();
     addEventListener("resize", layout);
+
+    // the page style
+    const theme = document.getElementById("theme");
+    theme.value = root.dataset.theme;
+    if (theme.value !== root.dataset.theme) root.dataset.theme = theme.value = "cabinet";
+    theme.onchange = () => {
+      root.dataset.theme = theme.value;
+      try { localStorage.setItem("vc-theme", theme.value); } catch {}
+      layout();
+    };
+    // the taskbar's clock
+    const clock = () => {
+      const t = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      for (const c of document.querySelectorAll(".clock")) c.textContent = t;
+    };
+    clock();
+    setInterval(clock, 15_000);
   })();
 </script>
 <script src="odin.js"></script>
