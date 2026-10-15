@@ -190,7 +190,7 @@ HELP := [HELP_LINES]Line {
 
 CREDITS := [CREDIT_LINES]Line {
 	// the browser port first
-	{"Browser Port", 2, true, 0, 0, 0}, {"Oswald Capriles", 0, true, 0, 0, 0},
+	{"Browser Port", 2, true, 0, 0, 0}, {"Oswaldo Capriles", 0, true, 0, 0, 0},
 	{"Support the project here", 0, true, 3, 0, 0}, {},
 	{"Rescued from the original Windows release: the", 0, false, 0, 0, 0},
 	{"program and its data were reverse engineered", 0, false, 0, 0, 0},
