@@ -348,8 +348,9 @@ draw_bottom :: proc(c: ^Creature) -> int {
 
 // Frame rate setting (Options > Settings): the original runs the whole
 // game step once per frame, every 100, 71 or 55 ms (10, 14 or 18 fps,
-// table at 0x4525e0, default 14). Smooth draws every display frame and
-// slides creatures and the viewfinder between steps (port only).
+// table at 0x4525e0, default 14; the port's default is 18). Smooth draws
+// every display frame and slides creatures and the viewfinder between
+// steps (port only).
 FRAME_MS := [3]int{100, 71, 55}
 settings := struct {
 	frame_rate: int,
@@ -359,7 +360,7 @@ settings := struct {
 	help_text:  bool, // flyover help (tooltips)
 	saver_idle: int,  // port: index into SAVER_IDLE, 0 = never
 } {
-	frame_rate = 1,
+	frame_rate = 2, // port: 18 fps (the original's default is 14)
 	smooth     = true,
 	sound      = true,
 	help_text  = true,

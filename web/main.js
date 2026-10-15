@@ -698,7 +698,7 @@ function setupTank() {
 	let soundOn = true;
 	try { soundOn = localStorage.getItem("vc-sound") !== "off"; } catch {}
 	sound.setOn(soundOn);
-	let st = { rate: 1, smooth: true, helpText: true, idle: 0 };
+	let st = { rate: 2, smooth: true, helpText: true, idle: 0 }; // rate 2: 18 fps
 	try { st = { ...st, ...JSON.parse(localStorage.getItem("vc-settings") ?? "{}") }; } catch {}
 	const pushState = () => mem.exports.tank_set_host_state(sound.on ? 1 : 0, document.fullscreenElement ? 1 : 0, st.helpText ? 1 : 0);
 	pushState();

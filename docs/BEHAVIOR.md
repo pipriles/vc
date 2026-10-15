@@ -570,7 +570,7 @@ Crickets: random sequence with frames in the current direction.
 - The whole game step (creatures, UI, cursor, scrolling) runs once per
   frame, every 100, 71 or 55 ms (10 / 14 / 18 fps, table 0x4525e0,
   default 14); needs and time use real milliseconds. The port adds a
-  smooth option that draws between steps.
+  smooth option that draws between steps, and starts at 18 fps.
 - Right button released in the tank view (0x205): over a button (when
   shown) or an indicator → the Options box's help page at that item
   (0x4065b0 gives the top line); elsewhere → the tools command: with the
