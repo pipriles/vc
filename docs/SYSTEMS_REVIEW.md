@@ -261,8 +261,12 @@ page warns in the console and keeps a copy as `vc-save-<variant>-unusable`.
 
 - **D13 (fixed): what each creature is doing is kept**: sequence, frame,
   plays, bounces, holds, pause, goal (with its elapsed time), eating, the
-  target, and which crickets are stuck in webs. The queue isn't kept (the
-  original didn't either).
+  target, which crickets are stuck in webs, and (port) the queue: the
+  original didn't keep it, but only loaded at start-up, where its catch-up
+  put a spider up on the back wall under the rock again. The port loads on
+  every page load; without the queue, a spider saved while coming out from
+  under the rock lost its walk down and was stuck up there, unpickable. A
+  spider coming out with nothing queued now walks down anyway.
 
 ## Systems not ported
 

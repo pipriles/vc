@@ -31,6 +31,14 @@ Save_Anim :: struct {
 	moving_x, moving_y:   bool,
 	goal:                 Goal,
 	goal_since_ms:        u32, // goal.start_ms as time since then
+	// port: what's queued after the current sequence. The original didn't
+	// keep it, but loaded only at start-up, where its catch-up put a spider
+	// up on the back wall under the rock again; the port loads on every page
+	// load, and without the queue a spider saved while coming out from under
+	// the rock lost its walk down and stayed up on the back wall
+	queue:                [QUEUE_LEN]Queued,
+	queue_len:            int,
+	queue_busy:           bool,
 }
 
 snapshot_anim :: proc(c: ^Creature) -> Save_Anim {
@@ -42,6 +50,7 @@ snapshot_anim :: proc(c: ^Creature) -> Save_Anim {
 		run = c.run, eating = c.eating, target_id = c.target_id,
 		moving_x = c.moving_x, moving_y = c.moving_y,
 		goal = c.goal,
+		queue = c.queue, queue_len = c.queue_len, queue_busy = c.queue_busy,
 	}
 	if c.goal.active do a.goal_since_ms = now_ms - c.goal.start_ms
 	return a
@@ -63,6 +72,15 @@ restore_anim :: proc(c: ^Creature, a: Save_Anim) {
 	c.moving_x, c.moving_y = a.moving_x, a.moving_y
 	c.goal = a.goal
 	if c.goal.active do c.goal.start_ms = now_ms - min(a.goal_since_ms, now_ms)
+	// the queue, keeping only entries that exist for this animation
+	c.queue, c.queue_len = a.queue, 0
+	for i in 0 ..< clamp(a.queue_len, 0, QUEUE_LEN) {
+		q := a.queue[i]
+		if q.seq < 0 || q.seq >= len(c.anim.seqs) do continue
+		c.queue[c.queue_len] = q
+		c.queue_len += 1
+	}
+	c.queue_busy = a.queue_busy
 }
 
 Save_Object :: struct {

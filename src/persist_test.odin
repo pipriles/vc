@@ -204,3 +204,41 @@ save_status_tells_an_unusable_save :: proc(t: ^testing.T) {
 	testing.expect_value(t, save_status, Save_Status.Wrong_Version)
 	saved_json = ""
 }
+
+// Saved while coming out from under the rock (walking left up on the back
+// wall, the walk down queued): loaded, it still comes down onto the floor.
+@(test)
+coming_out_survives_a_reload :: proc(t: ^testing.T) {
+	if !sim_setup(t, 7) do return
+	s := &game.spider
+	s.size = 44
+	put_under_rock(s)
+	s.hide = 2
+	spider_idle_hidden(s)
+	for _ in 0 ..< 60 do tank_tick() // partway along the left walk
+	testing.expect(t, s.hide == 3 && s.queue_len == 1, "walking out, the walk down queued")
+	tank_save()
+	tank_reset()
+	testing.expect(t, load_game(), "loaded")
+	testing.expect_value(t, s.queue_len, 1)
+	down := -1
+	for i in 0 ..< 600 {
+		tank_tick()
+		if s.hide == 0 {down = i; break}
+	}
+	testing.expectf(t, down >= 0 && s.y >= FLOOR_TOP, "on the floor within a minute (after %d ticks, y %d)", down, s.y)
+
+	// and with the walk down lost anyway (an older save, loaded partway
+	// along the left walk): it still comes down
+	put_under_rock(s)
+	s.hide = 2
+	spider_idle_hidden(s)
+	for _ in 0 ..< 60 do tank_tick()
+	clear_queue(s)
+	down = -1
+	for i in 0 ..< 600 {
+		tank_tick()
+		if s.hide == 0 {down = i; break}
+	}
+	testing.expectf(t, down >= 0 && s.y >= FLOOR_TOP, "down without the queue too (after %d ticks, y %d)", down, s.y)
+}

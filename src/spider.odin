@@ -294,6 +294,17 @@ spider_idle_hidden :: proc(c: ^Creature) {
 		debug_logf("hidden: coming out")
 		return
 	}
+	// port: coming out (3) with nothing left queued, still up on the back
+	// wall (a walk lost, as in a save from before the queue was kept): the
+	// walk down, as queued when coming out
+	if c.hide == 3 && c.queue_len == 0 {
+		c.hide = 2 // (queueing up there takes coming out, as above)
+		enqueue_anim(c, ids.walk, rand_n(10) > 4 ? 4 : 5, 12, flush = true)
+		c.hide = 3
+		c.seq = ids.lurk
+		debug_logf("hidden: coming out, down to the floor")
+		return
+	}
 	if c.hide == 1 {
 		clear_queue(c)
 		clear_goal(c)
