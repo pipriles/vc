@@ -254,6 +254,17 @@ function presentText() {
 fitText();
 addEventListener("resize", fitText);
 document.addEventListener("fullscreenchange", fitText);
+document.addEventListener("webkitfullscreenchange", fitText);
+
+// iPhones zoom in on a double tap even with touch-action set: the second of
+// two quick taps is cancelled (text boxes, menus and sliders keep theirs).
+// The game reads pointer events, which come before this, so it still sees
+// both taps.
+let lastTouchEnd = 0;
+document.addEventListener("touchend", (e) => {
+	if (e.timeStamp - lastTouchEnd < 350 && !e.target.closest?.("input, select, textarea")) e.preventDefault();
+	lastTouchEnd = e.timeStamp;
+}, { passive: false });
 if (textShown) new ResizeObserver(fitText).observe(textShown);
 // Options box fonts by GDI cell height: Arial bold 18, bold 12, bold italic 16
 // (font 2 is the tooltip font, 0x4526b8: created bold, but footage of the
@@ -669,10 +680,30 @@ function setSound(on) {
 }
 
 // Full screen: the stage (view and dialogs), scaled to fit.
-function toggleFullscreen() {
+// Full screen. iPhones (Brave and every other browser there uses Safari's
+// engine) give a page no full screen, only video: there the stage fills the
+// browser window instead (body.fill), the page's frame and toolbar hidden.
+// For no browser bars at all, add the page to the home screen.
+const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || document.body.classList.contains("fill");
+function setFill(on) {
+	if (document.body.classList.contains("fill") === on) return;
+	document.body.classList.toggle("fill", on);
+	document.dispatchEvent(new Event("fullscreenchange")); // the same follow-ups as the real thing
+}
+function enterFullscreen() {
 	const stage = $("stage");
+	if (document.fullscreenEnabled && stage.requestFullscreen) stage.requestFullscreen().catch(() => setFill(true));
+	else if (document.webkitFullscreenEnabled && stage.webkitRequestFullscreen) stage.webkitRequestFullscreen();
+	else setFill(true);
+}
+function exitFullscreen() {
 	if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-	else stage.requestFullscreen?.().catch(() => {});
+	else if (document.webkitFullscreenElement) document.webkitExitFullscreen?.();
+	setFill(false);
+}
+function toggleFullscreen() {
+	if (isFull()) exitFullscreen();
+	else enterFullscreen();
 }
 
 // The creature's state as text (shown with the debug tools).
@@ -731,12 +762,13 @@ function setupTank() {
 	sound.setOn(soundOn);
 	let st = { rate: 2, smooth: true, helpText: true, idle: 0 }; // rate 2: 18 fps
 	try { st = { ...st, ...JSON.parse(localStorage.getItem("vc-settings") ?? "{}") }; } catch {}
-	const pushState = () => mem.exports.tank_set_host_state(sound.on ? 1 : 0, document.fullscreenElement ? 1 : 0, st.helpText ? 1 : 0);
+	const pushState = () => mem.exports.tank_set_host_state(sound.on ? 1 : 0, isFull() ? 1 : 0, st.helpText ? 1 : 0);
 	pushState();
 	mem.exports.tank_set_frame_rate(st.rate, st.smooth ? 1 : 0);
 	mem.exports.tank_set_saver_idle(st.idle);
 	window.vcSettingsChanged = (next) => { st = next; };
 	document.addEventListener("fullscreenchange", pushState);
+	document.addEventListener("webkitfullscreenchange", pushState);
 	mem.exports.tank_set_variant(variant === "rk" ? 1 : 0);
 	mem.exports.tank_intro(); // the opening sequence
 	canvas.addEventListener("pointerdown", () => mem.exports.tank_skip_intro()); // port: a tap skips it too
@@ -759,14 +791,14 @@ function setupTank() {
 		saverSince = Date.now();
 		stage.classList.add("saver");
 		mem.exports.tank_set_saver(1);
-		if (full && !document.fullscreenElement) stage.requestFullscreen?.().catch(() => {});
+		if (full && !isFull()) enterFullscreen();
 	};
 	const stopSaver = () => {
 		if (!saverOn) return;
 		saverOn = false;
 		stage.classList.remove("saver");
 		mem.exports.tank_set_saver(0);
-		if (saverFull && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+		if (saverFull && isFull()) exitFullscreen();
 	};
 	window.vcStartSaver = startSaver;
 	const onInput = (e) => {
