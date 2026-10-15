@@ -11,11 +11,42 @@ const params = new URLSearchParams(location.search);
 const variant = params.get("v") ?? "cr";
 const base = `data/${variant}/`;
 
+// Loading: a bar over the screen while the data files come in (about
+// 17 MB a variant; the manifest has the total).
+const loader = $("loader");
+const showLoading = (frac, text) => {
+	if (!loader) return;
+	$("loader-fill").style.width = `${Math.round(Math.min(frac, 1) * 100)}%`;
+	$("loader-text").textContent = text ?? `Loading... ${Math.floor(Math.min(frac, 1) * 100)}%`;
+};
 const manifest = await fetch(base + "manifest.json").then((r) => r.json());
 const files = new Map();
+let loaded = 0;
+const total = manifest.bytes || 1;
 await Promise.all(manifest.files.map(async (name) => {
 	const r = await fetch(base + name);
-	if (r.ok) files.set(name, new Uint8Array(await r.arrayBuffer()));
+	if (!r.ok) return;
+	if (!r.body) {
+		const b = new Uint8Array(await r.arrayBuffer());
+		loaded += b.length;
+		showLoading(loaded / total);
+		return files.set(name, b);
+	}
+	// read in pieces, so the bar moves during the big files
+	const parts = [];
+	let n = 0;
+	for (const reader = r.body.getReader(); ;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		parts.push(value);
+		n += value.length;
+		loaded += value.length;
+		showLoading(loaded / total);
+	}
+	const b = new Uint8Array(n);
+	let at = 0;
+	for (const p of parts) { b.set(p, at); at += p.length; }
+	files.set(name, b);
 }));
 
 // the saved game (one per variant) is offered to the game as save.json
@@ -56,7 +87,10 @@ const sound = {
 	volume: 1,
 	gain: null,
 	unlock() {
-		if (this.ctx) return;
+		if (this.ctx) {
+			if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); // made before a click
+			return;
+		}
 		const original = this.mode !== "modern";
 		this.ctx = this.mode === "smooth" ? new AudioContext({ sampleRate: 11025 }) : new AudioContext();
 		this.gain = this.ctx.createGain();
@@ -739,22 +773,67 @@ function setupTank() {
 		};
 	}
 
-	// pet name (kept in this browser until saving exists)
+	// pet name, kept in this browser; edited in the tank (click it, or tap
+	// it on a phone)
+	const NAME_MAX = 23; // the game's buffer
+	let petName = "ENTER PETS NAME HERE"; // a new pet's
+	const storeName = (name) => {
+		petName = name;
+		try { localStorage.setItem("vc-name", name); } catch {}
+	};
 	const setName = (name) => {
 		mem.exports.tank_name_clear();
-		for (const ch of name.toUpperCase()) mem.exports.tank_name_char(ch.charCodeAt(0));
-		try { localStorage.setItem("vc-name", name); } catch {}
+		for (const ch of name) mem.exports.tank_name_char(ch.charCodeAt(0));
+		storeName(name);
 	};
 	let savedName = "";
 	try { savedName = localStorage.getItem("vc-name") ?? ""; } catch {}
-	$("pet-name").value = savedName;
-	if (savedName) setName(savedName); // else the new pet's "ENTER PETS NAME HERE"
-	window.vcNameChanged = (name) => {
-		$("pet-name").value = name;
-		try { localStorage.setItem("vc-name", name); } catch {}
+	if (savedName) setName(savedName.toUpperCase().slice(0, NAME_MAX));
+	window.vcNameChanged = storeName;
+
+	// Touch: a phone has no keys to send, so a tap on the name focuses a
+	// hidden text box, which brings up the keyboard. Its text and cursor go
+	// to the in-game editor as they change (inserting, as phones do, where
+	// the original overwrites); Enter, Done or a tap elsewhere ends it.
+	const nameBox = $("name-box");
+	const cleanName = (v) => v.toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, NAME_MAX);
+	let nameWatch = 0;
+	const nameToGame = () => {
+		const v = cleanName(nameBox.value);
+		if (v !== petName) setName(v);
+		mem.exports.tank_name_edit(1, Math.min(nameBox.selectionStart ?? v.length, v.length));
 	};
-	$("pet-name").oninput = () => setName($("pet-name").value);
-	const setNameEverywhere = (name) => { $("pet-name").value = name; setName(name); };
+	const tidyNameBox = () => {
+		// what the game can show: capitals, digits and spaces
+		const v = cleanName(nameBox.value);
+		if (v === nameBox.value) return;
+		const at = cleanName(nameBox.value.slice(0, nameBox.selectionStart ?? 0)).length;
+		nameBox.value = v;
+		nameBox.setSelectionRange(at, at);
+	};
+	nameBox.addEventListener("input", (e) => {
+		if (!e.isComposing) tidyNameBox(); // not mid-word on a predictive keyboard
+		nameToGame();
+	});
+	nameBox.addEventListener("compositionend", () => { tidyNameBox(); nameToGame(); });
+	document.addEventListener("selectionchange", () => { if (document.activeElement === nameBox) nameToGame(); });
+	nameBox.addEventListener("keydown", (e) => {
+		if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); nameBox.blur(); }
+	});
+	nameBox.addEventListener("blur", () => {
+		clearInterval(nameWatch);
+		mem.exports.tank_name_edit(0, 0);
+	});
+	const editName = () => {
+		nameBox.value = petName;
+		nameBox.focus({ preventScroll: true });
+		nameBox.select(); // typing replaces it, as with "ENTER PETS NAME HERE"
+		mem.exports.tank_name_edit(1, 0);
+		// the game ends editing on a tap elsewhere (or a view change): the
+		// keyboard goes too
+		clearInterval(nameWatch);
+		nameWatch = setInterval(() => { if (!mem.exports.tank_name_editing()) nameBox.blur(); }, 250);
+	};
 
 	// pointer events in canvas pixels
 	const toCanvas = (e) => {
@@ -857,10 +936,9 @@ function setupTank() {
 				mem.exports.tank_pointer(0, x, y); // hover: its tooltip
 				uiTouch = { kind, x, y, at: [e.clientX, e.clientY], long: false };
 				if (kind === 3) {
-					// the name: no keyboard on a phone, so a text box
-					uiTouch = null;
-					const name = prompt("Your pet's name", $("pet-name").value);
-					if (name !== null) { setNameEverywhere(name.toUpperCase().slice(0, 23)); }
+					// the name: edited on lifting (no mouse events after, which
+					// would take the focus from the text box)
+					e.preventDefault();
 					return;
 				}
 				uiTouch.timer = setTimeout(() => {
@@ -893,7 +971,8 @@ function setupTank() {
 				const t = uiTouch;
 				uiTouch = null;
 				clearTimeout(t.timer);
-				if (!t.long && e.type === "pointerup") {
+				if (!t.long && e.type === "pointerup" && t.kind === 3) editName();
+				else if (!t.long && e.type === "pointerup") {
 					mem.exports.tank_pointer(1, t.x, t.y);
 					mem.exports.tank_pointer(2, t.x, t.y);
 				}
@@ -952,5 +1031,30 @@ $("variant").value = variant;
 if (params.has("dev") && $("viewer-link")) $("viewer-link").hidden = false;
 $("variant").onchange = () => { location.search = `?v=${$("variant").value}`; };
 
+// Browsers keep a page silent until it's clicked, which would lose the
+// opening's sound: when that's so (and sound is on), a Start button waits
+// for the click first.
+if (loader) {
+	let soundOn = true;
+	try { soundOn = localStorage.getItem("vc-sound") !== "off"; } catch {}
+	if (mode === 0 && soundOn) {
+		sound.unlock();
+		// a context the browser lets play may report it a moment later
+		if (sound.ctx && sound.ctx.state !== "running") {
+			await new Promise((resolve) => { sound.ctx.onstatechange = resolve; setTimeout(resolve, 300); });
+			sound.ctx.onstatechange = null;
+		}
+		if (sound.ctx?.state !== "running") {
+			showLoading(1, "Ready.");
+			const start = $("loader-start");
+			start.hidden = false;
+			start.focus({ preventScroll: true });
+			await new Promise((resolve) => { start.onclick = resolve; });
+			start.hidden = true;
+		}
+	}
+	showLoading(1, "Starting...");
+}
 await odin.runWasm("vc.wasm", null, imports, mem);
+loader?.remove();
 if (mode === 1) setupViewer(); else setupTank();

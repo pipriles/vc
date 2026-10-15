@@ -74,42 +74,69 @@
   html, body { overscroll-behavior: none; }
   body { touch-action: manipulation; }
   .stage { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  /* loading: a dialog of the game's day (Windows 2000) on the black screen,
+     sized with the view */
+  .loader { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; background: #000;
+    color: #000; font: max(11px, calc(var(--w) * 11 / 640))/1.3 Tahoma, Verdana, "MS Sans Serif", sans-serif; }
+  .win { width: 24em; padding: 0.25em; background: #d4d0c8; border: 1px solid;
+    border-color: #d4d0c8 #404040 #404040 #d4d0c8; box-shadow: inset 1px 1px #fff, inset -1px -1px #808080; }
+  .win-title { padding: 0.2em 0.4em; color: #fff; font-weight: bold; background: linear-gradient(90deg, #0a246a, #a6caf0); }
+  .win-body { padding: 0.9em 0.8em 0.8em; }
+  .win-body p { margin: 0 0 0.6em; }
+  .win-track { height: 1.4em; padding: 0.15em; border: 1px solid; border-color: #808080 #fff #fff #808080;
+    box-shadow: inset 1px 1px #404040; }
+  #loader-fill { width: 0; height: 100%; background: repeating-linear-gradient(90deg, #0a246a 0 0.55em, transparent 0.55em 0.75em); }
+  .loader .win-button, .loader .win-button:hover { display: block; min-width: 6.5em; margin: 0.9em auto 0; padding: 0.25em 1em;
+    font: inherit; color: #000; background: #d4d0c8; border: 1px solid; border-radius: 0;
+    border-color: #fff #404040 #404040 #fff; box-shadow: inset -1px -1px #808080; }
+  .loader .win-button:active { border-color: #404040 #fff #fff #404040; box-shadow: inset 1px 1px #808080; }
+  .loader .win-button:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+  .loader .win-button[hidden] { display: none; }
+  /* the pet's name on a phone: a text box for the keyboard, out of sight
+     (16 px, or iOS zooms in on it) */
+  .name-box { position: absolute; left: 0; top: 0; width: 1px; height: 1px; padding: 0; border: 0;
+    opacity: 0; font-size: 16px; pointer-events: none; }
   #finger { position: absolute; pointer-events: none; image-rendering: pixelated; z-index: 2; }
   .gear { display: none; }
 
-  /* small screens: the settings fold into a gear button, the cabinet becomes
-     a thin bezel and the tank takes the room there is: full width at the
-     top in portrait, the full height in landscape */
+  /* up to 1224 px wide the settings would wrap onto a second row: they fold
+     into a gear button, or, where the height allows the tank at full width
+     with the settings below it, they go there (body.room-below, set by the
+     script at the end of the page), the two centred together */
+  @media (max-width: 1224px), (max-height: 600px) {
+    :root { --w: min(960px, calc(100vw - 72px), calc((100dvh - 130px) * 4 / 3)); }
+    .gear { display: grid; place-items: center; position: fixed; z-index: 30; width: 38px; height: 38px; padding: 0;
+      top: calc(8px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right));
+      font-size: 20px; border-radius: 50%; background: rgb(30 31 34 / 0.85); }
+    .bar { display: none; position: fixed; z-index: 29; right: calc(8px + env(safe-area-inset-right));
+      top: calc(54px + env(safe-area-inset-top)); width: min(360px, calc(100vw - 16px));
+      max-height: calc(100dvh - 70px); overflow: auto; flex-direction: column; align-items: stretch; }
+    body.bar-open .bar { display: flex; }
+    .bar label { justify-content: space-between; }
+    .bar input[type=range] { flex: 1; }
+    .bar kbd { display: none; }
+    body.room-below { --w: min(960px, calc(100vw - 72px)); justify-content: center; }
+    body.room-below .cabinet { order: 0; margin: 0; }
+    body.room-below .gear { display: none; }
+    body.room-below .bar { display: flex; position: static; order: 1; width: calc(var(--w) + 38px); max-height: none; }
+    body.room-below #status, body.room-below .debug { order: 3; }
+  }
+  /* small screens: the cabinet becomes a thin bezel and the tank takes the
+     room there is: full width in portrait, the full height in landscape */
   @media (max-width: 760px), (max-height: 600px) {
-    :root { --w: min(960px, calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)),
+    :root, body.room-below { --w: min(960px, calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)),
       calc((100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 4 / 3)); }
     body { padding: calc(6px + env(safe-area-inset-top)) calc(6px + env(safe-area-inset-right))
       calc(6px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left)); gap: 8px; }
     .cabinet { margin: 0; padding: 4px; border-radius: 10px; box-shadow: inset 0 1px 0 #ffffff40, 0 8px 24px #000c; }
     .cabinet::before, .cabinet::after, .leds, .foot { display: none; }
     .stage { margin-top: 0; }
-    .gear { display: grid; place-items: center; position: fixed; z-index: 30; width: 38px; height: 38px; padding: 0;
-      top: calc(8px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right));
-      font-size: 20px; border-radius: 50%; background: rgb(30 31 34 / 0.85); }
-    .bar { display: none; position: fixed; z-index: 29; left: 8px; right: 8px; top: calc(54px + env(safe-area-inset-top));
-      max-height: calc(100dvh - 70px); overflow: auto; flex-direction: column; align-items: stretch; }
-    body.bar-open .bar { display: flex; }
-    .bar label { justify-content: space-between; }
-    .bar input[type=range] { flex: 1; }
-    .bar kbd { display: none; }
+    body.room-below .bar { width: calc(var(--w) + 10px); }
   }
-  /* room below the tank (portrait, or nearly square): the gear and the
-     settings go below it */
-  @media (max-width: 760px) and (max-aspect-ratio: 5/4), (max-height: 600px) and (max-aspect-ratio: 5/4) {
-    .cabinet { order: 0; }
-    .gear, body.bar-open .gear { display: none; }
-    .bar, body.bar-open .bar { display: flex; position: static; order: 1; width: calc(var(--w) + 10px); max-height: none; }
-    #status, .debug { order: 3; }
-  }
-  /* room beside the tank (landscape): the gear floats at the left */
+  /* no room below in landscape: the gear floats at the left of the tank */
   @media (max-width: 760px) and (min-aspect-ratio: 5/4), (max-height: 600px) and (min-aspect-ratio: 5/4) {
     .gear { right: auto; left: calc(8px + env(safe-area-inset-left)); }
-    .bar { right: auto; width: min(360px, calc(100vw - 16px)); }
+    .bar { right: auto; left: calc(8px + env(safe-area-inset-left)); }
   }
 </style>
 </head>
@@ -121,7 +148,6 @@
   <label>Volume <input id="volume" type="range" min="0" max="100" step="5" value="100"></label>
   <label>Audio <select id="audio" title="How sounds are produced"><option value="gritty">Original, gritty</option><option value="smooth">Original, smooth</option><option value="modern">Modern</option></select></label>
   <button id="fullscreen">Full screen <kbd>⇧F</kbd></button>
-  <label>Name <input id="pet-name" maxlength="20" size="12" placeholder="ENTER PETS NAME HERE"></label>
   <button id="new-spider">New spider</button>
   <label>Debug <kbd>⇧D</kbd> <input id="debug" type="checkbox"></label>
   <a href="viewer.html" id="viewer-link" hidden>Animation viewer →</a>
@@ -134,6 +160,18 @@
     <canvas id="ui-text" width="640" height="480"></canvas>
     <canvas id="overlay" width="640" height="480"></canvas>
     <img id="finger" alt="" hidden>
+    <div id="loader" class="loader">
+      <div class="win">
+        <div class="win-title">Virtual Creatures</div>
+        <div class="win-body">
+          <p id="loader-text">Loading...</p>
+          <div class="win-track"><div id="loader-fill"></div></div>
+          <button id="loader-start" class="win-button" hidden>Start</button>
+        </div>
+      </div>
+    </div>
+    <input id="name-box" class="name-box" maxlength="23" autocomplete="off" autocorrect="off"
+      autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Pet's name">
   </div>
   <div id="message" class="message" hidden>
     <div class="message-box">
@@ -150,6 +188,23 @@
   <pre id="debug-panel" class="dbg"></pre>
   <pre id="debug-log" class="dbg"></pre>
 </div>
+<script>
+  // Room for the settings below the tank? Only where they'd fold (up to
+  // 1224 px wide), and only if the tank keeps its full width: its height,
+  // the cabinet round it, the settings as a column (BAR_H) and the gaps.
+  (() => {
+    const fold = matchMedia("(max-width: 1224px), (max-height: 600px)");
+    const bezel = matchMedia("(max-width: 760px), (max-height: 600px)");
+    const BAR_H = 215; // measured; the cabinet adds 67 px, the thin bezel 8
+    const layout = () => {
+      const w = Math.min(960, innerWidth - (bezel.matches ? 20 : 72));
+      const need = w * 3 / 4 + (bezel.matches ? 8 : 70) + BAR_H + (bezel.matches ? 28 : 56);
+      document.body.classList.toggle("room-below", fold.matches && innerHeight >= need);
+    };
+    layout();
+    addEventListener("resize", layout);
+  })();
+</script>
 <script src="odin.js"></script>
 <script src="gdifont.js"></script>
 <script type="module" src="main.js"></script>

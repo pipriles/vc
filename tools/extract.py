@@ -201,7 +201,9 @@ def main():
         write(f"{out}/palette.bin", palette)
         files.append("palette.bin")
 
-        manifest = {"files": files, "anims": anims, "sounds": sorted(sounds),
+        # bytes: the files' total size, for the page's loading bar
+        manifest = {"files": files, "bytes": sum(os.path.getsize(f"{out}/{f}") for f in files),
+                    "anims": anims, "sounds": sorted(sounds),
                     "cursors": {k: cursors[k] for k in sorted(cursors)}}
         write(f"{out}/manifest.json", json.dumps(manifest, indent=1).encode())
         print(variant, "anims:", anims, "sounds:", len(sounds))

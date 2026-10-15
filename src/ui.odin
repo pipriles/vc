@@ -574,6 +574,17 @@ tank_key :: proc "c" (code: i32) {
 @(export)
 tank_name_editing :: proc "contextless" () -> i32 {return game.ui.name_edit ? 1 : 0}
 
+// Port, touch: a phone sends no key presses, so the page edits the name in
+// a hidden text box (the name itself goes through tank_name_clear and
+// tank_name_char); this starts or ends the in-game editing and puts the
+// edit position where the box's cursor is.
+@(export)
+tank_name_edit :: proc "contextless" (on, caret: i32) {
+	u := &game.ui
+	u.name_edit = on != 0
+	u.caret = clamp(int(caret), 0, min(u.name_len, NAME_MAX - 1))
+}
+
 // Rows [sy, sy+h) of a bitmap scaled to scale% and centred in w x h at (x0, y0).
 draw_scaled_part :: proc(b: ^Bitmap, x0, y0, w, h, sy, scale: int) {
 	dw, dh := x87_scale_trunc(w, scale), x87_scale_trunc(h, scale)
