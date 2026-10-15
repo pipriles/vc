@@ -21,6 +21,9 @@
     /* what a page style's decorations take (themes.css) */
     --chrome-v: 0px; --chrome-top: 0px; --chrome-bottom: 0px; }
   * { box-sizing: border-box; }
+  /* no text autosizing (iPhones enlarge some text when the layout's width
+     changes, as Wide does) */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   /* 100dvh: the visible viewport (100vh on phones counts the space under
      the browser's toolbars too) */
   body { margin: 0; min-height: 100vh; min-height: 100dvh; color: var(--fg);

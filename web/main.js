@@ -703,9 +703,13 @@ function setFill(on) {
 	document.body.classList.toggle("fill", on);
 	document.dispatchEvent(new Event("fullscreenchange")); // the same follow-ups as the real thing
 }
+// (iPhones always fill the window: Brave there offers WebKit's prefixed full
+// screen, which half-works on a phone and skips the page's :fullscreen rules)
+const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 function enterFullscreen() {
 	const stage = $("stage");
-	if (document.fullscreenEnabled && stage.requestFullscreen) stage.requestFullscreen().catch(() => setFill(true));
+	if (isIPhone) setFill(true);
+	else if (document.fullscreenEnabled && stage.requestFullscreen) stage.requestFullscreen().catch(() => setFill(true));
 	else if (document.webkitFullscreenEnabled && stage.webkitRequestFullscreen) stage.webkitRequestFullscreen();
 	else setFill(true);
 }
