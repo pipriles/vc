@@ -184,8 +184,12 @@ const sound = {
 };
 try { sound.mode = localStorage.getItem("vc-audio") ?? "gritty"; } catch {}
 window.vcSound = sound; // for debugging in the console
-addEventListener("pointerdown", () => sound.unlock(), { capture: true });
-addEventListener("keydown", () => sound.unlock(), { capture: true });
+// Sound may start (or resume) only from a user activation: a key, a mouse
+// button, or on a touch screen a finger lifting (pointerup / touchend; a
+// finger touching down doesn't count there, so iPhones need these).
+for (const type of ["pointerdown", "pointerup", "touchend", "click", "keydown"]) {
+	addEventListener(type, () => sound.unlock(), { capture: true });
+}
 const noop = () => {};
 // The text is drawn at 640 x 480 like the view (the original drew it with
 // GDI into its 8-bit frame: blocky, unsmoothed). Shown at a size that isn't
