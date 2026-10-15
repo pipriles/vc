@@ -68,6 +68,12 @@
   /* full screen where a page can't have it (iPhones): the stage fills the
      browser window */
   body.fill { overflow: hidden; }
+  /* everything but the tank out of sight, the page black: a browser that
+     keeps the stage out of the notch strips (Brave on iPhones) shows black
+     there, not the page */
+  :root[data-theme] body.fill { background: #000; }
+  body.fill * { visibility: hidden; }
+  body.fill .stage, body.fill .stage * { visibility: visible; }
   :root[data-theme] body.fill .stage { position: fixed; inset: 0; z-index: 35; display: grid; place-items: center; width: 100vw; height: 100dvh;
     margin: 0; border: 0; box-shadow: none; background: #000; }
   :root[data-theme] body.fill .stage .screen { width: min(100vw, calc(100dvh * var(--ar))); }
