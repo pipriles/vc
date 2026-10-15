@@ -39,3 +39,9 @@ Knee, and `viewer.html` for the animation viewer.
 
 Runs the native tests, then builds the wasm and smoke-tests it in Node.
 What the tests cover and how to keep them fast: `docs/TESTING.md`.
+
+## License
+
+The code is MIT licensed (see `LICENSE`). The game data in `data/` is from
+the original Virtual Creatures (© Global Beach Ltd., dissolved 2023) and is
+not covered by that license.
