@@ -1,5 +1,7 @@
 # Virtual Creatures
 
+[![Deploy](https://github.com/pipriles/vc/actions/workflows/deploy.yml/badge.svg)](https://github.com/pipriles/vc/actions/workflows/deploy.yml)
+
 Browser port of an old virtual pet tarantula game. Written in Odin, compiled to WebAssembly, drawn on a canvas.
 
 ## Requirements
