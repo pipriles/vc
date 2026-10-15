@@ -4,6 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Virtual Creatures</title>
+<meta name="description" content="A 1999 virtual pet tarantula, rescued from the original Windows game and rebuilt for the browser. Feed it, water it and watch it live in its tank.">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!-- as an app on the home screen: its name there, and the page drawn under
+     the status bar (the layout already pads for the safe areas) -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Virtual Creatures">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#08080a">
+<!-- link previews -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Virtual Creatures">
+<meta property="og:title" content="Virtual Creatures">
+<meta property="og:description" content="A 1999 virtual pet tarantula, rescued from the original Windows game and rebuilt for the browser. Feed it, water it and watch it live in its tank.">
+<meta property="og:url" content="https://vc.pipriles.xyz/">
+<meta property="og:image" content="https://vc.pipriles.xyz/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A Red Knee tarantula by its water bowl in the tank, with the game's gauges and buttons">
+<meta name="twitter:card" content="summary_large_image">
 <script>
   // the page style (themes.css), set before anything is drawn
   try { document.documentElement.dataset.theme = localStorage.getItem("vc-theme") || "cabinet"; }
@@ -27,7 +48,7 @@
   /* 100dvh: the visible viewport (100vh on phones counts the space under
      the browser's toolbars too) */
   body { margin: 0; min-height: 100vh; min-height: 100dvh; color: var(--fg);
-    padding: calc(12px + var(--chrome-top)) 16px calc(24px + var(--chrome-bottom)) 16px;
+    padding: calc(12px + var(--chrome-top) + env(safe-area-inset-top)) 16px calc(24px + var(--chrome-bottom) + env(safe-area-inset-bottom)) 16px;
     font: 13px/1.4 Verdana, Tahoma, system-ui, sans-serif;
     background: radial-gradient(ellipse 80% 60% at 50% 0%, #3a1d0c 0%, #140d0a 45%, #08080a 100%) fixed, #08080a;
     display: flex; flex-direction: column; align-items: center; gap: 14px; }
@@ -361,8 +382,13 @@
     const theme = document.getElementById("theme");
     theme.value = root.dataset.theme;
     if (theme.value !== root.dataset.theme) root.dataset.theme = theme.value = "cabinet";
+    // the browser's bar follows the page style's background
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    const tint = () => { themeColor.content = getComputedStyle(document.body).backgroundColor; };
+    tint();
     theme.onchange = () => {
       root.dataset.theme = theme.value;
+      tint();
       try { localStorage.setItem("vc-theme", theme.value); } catch {}
       layout();
     };
