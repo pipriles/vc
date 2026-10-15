@@ -24,6 +24,7 @@ python3 -I tools/extract.py "/path/to/installers" data
 ./build.sh                  # build/vc.wasm and the site in build/
 python3 -I tools/serve.py   # no-cache dev server on :8081
 ```
+
 Open http://127.0.0.1:8081/ for the Chile Rose tank, `?v=rk` for the Red
 Knee, and `viewer.html` for the animation viewer.
 

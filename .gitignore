@@ -2,3 +2,7 @@
 build/
 *.wasm
 .DS_Store
+
+# Test binaries (odin test) and macOS debug symbols
+src.bin
+*.dSYM/
