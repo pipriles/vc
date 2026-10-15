@@ -569,8 +569,10 @@ Crickets: random sequence with frames in the current direction.
 
 ## Wide view (port)
 The original's view is 640 x 480. The port can show a wider view, up to
-the whole tank (1200 x 480): automatically on a phone held sideways, and on
-other screens with the toolbar's Wide option. The tank shows more of
+the whole tank (1200 x 480), with the toolbar's Wide option. Turning a
+phone sideways (a touch screen in landscape, at most 500 px high) ticks it
+by itself; unticking it then lasts while it's sideways, and turned upright
+the viewer's own choice returns. The tank shows more of
 itself (scrolling, edge scrolling and dropped crickets use the width); the
 button row is centred, the indicators, logo and "C" mark keep to the right
 edge, the name to the left; the original's 640 x 480 screens (Options box,

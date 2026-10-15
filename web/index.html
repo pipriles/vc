@@ -163,10 +163,11 @@
     .stage { margin-top: 0; }
     body.room-below .bar { width: calc(var(--w) + 10px); }
   }
-  /* no room below in landscape: the gear floats at the left of the tank */
+  /* no room below in landscape: the gear at the right, in the middle of the
+     strip beside the tank (on a phone with a notch, the safe area the tank
+     keeps clear of), else in the corner */
   @media (max-width: 760px) and (min-aspect-ratio: 5/4), (max-height: 600px) and (min-aspect-ratio: 5/4) {
-    .gear { right: auto; left: calc(8px + env(safe-area-inset-left)); }
-    .bar { right: auto; left: calc(8px + env(safe-area-inset-left)); }
+    .gear { top: calc(6px + env(safe-area-inset-top)); right: max(2px, calc((env(safe-area-inset-right) + 10px - 38px) / 2)); }
   }
 
   /* settings folded: under the gear at the top right; settings below
@@ -232,10 +233,10 @@
   <label>Speed <input id="speed" type="range" min="1" max="20" step="1" value="1"><span id="speedv">1×</span></label>
   <label>Volume <input id="volume" type="range" min="0" max="100" step="5" value="100"></label>
   <label>Audio <select id="audio" title="How sounds are produced"><option value="gritty">Gritty</option><option value="smooth">Smooth</option><option value="modern">Modern</option></select></label>
+  <label title="Wide view: more of the tank on a wide screen (on by itself on a phone held sideways)">Wide <input id="wide" type="checkbox"></label>
   <button id="fullscreen" title="Full screen (Shift+F)">Full screen</button>
-  <label title="Wide view: more of the tank on a wide screen (always on a phone held sideways)">Wide <input id="wide" type="checkbox"></label>
-  <button id="new-spider">New spider</button>
   <label title="Debug overlay (Shift+D)">Debug <span class="dbg-toggle"><button id="debug-open" type="button">Show panel</button><input id="debug" type="checkbox"></span></label>
+  <button id="new-spider">New spider</button>
   <a href="viewer.html" id="viewer-link" hidden>Animation viewer →</a>
 </div>
 <div class="cabinet">
@@ -292,16 +293,20 @@
     const tools = document.getElementById("debug-tools"), home = tools.nextSibling;
     const bar = document.querySelector(".bar");
 
-    // The view's width: the original 640 x 480, or on a wide screen (a phone
-    // held sideways, or with Wide ticked) as wide as the room allows, up to
-    // the whole tank (1200); the height stays 480. --ar sizes the page, and
-    // the game hears of it (vc-view-width, main.js).
-    const sideways = matchMedia("(pointer: coarse) and (orientation: landscape)");
+    // The view's width: the original 640 x 480, or with Wide as wide as the
+    // room allows, up to the whole tank (1200); the height stays 480. --ar
+    // sizes the page, and the game hears of it (vc-view-width, main.js).
+    // Wide is the viewer's choice (kept), except on a phone held sideways (a
+    // touch screen in landscape, at most 500 px high): there it's on, unless
+    // unticked while it's sideways; turned back upright, the choice returns.
+    const sideways = matchMedia("(pointer: coarse) and (orientation: landscape) and (max-height: 500px)");
     const wide = document.getElementById("wide");
-    try { wide.checked = localStorage.getItem("vc-wide") === "1"; } catch {}
+    let wideChoice = false, sidewaysWide = null, wasSideways = false; // (null: on, not unticked)
+    try { wideChoice = localStorage.getItem("vc-wide") === "1"; } catch {}
+    const wideOn = () => sideways.matches ? sidewaysWide ?? true : wideChoice;
     window.vcViewWidth = 640;
     const viewWidth = () => {
-      if (!sideways.matches && !wide.checked) return 640;
+      if (!wideOn()) return 640;
       // the room for the screen, as the --w rules leave it
       const chrome = parseFloat(getComputedStyle(root).getPropertyValue("--chrome-v")) || 0;
       let w = innerWidth - 72, h = innerHeight - 250 - chrome;
@@ -312,6 +317,9 @@
     };
     const layout = () => {
       const b = document.body;
+      // each time it's turned sideways it starts wide
+      if (sideways.matches !== wasSideways) [wasSideways, sidewaysWide] = [sideways.matches, null];
+      wide.checked = wideOn();
       const vw = viewWidth();
       if (vw !== window.vcViewWidth) {
         window.vcViewWidth = vw;
@@ -331,9 +339,14 @@
     addEventListener("resize", layout);
     document.addEventListener("fullscreenchange", layout);
     wide.onchange = () => {
-      try { localStorage.setItem("vc-wide", wide.checked ? "1" : ""); } catch {}
+      if (sideways.matches) sidewaysWide = wide.checked; // for while it's sideways
+      else {
+        wideChoice = wide.checked;
+        try { localStorage.setItem("vc-wide", wideChoice ? "1" : ""); } catch {}
+      }
       layout();
     };
+    sideways.addEventListener("change", layout);
 
     // the page style
     const theme = document.getElementById("theme");
