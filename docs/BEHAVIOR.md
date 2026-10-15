@@ -682,7 +682,7 @@ keys: "+" close-up, "-" whole tank, and in those views "+", "-" or Esc go
 back. Port: Enter or Esc also finish editing; on touch a tap on the name
 edits it in place with the phone's keyboard (through a hidden text box:
 inserting, as phones do, rather than overwriting; Enter, Done or a tap
-elsewhere ends it); the name is kept in the browser.
+elsewhere ends it); the name is kept in the browser, one per variant.
 
 ## Opening sequence **confirmed** (0x40ca70 while 0x4519c4 < 3)
 Splash vcg_5000 (the egg) fading in from black (palette +8 a channel a
@@ -691,10 +691,10 @@ frame), 24 frames then 1.5 s; sound 415 and the spider's CLEAN facing 4 at
 frame at 10 / 14 / 18 fps; indices ≥ 128 count as negative and always
 show) on its last frame, then moving from frame 0 once fully shown, for 90 / 110 / 120 frames, the last 25
 darkening the palette 10 a frame; then the click (400) and the game. A key
-skips it (the port also a tap). Port: browsers keep a page silent until
-it's clicked, so when sound is on and the page may not play yet, the
-loading dialog waits on a Start button and the opening runs after it, with
-its sounds. The plugin's CLEAN, which replaces the
+skips it (the port also a tap). Port: the opening starts as soon as the
+data has loaded; browsers keep a page silent until it's clicked or a key
+is pressed, so where they do, it plays without its sounds, which start at
+that first click or key. The plugin's CLEAN, which replaces the
 spider's, has no frames facing 4; the port uses the spider's own.
 
 ## Typed commands **confirmed** (0x409de0, WM_CHAR)

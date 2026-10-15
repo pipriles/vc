@@ -94,12 +94,6 @@
   .win-track { height: 1.4em; padding: 0.15em; border: 1px solid; border-color: #808080 #fff #fff #808080;
     box-shadow: inset 1px 1px #404040; }
   #loader-fill { width: 0; height: 100%; background: repeating-linear-gradient(90deg, #0a246a 0 0.55em, transparent 0.55em 0.75em); }
-  .loader .win-button, .loader .win-button:hover { display: block; min-width: 6.5em; margin: 0.9em auto 0; padding: 0.25em 1em;
-    font: inherit; color: #000; background: #d4d0c8; border: 1px solid; border-radius: 0;
-    border-color: #fff #404040 #404040 #fff; box-shadow: inset -1px -1px #808080; }
-  .loader .win-button:active { border-color: #404040 #fff #fff #404040; box-shadow: inset 1px 1px #808080; }
-  .loader .win-button:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
-  .loader .win-button[hidden] { display: none; }
   /* the pet's name on a phone: a text box for the keyboard, out of sight
      (16 px, or iOS zooms in on it) */
   .name-box { position: absolute; left: 0; top: 0; width: 1px; height: 1px; padding: 0; border: 0;
@@ -186,7 +180,6 @@
         <div class="win-body">
           <p id="loader-text">Loading...</p>
           <div class="win-track"><div id="loader-fill"></div></div>
-          <button id="loader-start" class="win-button" hidden>Start</button>
         </div>
       </div>
     </div>

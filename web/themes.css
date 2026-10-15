@@ -201,7 +201,6 @@
 :root[data-theme="vcweb"] .win-title { background: linear-gradient(90deg, #1d331d, #000); color: #6fc06f; }
 :root[data-theme="vcweb"] .win-track { border: 1px solid #3f6e3f; box-shadow: none; }
 :root[data-theme="vcweb"] #loader-fill { background: repeating-linear-gradient(90deg, #6fc06f 0 0.55em, transparent 0.55em 0.75em); }
-:root[data-theme="vcweb"] .loader .win-button { background: #1d331d; color: #cfe9cf; border-color: #3f6e3f; }
 
 /* ---------- small screens: only the window's title bar stays ---------- */
 @media (max-width: 760px), (max-height: 600px) {

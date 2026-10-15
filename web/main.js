@@ -88,7 +88,7 @@ const sound = {
 	gain: null,
 	unlock() {
 		if (this.ctx) {
-			if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); // made before a click
+			if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); // made before any click
 			return;
 		}
 		const original = this.mode !== "modern";
@@ -774,13 +774,14 @@ function setupTank() {
 		};
 	}
 
-	// pet name, kept in this browser; edited in the tank (click it, or tap
-	// it on a phone)
+	// pet name, kept in this browser, one per variant like the save; edited
+	// in the tank (click it, or tap it on a phone)
 	const NAME_MAX = 23; // the game's buffer
+	const NAME_KEY = `vc-name-${variant}`;
 	let petName = "ENTER PETS NAME HERE"; // a new pet's
 	const storeName = (name) => {
 		petName = name;
-		try { localStorage.setItem("vc-name", name); } catch {}
+		try { localStorage.setItem(NAME_KEY, name); } catch {}
 	};
 	const setName = (name) => {
 		mem.exports.tank_name_clear();
@@ -788,7 +789,15 @@ function setupTank() {
 		storeName(name);
 	};
 	let savedName = "";
-	try { savedName = localStorage.getItem("vc-name") ?? ""; } catch {}
+	try {
+		savedName = localStorage.getItem(NAME_KEY) ?? "";
+		// the name both used to share goes to the first one opened
+		const shared = localStorage.getItem("vc-name");
+		if (shared !== null) {
+			if (!savedName) savedName = shared;
+			localStorage.removeItem("vc-name");
+		}
+	} catch {}
 	if (savedName) setName(savedName.toUpperCase().slice(0, NAME_MAX));
 	window.vcNameChanged = storeName;
 
@@ -1032,28 +1041,13 @@ $("variant").value = variant;
 if (params.has("dev") && $("viewer-link")) $("viewer-link").hidden = false;
 $("variant").onchange = () => { location.search = `?v=${$("variant").value}`; };
 
-// Browsers keep a page silent until it's clicked, which would lose the
-// opening's sound: when that's so (and sound is on), a Start button waits
-// for the click first.
+// Sound starts with the page where the browser allows it; elsewhere it's
+// kept silent until the first click or key (the opening may play without
+// its sounds then), and the context made here resumes at that point.
 if (loader) {
 	let soundOn = true;
 	try { soundOn = localStorage.getItem("vc-sound") !== "off"; } catch {}
-	if (mode === 0 && soundOn) {
-		sound.unlock();
-		// a context the browser lets play may report it a moment later
-		if (sound.ctx && sound.ctx.state !== "running") {
-			await new Promise((resolve) => { sound.ctx.onstatechange = resolve; setTimeout(resolve, 300); });
-			sound.ctx.onstatechange = null;
-		}
-		if (sound.ctx?.state !== "running") {
-			showLoading(1, "Ready.");
-			const start = $("loader-start");
-			start.hidden = false;
-			start.focus({ preventScroll: true });
-			await new Promise((resolve) => { start.onclick = resolve; });
-			start.hidden = true;
-		}
-	}
+	if (mode === 0 && soundOn) sound.unlock();
 	showLoading(1, "Starting...");
 }
 await odin.runWasm("vc.wasm", null, imports, mem);
