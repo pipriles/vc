@@ -124,3 +124,40 @@ wide_view_layout :: proc(t: ^testing.T) {
 	}
 	game.input.view = .Tank
 }
+
+// The logo spins gold (direction 4), green while the pointer is on it
+// (direction 0); pressed it shrinks, and the release toggles the UI
+// (0x40ca70, the 0x201 / 0x202 branches).
+@(test)
+logo_gold_green_and_release :: proc(t: ^testing.T) {
+	if !sim_setup(t, 62) do return
+	u := &game.ui
+	mean_warmth :: proc() -> int {
+		// red minus green over the logo's box
+		r, g := 0, 0
+		for y in LOGO_Y ..< LOGO_Y + 72 do for x in logo_x() ..< logo_x() + 96 {
+			c := state.palette[view[y * view_w + x]]
+			r += int(c[0]); g += int(c[1])
+		}
+		return (r - g) / (96 * 72)
+	}
+	tank_render()
+	gold := mean_warmth()
+	x, y := logo_x() + 48, LOGO_Y + 36
+	press(.Move, x, y)
+	tank_tick()
+	testing.expect(t, u.logo_hover, "the pointer on the logo")
+	tank_render()
+	green := mean_warmth()
+	testing.expectf(t, gold > green + 5, "gold, then green under the pointer (red - green: %d, %d)", gold, green)
+
+	cycle := u.cycle
+	press(.Down, x, y)
+	tank_tick()
+	testing.expect(t, u.logo_down, "held down")
+	testing.expect_value(t, u.cycle, cycle) // not yet
+	press(.Up, x, y)
+	tank_tick()
+	testing.expect(t, !u.logo_down, "released")
+	testing.expect(t, u.cycle != cycle || u.slide_t > 0, "the release toggles the buttons and icons")
+}

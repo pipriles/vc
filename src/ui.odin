@@ -81,6 +81,7 @@ UI :: struct {
 	ind_y, btn_y: int,  // indicator bottom and button row while sliding (0x454710, 0x4525e6)
 	from_ind, from_btn: int, // smooth drawing: at the start of the last step
 	logo_hover:   bool,
+	logo_down:    bool, // pressed on the logo, not yet released (0x455b88)
 	font:         Bitmap, // vcg_2008: A-Z, 0-9
 	logo:         Anim,
 	hover:        int, // button index, -1 none
@@ -326,15 +327,20 @@ ui_pointer :: proc(ev: Pointer_Event, vx, vy: int) -> bool {
 			return true
 		}
 		if u.logo_hover {
-			ui_toggle()
+			u.logo_down = true // it shrinks while held; the release toggles
 			return true
 		}
 	case .Up:
 		was := u.pressed
 		u.pressed = -1
+		if u.logo_down {
+			u.logo_down = false
+			ui_toggle()
+			return true
+		}
 		if was >= 0 do return true
 	case .Leave:
-		u.hover, u.pressed, u.logo_hover = -1, -1, false
+		u.hover, u.pressed, u.logo_hover, u.logo_down = -1, -1, false, false
 	}
 	if b >= 0 || u.logo_hover {
 		set_cursor(0)
@@ -353,7 +359,9 @@ ui_draw :: proc() {
 	draw_name(10, 10)
 
 	if !u.floating do ui_draw_logo()
-	if u.logo_hover && settings.help_text do ui_tip(logo_x(), LOGO_Y - 10, "Toggle display of buttons and icons.")
+	if u.logo_hover && settings.help_text {
+		ui_tip(logo_x(), u.logo_down ? LOGO_Y : LOGO_Y - 10, "Toggle display of buttons and icons.")
+	}
 	// needs: mood gauge (frame = temperament), then health, water, food
 	iy := u.slide != 0 ? lerp_pos(u.from_ind, u.ind_y, 40) : u.shown ? INDICATOR_B : 0
 	if u.icons_only do iy = INDICATOR_B
@@ -449,19 +457,27 @@ draw_indicators :: proc(y: int) {
 	_ = tip_x
 }
 
-// Animated VC logo, bottom right (logo creature 0x455ac0).
+// Animated VC logo, bottom right (logo creature 0x455ac0): the gold spin
+// (direction 4), the green one while the pointer is on it (direction 0),
+// at 75% while pressed (main update 0x40ca70).
 ui_draw_logo :: proc() {
 	u := &game.ui
 	n := logo_frames()
 	if n == 0 do return
 	a := &u.logo
 	s := &a.seqs[0]
-	f := s.dirs[0].frames[u.logo_frame % n]
+	d := &s.dirs[u.logo_hover ? 0 : 4]
+	if len(d.frames) == 0 do d = &s.dirs[0]
+	f := d.frames[u.logo_frame % len(d.frames)]
 	buf := frame_buf[:a.w * a.h]
 	if !frame_decode(a, s, f, buf) do return
-	for j in 0 ..< a.h do for i in 0 ..< a.w {
-		p := buf[j * a.w + i]
-		if p != a.key do dst.px[(LOGO_Y + j) * dst.stride + logo_x() + i] = p
+	scale := u.logo_down ? 75 : 100
+	dw, dh := x87_scale_trunc(a.w, scale), x87_scale_trunc(a.h, scale)
+	ox, oy := logo_x() + (a.w - dw) / 2, LOGO_Y + (a.h - dh) / 2
+	for j in 0 ..< dh do for i in 0 ..< dw {
+		p := buf[(j * a.h / dh) * a.w + i * a.w / dw]
+		x, y := ox + i, oy + j
+		if p != a.key && x >= 0 && x < dst.w && y >= 0 && y < dst.h do dst.px[y * dst.stride + x] = p
 	}
 }
 
