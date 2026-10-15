@@ -86,11 +86,22 @@ const sound = {
 	on: true,
 	volume: 1,
 	gain: null,
-	unlock() {
+	// early: made at start-up, before any click or tap. iPhones don't
+	// reliably let such a context play once a tap comes (it may report
+	// "interrupted" and stay silent), so the first click or tap starts a new
+	// one from that tap, as switching the audio mode does.
+	early: false,
+	unlock(early = false) {
 		if (this.ctx) {
-			if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); // made before any click
+			if (this.early && !early) {
+				this.early = false;
+				this.restart();
+			} else if (this.ctx.state !== "running" && this.ctx.state !== "closed") {
+				this.ctx.resume().catch(() => {});
+			}
 			return;
 		}
+		this.early = early;
 		const original = this.mode !== "modern";
 		this.ctx = this.mode === "smooth" ? new AudioContext({ sampleRate: 11025 }) : new AudioContext();
 		this.gain = this.ctx.createGain();
@@ -124,15 +135,21 @@ const sound = {
 			}
 		}).catch(() => {});
 	},
-	setMode(mode) {
-		if (mode === this.mode) return;
-		const was = !!this.ctx;
+	// a new context (dropping the old one and what it had loaded); the
+	// sounds load again and the wanted loops come back on
+	restart() {
 		if (this.ctx) this.ctx.close().catch(() => {});
 		this.ctx = this.node = this.gain = null;
 		this.buffers.clear();
 		this.ch = [null, null, null, null];
+		this.early = false;
+		this.unlock();
+	},
+	setMode(mode) {
+		if (mode === this.mode) return;
+		const was = !!this.ctx;
 		this.mode = mode;
-		if (was) this.unlock();
+		if (was) this.restart();
 	},
 	busy(c) { return c && (c.loop || c.end > this.ctx.currentTime); },
 	start(chan, id, loop) {
@@ -188,7 +205,10 @@ window.vcSound = sound; // for debugging in the console
 // button, or on a touch screen a finger lifting (pointerup / touchend; a
 // finger touching down doesn't count there, so iPhones need these).
 for (const type of ["pointerdown", "pointerup", "touchend", "click", "keydown"]) {
-	addEventListener(type, () => sound.unlock(), { capture: true });
+	addEventListener(type, (e) => {
+		if (type === "pointerdown" && e.pointerType !== "mouse") return; // not an activation
+		sound.unlock();
+	}, { capture: true });
 }
 const noop = () => {};
 // The text is drawn at 640 x 480 like the view (the original drew it with
@@ -1082,7 +1102,7 @@ $("variant").onchange = () => { location.search = `?v=${$("variant").value}`; };
 if (loader) {
 	let soundOn = true;
 	try { soundOn = localStorage.getItem("vc-sound") !== "off"; } catch {}
-	if (mode === 0 && soundOn) sound.unlock();
+	if (mode === 0 && soundOn) sound.unlock(true);
 	showLoading(1, "Starting...");
 }
 await odin.runWasm("vc.wasm", null, imports, mem);
