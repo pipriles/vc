@@ -336,7 +336,9 @@ glass, 1 pick up and move, 2 prod, 3 stroke, 4 follow the cursor.
   pressed: drawn at 70 %.
 - Website (8): asks first (the program had to close), then opened
   virtualcreatures.com. Port: it opens the port's GitHub page instead
-  (github.com/pipriles/vc), and its tooltip and help entry say so.
+  (github.com/pipriles/vc) in a new tab, without asking (the host opens
+  it on the click itself, so phones and embeds allow it), and its tooltip
+  and help entry say so.
 - Floating panel (5): a miniature always-on-top tank window (refused while
   the simulation is frozen); the port uses picture-in-picture of the view
   and keeps stepping the simulation while the tab is hidden.

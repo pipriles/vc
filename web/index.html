@@ -166,6 +166,16 @@
   .name-box { position: absolute; left: 0; top: 0; width: 1px; height: 1px; padding: 0; border: 0;
     opacity: 0; font-size: 16px; pointer-events: none; }
   #finger { position: absolute; pointer-events: none; image-rendering: pixelated; z-index: 2; }
+  /* in an embed (X's player): the way out to the full page, in the top
+     right corner over the loader too, styled like X's own buttons over
+     media (a dark see-through pill) */
+  .open-full { position: absolute; z-index: 4; top: 6px; right: 6px; display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 9px; border-radius: 999px; border: 1px solid rgb(255 255 255 / 0.35); background: rgb(0 0 0 / 0.6);
+    -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); color: #fff;
+    font: 700 11px/1 system-ui, -apple-system, "Segoe UI", sans-serif; text-decoration: none; transition: background 0.15s; }
+  .open-full:hover, .open-full:focus-visible { background: rgb(0 0 0 / 0.78); }
+  .open-full:focus-visible { outline: 2px solid #1d9bf0; outline-offset: 2px; }
+  .open-full svg { width: 11px; height: 11px; }
   .gear { display: none; }
 
   /* up to 1224 px wide the settings would wrap onto a second row: they fold

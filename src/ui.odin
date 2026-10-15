@@ -294,6 +294,26 @@ tank_ui_at :: proc "c" (x, y: i32) -> i32 {
 	return 0
 }
 
+// The link under a view point, for the host to open on the click itself:
+// 1 the website button, 2 the credits' support link, 0 none. (The game
+// acts on a click a frame later, and a tab opened then is a pop-up to
+// Safari and to X's frame; host_open leaves these to the host.)
+@(export)
+tank_link_at :: proc "c" (x, y: i32) -> i32 {
+	context = runtime.default_context()
+	vx, vy := int(x), int(y)
+	u := &game.ui
+	if game.input.view != .Tank || u.floating do return 0
+	if box_covers(vx - ui_cx(), vy) {
+		hit, _ := box_hit(vx - ui_cx(), vy)
+		return hit == .Link ? 2 : 0
+	}
+	if u.shown && u.slide == 0 {
+		if b := button_at(vx, vy); b >= 0 && u.buttons[b].cmd == 8 do return 1
+	}
+	return 0
+}
+
 // the logo and the indicators keep to the right edge of a wide view
 logo_x :: proc() -> int {return VIEW_W - 96 - 10 + ui_rx()}
 ind_x :: proc() -> int {return INDICATOR_X + ui_rx()}

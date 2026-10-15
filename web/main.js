@@ -12,7 +12,20 @@ const variant = params.get("v") ?? "cr";
 // ?embed=1: the tank alone, filling the frame (X's player card shows the
 // page this way inside a post); it stays like that
 const embed = params.has("embed");
-if (embed && mode === 0) document.body.classList.add("fill");
+if (embed && mode === 0) {
+	document.body.classList.add("fill");
+	// the way out to the full page, in a new tab (same variant)
+	const full = new URL("/", location.href);
+	if (params.has("v")) full.searchParams.set("v", variant);
+	const a = document.createElement("a");
+	a.className = "open-full";
+	a.href = full.href;
+	a.target = "_blank";
+	a.rel = "noopener";
+	a.innerHTML = 'Open full page <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ' +
+		'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
+	document.querySelector(".screen").append(a);
+}
 const base = `data/${variant}/`;
 
 // Loading: a bar over the screen while the data files come in (about
@@ -357,11 +370,7 @@ const imports = {
 		host_cursor: (set, frame) => setCursor(set, frame),
 		host_view: (view) => setView(view),
 		host_tool: noop,
-		host_open: (what) => {
-			if (what === 0) openWebsite();
-			else if (what === 1) toggleFloatingPanel();
-			else window.open(SUPPORT, "_blank", "noopener"); // the credits' link
-		},
+		host_open: (what) => { if (what === 1) toggleFloatingPanel(); }, // 0, 2: links (openLink)
 		ui_begin: () => uiBegin(),
 		ui_text_ex: (x, y, w, h, p, n, font, color, flags) =>
 			uiOps?.push(["ex", x, y, w, h, mem.loadString(p, n), font, color, flags]),
@@ -635,11 +644,11 @@ function setView(view) {
 // home on GitHub (the original asked first, as it had to close down).
 const WEBSITE = "https://github.com/pipriles/vc";
 const SUPPORT = "https://ko-fi.com/pipriles";
-function openWebsite() {
-	if (confirm("Visiting the Virtual Creatures project opens its GitHub page in a new tab.\nDo you wish to continue?")) {
-		window.open(WEBSITE, "_blank", "noopener");
-	}
-}
+// Opened by the canvas's click handler, in the click itself (tank_link_at):
+// the game only acts a frame later, when a new tab would count as a
+// pop-up (Safari, X's frame), so its host_open for these does nothing.
+const LINKS = { 1: WEBSITE, 2: SUPPORT };
+const openLink = (id) => { if (LINKS[id]) window.open(LINKS[id], "_blank", "noopener"); };
 
 // The floating panel: the original shrank the tank into a small window on
 // top of the others. Here the view goes into a picture-in-picture window,
@@ -1016,6 +1025,8 @@ function setupTank() {
 		mem.exports.tank_char(13);
 	};
 	canvas.oncontextmenu = (e) => e.preventDefault();
+	// the website button and the credits' link: their tab opens here
+	canvas.onclick = (e) => openLink(mem.exports.tank_link_at(...toCanvas(e)));
 	// A finger's press on the tank is held back a moment: a second finger
 	// landing meanwhile makes it a two-finger pan, and the press (a knock on
 	// the glass, a prod...) never happens. Lifting or sliding sends it.

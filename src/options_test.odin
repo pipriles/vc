@@ -98,6 +98,7 @@ credits_link_is_under_the_pointer :: proc(t: ^testing.T) {
 	testing.expect(t, ok, "the link shows when the credits open")
 	hit, _ := box_hit(lx + 2, ly + 5)
 	testing.expect_value(t, hit, Box_Hit.Link)
+	testing.expect_value(t, tank_link_at(i32(lx + 2 + ui_cx()), i32(ly + 5)), 2) // the host opens it
 	hit, _ = box_hit(lx - 20, ly + 5) // "project", not the link
 	testing.expect_value(t, hit, Box_Hit.None)
 
@@ -110,4 +111,13 @@ credits_link_is_under_the_pointer :: proc(t: ^testing.T) {
 
 	button(Button(6))
 	run_box(10)
+
+	// with the box closed: the website button is the other link
+	found := false
+	for b in game.ui.buttons do if b.cmd == 8 {
+		found = true
+		testing.expect_value(t, tank_link_at(i32(b.x + b.fw / 2), i32(BUTTON_Y + b.fh / 2)), 1)
+		testing.expect_value(t, tank_link_at(i32(b.x - 30), i32(BUTTON_Y + b.fh / 2)), 0)
+	}
+	testing.expect(t, found, "the website button")
 }
