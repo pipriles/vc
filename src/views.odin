@@ -30,14 +30,16 @@ whole_to_tank :: proc(vx, vy: int) -> (x, y: int) {
 
 // Whole tank: the scene scaled to 640x256, the object panel below.
 whole_render :: proc() {
-	for i in 0 ..< len(view) do view[i] = 0
+	dst = window_surface()
+	ui_ox = ui_cx()
+	clear_view()
 	for y in 0 ..< WHOLE_H {
 		sy := y * VIEW_H / WHOLE_H
-		for x in 0 ..< VIEW_W do view[y * VIEW_W + x] = tank_buf[sy * TANK_W + x * TANK_W / VIEW_W]
+		for x in 0 ..< VIEW_W do view[win(x, y)] = tank_buf[sy * TANK_W + x * TANK_W / VIEW_W]
 	}
 
 	in_ := &game.input
-	hover := in_.inside && in_.carry == .None ? cell_at(in_.vx, in_.vy) : -1
+	hover := in_.inside && in_.carry == .None ? cell_at(in_.vx - ui_cx(), in_.vy) : -1
 	corners := &game.ui.cell_corners
 	cw := corners.w
 	ch := corners.h / 4
@@ -46,7 +48,7 @@ whole_render :: proc() {
 		placeable := o.active && o.in_box && objects_in_tank() < MAX_OBJECTS_IN_TANK
 		// dithered cell, lighter when it can be dragged out (0x40e2a0)
 		colour: u8 = i == hover && placeable ? 2 : 1
-		for j := 0; j < CELL; j += 2 do for k := 0; k < CELL; k += 2 do view[(y + j) * VIEW_W + x + k] = colour
+		for j := 0; j < CELL; j += 2 do for k := 0; k < CELL; k += 2 do view[win(x + k, y + j)] = colour
 		if o.active && o.in_box {
 			s := min(100, (CELL - 8) * 100 / max(o.fw, o.fh))
 			draw_object(&o, .Shadow, x + CELL / 2, y + CELL / 2, s)
@@ -74,9 +76,12 @@ close_render :: proc() {
 	w, h := s.anim.w, s.anim.h
 	x0 := clamp(s.x - w / 2, 0, TANK_W - w)
 	y0 := clamp(s.y - h / 2, 0, VIEW_H - h)
+	dst = window_surface()
+	ui_ox = ui_cx()
+	clear_view()
 	for y in 0 ..< VIEW_H {
 		row := (y0 + y * h / VIEW_H) * TANK_W + x0
-		for x in 0 ..< VIEW_W do view[y * VIEW_W + x] = tank_buf[row + x * w / VIEW_W]
+		for x in 0 ..< VIEW_W do view[win(x, y)] = tank_buf[row + x * w / VIEW_W]
 	}
 	ui_begin()
 }

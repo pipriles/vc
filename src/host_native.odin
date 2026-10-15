@@ -56,7 +56,7 @@ host_cursor :: proc "contextless" (set, frame: i32) {}
 host_view :: proc "contextless" (view: i32) {}
 host_tool :: proc "contextless" (tool: i32, follow: bool) {}
 host_open :: proc "contextless" (what: i32) {}
-ui_text_ex :: proc "contextless" (x, y, w, h: int, text: string, font, color, flags: i32) {}
+host_ui_text_ex :: proc "contextless" (x, y, w, h: int, text: string, font, color, flags: i32) {}
 host_set_sound :: proc "contextless" (on: bool) {}
 host_fullscreen :: proc "contextless" () {}
 host_settings :: proc "contextless" (frame_rate: i32, smooth, help_text: bool, saver_idle: i32) {}
@@ -64,8 +64,8 @@ host_saver :: proc "contextless" () {}
 host_name :: proc "contextless" (name: string) {}
 host_tz_offset :: proc "contextless" () -> i32 {return 0}
 ui_begin :: proc "contextless" () {}
-ui_text :: proc "contextless" (x, y: int, text: string) {}
-ui_tip :: proc "contextless" (x, y: int, text: string) {}
+host_ui_text :: proc "contextless" (x, y: int, text: string) {}
+host_ui_tip :: proc "contextless" (x, y: int, text: string) {}
 host_loop :: proc "contextless" (id: int, on: bool) {}
 host_save :: proc "contextless" (json: string) {
 	context = runtime.default_context()

@@ -13,8 +13,11 @@
   /* the page around the tank: a gunmetal cabinet in the spirit of the
      game's own window frame */
   :root { color-scheme: dark; --fg: #d8d6d2; --dim: #8c8a86; --accent: #ff7a1a; --panel: #1d1e21;
-    /* the view: 1.5 x the original 640 x 480, smaller when the window is */
-    --w: min(960px, calc(100vw - 72px), calc((100vh - 250px - var(--chrome-v)) * 4 / 3));
+    /* the view: 1.5 x the original 640 x 480, smaller when the window is.
+       --ar: its width / height, 4/3 or wider for a wide view (set by the
+       script at the end of the page) */
+    --ar: 1.33333;
+    --w: min(calc(720px * var(--ar)), calc(100vw - 72px), calc((100vh - 250px - var(--chrome-v)) * var(--ar)));
     /* what a page style's decorations take (themes.css) */
     --chrome-v: 0px; --chrome-top: 0px; --chrome-bottom: 0px; }
   * { box-sizing: border-box; }
@@ -58,13 +61,13 @@
   .plate { font: bold 11px Verdana, sans-serif; letter-spacing: 0.25em; color: #c8c6c2; text-shadow: 0 1px 0 #000;
     padding: 3px 12px; border-radius: 4px; border: 1px solid #000; background: linear-gradient(#2a2b2f, #17181a); }
   .stage:fullscreen { display: grid; place-items: center; width: 100vw; height: 100vh; border: 0; box-shadow: none; background: #000; }
-  .stage:fullscreen .screen { width: min(100vw, calc(100vh * 4 / 3)); }
+  .stage:fullscreen .screen { width: min(100vw, calc(100vh * var(--ar))); }
   /* full screen where a page can't have it (iPhones): the stage fills the
      browser window */
   body.fill { overflow: hidden; }
   :root[data-theme] body.fill .stage { position: fixed; inset: 0; z-index: 35; display: grid; place-items: center; width: 100vw; height: 100dvh;
     margin: 0; border: 0; box-shadow: none; background: #000; }
-  :root[data-theme] body.fill .stage .screen { width: min(100vw, calc(100dvh * 4 / 3)); }
+  :root[data-theme] body.fill .stage .screen { width: min(100vw, calc(100dvh * var(--ar))); }
   .stage.saver, .stage.saver * { cursor: none !important; }
   #view { display: block; width: 100%; image-rendering: pixelated; touch-action: none; }
   #overlay, #ui-text { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -110,7 +113,7 @@
   /* loading: a dialog of the game's day (Windows 2000) on the black screen,
      sized with the view */
   .loader { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; background: #000;
-    color: #000; font: max(11px, calc(var(--w) * 11 / 640))/1.3 Tahoma, Verdana, "MS Sans Serif", sans-serif; }
+    color: #000; font: max(11px, calc(var(--w) / var(--ar) * 11 / 480))/1.3 Tahoma, Verdana, "MS Sans Serif", sans-serif; }
   .win { width: 24em; padding: 0.25em; background: #d4d0c8; border: 1px solid;
     border-color: #d4d0c8 #404040 #404040 #d4d0c8; box-shadow: inset 1px 1px #fff, inset -1px -1px #808080; }
   .win-title { padding: 0.2em 0.4em; color: #fff; font-weight: bold; background: linear-gradient(90deg, #0a246a, #a6caf0); }
@@ -131,7 +134,7 @@
      with the settings below it, they go there (body.room-below, set by the
      script at the end of the page), the two centred together */
   @media (max-width: 1224px), (max-height: 600px) {
-    :root { --w: min(960px, calc(100vw - 72px), calc((100dvh - 130px - var(--chrome-v)) * 4 / 3)); }
+    :root { --w: min(calc(720px * var(--ar)), calc(100vw - 72px), calc((100dvh - 130px - var(--chrome-v)) * var(--ar))); }
     .gear { display: grid; place-items: center; position: fixed; z-index: 30; width: 38px; height: 38px; padding: 0;
       top: calc(8px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right));
       font-size: 20px; border-radius: 50%; background: rgb(30 31 34 / 0.85); }
@@ -142,7 +145,7 @@
     .bar label { justify-content: space-between; }
     .bar input[type=range] { flex: 1; }
     .bar kbd { display: none; }
-    body.room-below { --w: min(960px, calc(100vw - 72px)); justify-content: center; }
+    body.room-below { --w: min(calc(720px * var(--ar)), calc(100vw - 72px)); justify-content: center; }
     body.room-below .cabinet { order: 0; margin: 0; }
     body.room-below .gear { display: none; }
     body.room-below .bar { display: flex; position: static; order: 1; width: calc(var(--w) + 38px); max-height: none; }
@@ -150,9 +153,9 @@
   /* small screens: the cabinet becomes a thin bezel and the tank takes the
      room there is: full width in portrait, the full height in landscape */
   @media (max-width: 760px), (max-height: 600px) {
-    :root { --w: min(960px, calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)),
-      calc((100dvh - 24px - var(--chrome-v) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 4 / 3)); }
-    body.room-below { --w: min(960px, calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right))); }
+    :root { --w: min(calc(720px * var(--ar)), calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)),
+      calc((100dvh - 24px - var(--chrome-v) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * var(--ar))); }
+    body.room-below { --w: min(calc(720px * var(--ar)), calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right))); }
     body { padding: calc(6px + env(safe-area-inset-top)) calc(6px + env(safe-area-inset-right))
       calc(6px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left)); gap: 8px; }
     .cabinet { margin: auto 0; padding: 4px; border-radius: 10px; box-shadow: inset 0 1px 0 #ffffff40, 0 8px 24px #000c; }
@@ -228,8 +231,9 @@
   </select></label>
   <label>Speed <input id="speed" type="range" min="1" max="20" step="1" value="1"><span id="speedv">1×</span></label>
   <label>Volume <input id="volume" type="range" min="0" max="100" step="5" value="100"></label>
-  <label>Audio <select id="audio" title="How sounds are produced"><option value="gritty">Original, gritty</option><option value="smooth">Original, smooth</option><option value="modern">Modern</option></select></label>
+  <label>Audio <select id="audio" title="How sounds are produced"><option value="gritty">Gritty</option><option value="smooth">Smooth</option><option value="modern">Modern</option></select></label>
   <button id="fullscreen" title="Full screen (Shift+F)">Full screen</button>
+  <label title="Wide view: more of the tank on a wide screen (always on a phone held sideways)">Wide <input id="wide" type="checkbox"></label>
   <button id="new-spider">New spider</button>
   <label title="Debug overlay (Shift+D)">Debug <span class="dbg-toggle"><button id="debug-open" type="button">Show panel</button><input id="debug" type="checkbox"></span></label>
   <a href="viewer.html" id="viewer-link" hidden>Animation viewer →</a>
@@ -287,8 +291,33 @@
     const root = document.documentElement;
     const tools = document.getElementById("debug-tools"), home = tools.nextSibling;
     const bar = document.querySelector(".bar");
+
+    // The view's width: the original 640 x 480, or on a wide screen (a phone
+    // held sideways, or with Wide ticked) as wide as the room allows, up to
+    // the whole tank (1200); the height stays 480. --ar sizes the page, and
+    // the game hears of it (vc-view-width, main.js).
+    const sideways = matchMedia("(pointer: coarse) and (orientation: landscape)");
+    const wide = document.getElementById("wide");
+    try { wide.checked = localStorage.getItem("vc-wide") === "1"; } catch {}
+    window.vcViewWidth = 640;
+    const viewWidth = () => {
+      if (!sideways.matches && !wide.checked) return 640;
+      // the room for the screen, as the --w rules leave it
+      const chrome = parseFloat(getComputedStyle(root).getPropertyValue("--chrome-v")) || 0;
+      let w = innerWidth - 72, h = innerHeight - 250 - chrome;
+      if (document.body.classList.contains("fill") || document.fullscreenElement) [w, h] = [innerWidth, innerHeight];
+      else if (small.matches) [w, h] = [innerWidth - 20, innerHeight - 24 - chrome];
+      else if (fold.matches) h = innerHeight - 130 - chrome;
+      return Math.max(640, Math.min(1200, Math.floor(480 * w / Math.max(h, 1)))) & ~1;
+    };
     const layout = () => {
       const b = document.body;
+      const vw = viewWidth();
+      if (vw !== window.vcViewWidth) {
+        window.vcViewWidth = vw;
+        root.style.setProperty("--ar", (vw / 480).toFixed(5));
+        dispatchEvent(new CustomEvent("vc-view-width", { detail: vw }));
+      }
       b.classList.toggle("room-below", fold.matches);
       // (against innerHeight, which follows a phone's toolbars like the
       // page's 100dvh does; a pixel of slack, as those can be fractional)
@@ -300,6 +329,11 @@
     };
     layout();
     addEventListener("resize", layout);
+    document.addEventListener("fullscreenchange", layout);
+    wide.onchange = () => {
+      try { localStorage.setItem("vc-wide", wide.checked ? "1" : ""); } catch {}
+      layout();
+    };
 
     // the page style
     const theme = document.getElementById("theme");

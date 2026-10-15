@@ -107,16 +107,14 @@ FONT_X := [37]int{0, 16, 32, 46, 63, 81, 95, 114, 131, 138, 156, 172, 187, 208, 
 
 ui_init :: proc() {
 	u := &game.ui
-	x := BUTTON_X0
 	for def, i in BUTTON_DEFS {
 		b := &u.buttons[i]
 		b.bmp = assets.ui[i]
 		b.frames = def.frames
 		b.fw, b.fh = b.bmp.w, b.bmp.h / max(def.frames, 1)
-		b.x = x
 		b.cmd = def.bitmap - 300
-		x += b.fw + BUTTON_GAP
 	}
+	ui_layout()
 	u.ring = assets.ring
 	u.gauges = assets.gauges
 	u.cell_corners = assets.corners
@@ -236,6 +234,24 @@ ui_tick :: proc() {
 	if n := logo_frames(); n > 0 do u.logo_frame = (u.logo_frame + 1) % n
 }
 
+// Text to the host, in view coordinates. ui_ox shifts the original's
+// 640-wide screens drawn in the middle of a wide view (see view_w).
+ui_ox := 0
+ui_text_ex :: proc "contextless" (x, y, w, h: int, text: string, font, color, flags: i32) {
+	host_ui_text_ex(x + ui_ox, y, w, h, text, font, color, flags)
+}
+ui_text :: proc "contextless" (x, y: int, text: string) {host_ui_text(x + ui_ox, y, text)}
+ui_tip :: proc "contextless" (x, y: int, text: string) {host_ui_tip(x + ui_ox, y, text)}
+
+// The button row, centred in a wide view as in the original's 640.
+ui_layout :: proc() {
+	x := BUTTON_X0 + ui_cx()
+	for &b in game.ui.buttons {
+		b.x = x
+		x += b.fw + BUTTON_GAP
+	}
+}
+
 logo_frames :: proc() -> int {
 	a := &game.ui.logo
 	if len(a.seqs) == 0 do return 0
@@ -269,7 +285,7 @@ tank_ui_at :: proc "c" (x, y: i32) -> i32 {
 	vx, vy := int(x), int(y)
 	u := &game.ui
 	if game.input.view != .Tank || u.floating do return 0
-	if box_covers(vx, vy) do return 0
+	if box_covers(vx - ui_cx(), vy) do return 0
 	if over_logo(vx, vy) do return 2
 	if r := u.name_rect; vx >= r.left && vx < r.right && vy >= r.top && vy < r.bottom do return 3
 	if u.shown && u.slide == 0 && button_at(vx, vy) >= 0 do return 1
@@ -277,11 +293,13 @@ tank_ui_at :: proc "c" (x, y: i32) -> i32 {
 	return 0
 }
 
-LOGO_X :: VIEW_W - 96 - 10
+// the logo and the indicators keep to the right edge of a wide view
+logo_x :: proc() -> int {return VIEW_W - 96 - 10 + ui_rx()}
+ind_x :: proc() -> int {return INDICATOR_X + ui_rx()}
 LOGO_Y :: VIEW_H - 72 - 8
 
 over_logo :: proc(vx, vy: int) -> bool {
-	return vx >= LOGO_X && vx < LOGO_X + 96 && vy >= LOGO_Y && vy < LOGO_Y + 72
+	return vx >= logo_x() && vx < logo_x() + 96 && vy >= LOGO_Y && vy < LOGO_Y + 72
 }
 
 // Pointer handling for the UI; returns true when the UI took the event.
@@ -335,7 +353,7 @@ ui_draw :: proc() {
 	draw_name(10, 10)
 
 	if !u.floating do ui_draw_logo()
-	if u.logo_hover && settings.help_text do ui_tip(LOGO_X, LOGO_Y - 10, "Toggle display of buttons and icons.")
+	if u.logo_hover && settings.help_text do ui_tip(logo_x(), LOGO_Y - 10, "Toggle display of buttons and icons.")
 	// needs: mood gauge (frame = temperament), then health, water, food
 	iy := u.slide != 0 ? lerp_pos(u.from_ind, u.ind_y, 40) : u.shown ? INDICATOR_B : 0
 	if u.icons_only do iy = INDICATOR_B
@@ -380,8 +398,8 @@ indicator_help_at :: proc(px, py: int) -> int {
 	g := &u.gauges[0]
 	gh := g.h / 8
 	top := INDICATOR_B - gh
-	if px > INDICATOR_X + 10 && px < INDICATOR_X + g.w - 10 && py > top + 5 && py < top + gh - 5 do return 16
-	x := INDICATOR_X + 4 + g.w
+	if px > ind_x() + 10 && px < ind_x() + g.w - 10 && py > top + 5 && py < top + gh - 5 do return 16
+	x := ind_x() + 4 + g.w
 	lines := [3]int{11, 6, 0}
 	for i in 0 ..< 3 {
 		b := &u.gauges[i + 1]
@@ -399,9 +417,9 @@ draw_indicators :: proc(y: int) {
 	g := &u.gauges[0]
 	gh := g.h / 8
 	top := y - gh
-	draw_keyed_part(g, INDICATOR_X, top, clamp(st.temperament, 0, 7) * gh, gh)
+	draw_keyed_part(g, ind_x(), top, clamp(st.temperament, 0, 7) * gh, gh)
 	tip_x := 0
-	x := INDICATOR_X + 4 + g.w
+	x := ind_x() + 4 + g.w
 	values := [3]int{st.health, st.water, st.food}
 	tips := [4]string {
 		"Mood Indicator. Judge your creatures mood from this.",
@@ -410,9 +428,9 @@ draw_indicators :: proc(y: int) {
 		"Food Indicator. Judge your creatures hunger levels from this.",
 	}
 	px, py := game.input.vx, game.input.vy
-	if settings.help_text && game.input.inside && px > INDICATOR_X + 10 && px < INDICATOR_X + g.w - 10 &&
+	if settings.help_text && game.input.inside && px > ind_x() + 10 && px < ind_x() + g.w - 10 &&
 	   py > top + 5 && py < top + gh - 5 {
-		ui_tip(INDICATOR_X, top + gh + 2, tips[0])
+		ui_tip(ind_x(), top + gh + 2, tips[0])
 	}
 	for v, i in values {
 		b := &u.gauges[i + 1]
@@ -443,7 +461,7 @@ ui_draw_logo :: proc() {
 	if !frame_decode(a, s, f, buf) do return
 	for j in 0 ..< a.h do for i in 0 ..< a.w {
 		p := buf[j * a.w + i]
-		if p != a.key do dst.px[(LOGO_Y + j) * dst.w + LOGO_X + i] = p
+		if p != a.key do dst.px[(LOGO_Y + j) * dst.stride + logo_x() + i] = p
 	}
 }
 
@@ -475,7 +493,7 @@ draw_name :: proc(x0, y0: int) {
 		if u.name_edit && k == u.caret && u.blink < 5 {
 			for j in 0 ..< 3 do for i in 0 ..< gw {
 				vx, vy := x + i, y0 - 3 + f.h + j
-				if vx >= 0 && vx < dst.w && vy >= 0 && vy < dst.h do dst.px[vy * dst.w + vx] = 255
+				if vx >= 0 && vx < dst.w && vy >= 0 && vy < dst.h do dst.px[vy * dst.stride + vx] = 255
 			}
 		}
 		if g >= 0 {
@@ -484,7 +502,7 @@ draw_name :: proc(x0, y0: int) {
 			for j in 0 ..< f.h do for i in 0 ..< gw {
 				p := f.pixels[j * f.w + gx + i]
 				vx, vy := x + i, y0 + j
-				if p != key && vx >= 0 && vx < dst.w && vy >= 0 && vy < dst.h do dst.px[vy * dst.w + vx] = p
+				if p != key && vx >= 0 && vx < dst.w && vy >= 0 && vy < dst.h do dst.px[vy * dst.stride + vx] = p
 			}
 		}
 		if k < u.name_len do x += gw + 1
@@ -498,7 +516,7 @@ dither_color :: proc(x0, y0, w, h: int, color: u8) {
 		if y < 0 || y >= dst.h do continue
 		for i := 0; i < w; i += 2 {
 			x := x0 + i
-			if x >= 0 && x < dst.w do dst.px[y * dst.w + x] = color
+			if x >= 0 && x < dst.w do dst.px[y * dst.stride + x] = color
 		}
 	}
 }
@@ -599,7 +617,7 @@ draw_scaled_part :: proc(b: ^Bitmap, x0, y0, w, h, sy, scale: int) {
 			vx := ox + i
 			if vx < 0 || vx >= dst.w do continue
 			p := b.pixels[row + i * w / dw]
-			if p != key do dst.px[vy * dst.w + vx] = p
+			if p != key do dst.px[vy * dst.stride + vx] = p
 		}
 	}
 }

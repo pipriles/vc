@@ -567,6 +567,17 @@ Crickets: random sequence with frames in the current direction.
 | 0x1e6 | i16 | size / growth (40 new) |
 | 0x1ec..| | animation queue (above) |
 
+## Wide view (port)
+The original's view is 640 x 480. The port can show a wider view, up to
+the whole tank (1200 x 480): automatically on a phone held sideways, and on
+other screens with the toolbar's Wide option. The tank shows more of
+itself (scrolling, edge scrolling and dropped crickets use the width); the
+button row is centred, the indicators, logo and "C" mark keep to the right
+edge, the name to the left; the original's 640 x 480 screens (Options box,
+cricket box, opening, close-up, whole tank) sit in the middle with black at
+the sides, their clicks and text shifted to match (`view_w`, `ui_cx`,
+`window_surface` in tank.odin).
+
 ## Frame rate, right button, screensaver **confirmed**
 - The whole game step (creatures, UI, cursor, scrolling) runs once per
   frame, every 100, 71 or 55 ms (10 / 14 / 18 fps, table 0x4525e0,

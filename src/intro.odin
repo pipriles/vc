@@ -95,10 +95,13 @@ intro_seq :: proc() -> int {
 
 intro_render :: proc() {
 	in_ := &intro
-	dst = view_surface()
+	dst = window_surface()
+	ui_ox = ui_cx()
 	splash := &assets.splash
-	for i in 0 ..< VIEW_W * VIEW_H do view[i] = 0
-	if len(splash.pixels) == VIEW_W * VIEW_H do copy(view[:], splash.pixels)
+	clear_view()
+	if len(splash.pixels) == VIEW_W * VIEW_H {
+		for y in 0 ..< VIEW_H do copy(view[win(0, y):][:VIEW_W], splash.pixels[y * VIEW_W:][:VIEW_W])
+	}
 	if in_.stage >= 1 && in_.seq >= 0 {
 		a := &assets.spider
 		s := &a.seqs[in_.seq]
@@ -112,7 +115,7 @@ intro_render :: proc() {
 				// signed byte compare, as the original: 128..255 always show
 				if p == key || (p < 128 && int(p) > in_.shown_alpha) do continue
 				x, y := 160 + i, 180 + j
-				if x < VIEW_W && y < VIEW_H do view[y * VIEW_W + x] = p
+				if x < VIEW_W && y < VIEW_H do view[win(x, y)] = p
 			}
 		}
 	}

@@ -33,7 +33,8 @@ foreign host {
 	host_view ::   proc(view: i32) ---
 	host_tool ::   proc(tool: i32, follow: bool) ---
 	host_open ::    proc(what: i32) --- // 0 = the website, 1 = floating panel, 2 = support link
-	ui_text_ex ::   proc(x, y, w, h: int, text: string, font, color, flags: i32) --- // flags: 1 centre, 2 wrap, 4 clip
+	@(link_name = "ui_text_ex")
+	host_ui_text_ex :: proc(x, y, w, h: int, text: string, font, color, flags: i32) --- // flags: 1 centre, 2 wrap, 4 clip
 	host_set_sound :: proc(on: bool) ---
 	host_fullscreen :: proc() ---
 	host_settings :: proc(frame_rate: i32, smooth, help_text: bool, saver_idle: i32) ---
@@ -41,8 +42,10 @@ foreign host {
 	host_name ::    proc(name: string) --- // the pet's name changed (edited in the tank)
 	host_tz_offset :: proc() -> i32 --- // minutes east of UTC
 	ui_begin ::    proc() ---
-	ui_text ::     proc(x, y: int, text: string) ---
-	ui_tip ::      proc(x, y: int, text: string) --- // a tooltip (0x411fe0): boxed, moved left to fit
+	@(link_name = "ui_text")
+	host_ui_text :: proc(x, y: int, text: string) ---
+	@(link_name = "ui_tip")
+	host_ui_tip :: proc(x, y: int, text: string) --- // a tooltip (0x411fe0): boxed, moved left to fit
 }
 
 // A sound effect, unless tank_away is replaying time spent hidden.

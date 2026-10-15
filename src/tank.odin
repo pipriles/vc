@@ -80,41 +80,75 @@ now_ms: u32 // simulation clock, advanced one frame (100, 71 or 55 ms) per tick
 debug_enabled: bool
 
 frame_buf: [MAX_W * MAX_H]u8
-view: [VIEW_W * VIEW_H]u8 // palette indices
-view_rgba: [VIEW_W * VIEW_H * 4]u8
+view: [MAX_VIEW_W * VIEW_H]u8 // palette indices, view_w wide
+view_rgba: [MAX_VIEW_W * VIEW_H * 4]u8
+
+// Port: how wide the view is. The original's 640, or wider on a wide
+// screen (a phone held sideways, or the page's Wide option), up to the whole
+// tank; the height stays 480. The tank shows more of itself; the original's
+// screens (Options box, cricket box, opening, close-up, whole tank) are
+// drawn for 640 and sit in the middle (window_surface), the buttons are
+// centred, the indicators, logo and mark keep to the right edge.
+view_w := VIEW_W
+
+ui_cx :: proc() -> int {return (view_w - VIEW_W) / 2} // shift for what's centred
+ui_rx :: proc() -> int {return view_w - VIEW_W}       // shift for what's at the right
+
+@(export)
+tank_set_view_width :: proc "c" (w: i32) {
+	context = runtime.default_context()
+	view_w = clamp(int(w), VIEW_W, MAX_VIEW_W) &~ 1
+	game.scroll_x = clamp(game.scroll_x, 0, TANK_W - view_w)
+	game.from_scroll = clamp(game.from_scroll, 0, TANK_W - view_w)
+	ui_layout()
+	shown_valid = false
+}
 
 // The last frame sent to the host. The browser calls step every display
 // frame (up to 120 Hz) but the sim ticks every 55-100 ms, so most frames
 // come out identical: those aren't converted or sent again.
-shown_view:    [VIEW_W * VIEW_H]u8
+shown_view:    [MAX_VIEW_W * VIEW_H]u8
+shown_w:       int
 shown_palette: [256][3]u8
 shown_valid:   bool
 
 present_view :: proc(palette: ^[256][3]u8) {
-	if shown_valid && shown_palette == palette^ && slice.equal(view[:], shown_view[:]) do return
-	for i in 0 ..< VIEW_W * VIEW_H {
+	n := view_w * VIEW_H
+	if shown_valid && shown_w == view_w && shown_palette == palette^ && slice.equal(view[:n], shown_view[:n]) do return
+	for i in 0 ..< n {
 		col := palette[view[i]]
 		view_rgba[4 * i + 0] = col[0]
 		view_rgba[4 * i + 1] = col[1]
 		view_rgba[4 * i + 2] = col[2]
 		view_rgba[4 * i + 3] = 255
 	}
-	present(&view_rgba[0], VIEW_W, VIEW_H)
-	copy(shown_view[:], view[:])
+	present(&view_rgba[0], i32(view_w), VIEW_H)
+	copy(shown_view[:n], view[:n])
+	shown_w = view_w
 	shown_palette = palette^
 	shown_valid = true
 }
 tank_buf: [TANK_W * VIEW_H]u8 // the whole scene, like the original's tank surface
 
-// Draw target for the blitters.
+// Draw target for the blitters: w x h drawable, rows stride apart.
 Surface :: struct {
-	px:   []u8,
-	w, h: int,
+	px:     []u8,
+	w, h:   int,
+	stride: int,
 }
 dst: Surface
 
-view_surface :: proc() -> Surface {return {view[:], VIEW_W, VIEW_H}}
-tank_surface :: proc() -> Surface {return {tank_buf[:], TANK_W, VIEW_H}}
+view_surface :: proc() -> Surface {return {view[:view_w * VIEW_H], view_w, VIEW_H, view_w}}
+tank_surface :: proc() -> Surface {return {tank_buf[:], TANK_W, VIEW_H, TANK_W}}
+// The original's 640 x 480 screen in the middle of the view, and where
+// its (x, y) is in view[].
+window_surface :: proc() -> Surface {return {view[ui_cx():view_w * VIEW_H], VIEW_W, VIEW_H, view_w}}
+win :: proc(x, y: int) -> int {return y * view_w + ui_cx() + x}
+
+// The view all black (the sides of a centred 640 screen).
+clear_view :: proc() {
+	for i in 0 ..< view_w * VIEW_H do view[i] = 0
+}
 
 // Allocator for data that lives for the whole program. The heap allocator
 // doesn't exist on js_wasm32, where the default allocator is never reset.
@@ -281,7 +315,7 @@ tank_reset :: proc() {
 	game.life.born_at = host_time()
 	game.follow = true
 	game.speed = 1
-	game.scroll_x = clamp(game.spider.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
+	game.scroll_x = clamp(game.spider.x - view_w / 2, 0, TANK_W - view_w)
 }
 
 // Everything is updated in the order it was drawn last frame, back to
@@ -470,11 +504,11 @@ tank_tick :: proc() {
 	}
 	if game.scroll_right > 0 {
 		game.scroll_right -= 1
-		game.scroll_x = min(game.scroll_x + SCROLL_STEP, TANK_W - VIEW_W)
+		game.scroll_x = min(game.scroll_x + SCROLL_STEP, TANK_W - view_w)
 	}
 	// follow mode keeps the spider centred
 	if game.follow && game.input.carry == .None {
-		game.scroll_x = clamp(game.spider.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
+		game.scroll_x = clamp(game.spider.x - view_w / 2, 0, TANK_W - view_w)
 	}
 }
 
@@ -504,7 +538,7 @@ tank_advance :: proc(dt: f64) {
 @(export)
 tank_scroll :: proc "contextless" (dx: i32) {
 	game.follow = false
-	game.scroll_x = clamp(game.scroll_x + int(dx), 0, TANK_W - VIEW_W)
+	game.scroll_x = clamp(game.scroll_x + int(dx), 0, TANK_W - view_w)
 }
 
 @(export)
@@ -523,6 +557,7 @@ tank_set_debug :: proc "contextless" (on: i32) {
 }
 
 tank_render :: proc() {
+	ui_ox = 0
 	if intro_active() {
 		intro_render()
 		return
@@ -552,13 +587,16 @@ tank_render :: proc() {
 	dst = view_surface()
 	#partial switch game.input.view {
 	case .Tank:
-		sx := clamp(lerp_pos(game.from_scroll, game.scroll_x, 40), 0, TANK_W - VIEW_W)
+		sx := clamp(lerp_pos(game.from_scroll, game.scroll_x, 40), 0, TANK_W - view_w)
 		for y in 0 ..< VIEW_H {
-			copy(view[y * VIEW_W:][:VIEW_W], tank_buf[y * TANK_W + sx:][:VIEW_W])
+			copy(view[y * view_w:][:view_w], tank_buf[y * TANK_W + sx:][:view_w])
 		}
 		ui_draw()
 		if !game.ui.saver {
+			// the Options box: the original's screen, in the middle
+			dst, ui_ox = window_surface(), ui_cx()
 			box_draw()
+			dst, ui_ox = view_surface(), 0
 			cmd_draw()
 		}
 	case .Whole:
@@ -618,7 +656,7 @@ draw_creature :: proc(c: ^Creature, pass: Draw_Pass, scroll: int) {
 			if cmd.logo_skin && pass == .Body && c == &game.spider && a.w == LOGO_TEX_W && a.h == LOGO_TEX_H {
 				p = logo_tex[sy * LOGO_TEX_W + fx] // GLOBALBEACH
 			}
-			dst.px[vy * dst.w + vx] = p
+			dst.px[vy * dst.stride + vx] = p
 		}
 	}
 }
@@ -641,7 +679,7 @@ draw_object :: proc(o: ^Object, pass: Draw_Pass, cx := min(int), cy := 0, scale 
 			if vx < 0 || vx >= dst.w do continue
 			p := o.bmp.pixels[row + i * o.fw / dw]
 			if p == o.key || (p == 49) != (pass == .Shadow) do continue
-			dst.px[vy * dst.w + vx] = p
+			dst.px[vy * dst.stride + vx] = p
 		}
 	}
 }
@@ -649,8 +687,10 @@ draw_object :: proc(o: ^Object, pass: Draw_Pass, cx := min(int), cy := 0, scale 
 // The cricket box view: wicker room with the crickets still in the box.
 box_render :: proc() {
 	b := &game.box_bg
-	dst = view_surface()
-	copy(view[:], b.pixels[:VIEW_W * VIEW_H])
+	dst = window_surface()
+	ui_ox = ui_cx()
+	clear_view()
+	for y in 0 ..< VIEW_H do copy(view[win(0, y):][:VIEW_W], b.pixels[y * VIEW_W:][:VIEW_W])
 	in_box: [CRICKET_COUNT]^Creature
 	n := 0
 	for &c in game.crickets do if c.active && c.in_box {in_box[n] = &c; n += 1}
@@ -701,7 +741,7 @@ draw_keyed_part :: proc(b: ^Bitmap, x0, y0, sy, h: int) {
 		for x in 0 ..< b.w {
 			vx := x0 + x
 			if vx < 0 || vx >= dst.w do continue
-			if p := b.pixels[(sy + y) * b.w + x]; p != key do dst.px[vy * dst.w + vx] = p
+			if p := b.pixels[(sy + y) * b.w + x]; p != key do dst.px[vy * dst.stride + vx] = p
 		}
 	}
 }
@@ -717,8 +757,8 @@ draw_debug :: proc() {
 	// tank limits: side walls, floor line, hiding line
 	debug_line(i32(WALL_MARGIN + sx), 0, i32(WALL_MARGIN + sx), VIEW_H, 0x4060ff)
 	debug_line(i32(TANK_W - WALL_MARGIN + sx), 0, i32(TANK_W - WALL_MARGIN + sx), VIEW_H, 0x4060ff)
-	debug_line(0, FLOOR_TOP, VIEW_W, FLOOR_TOP, 0x4060ff)
-	debug_line(0, HIDE_Y, VIEW_W, HIDE_Y, 0x305090)
+	debug_line(0, FLOOR_TOP, i32(view_w), FLOOR_TOP, 0x4060ff)
+	debug_line(0, HIDE_Y, i32(view_w), HIDE_Y, 0x305090)
 
 	// creature: drawn box, centre, facing, blocked directions
 	dw, dh := x87_scale_trunc(c.anim.w, c.scale), x87_scale_trunc(c.anim.h, c.scale)
@@ -753,7 +793,7 @@ draw_debug :: proc() {
 		tx, ty := c.sx * 9, c.sy * 7
 		#partial switch g.type {
 		case .Y_Band:
-			debug_rect(0, i32(gy), VIEW_W, i32(ty), 0xff60ff)
+			debug_rect(0, i32(gy), i32(view_w), i32(ty), 0xff60ff)
 		case:
 			debug_rect(i32(gx - tx / 2), i32(gy - ty / 2), i32(tx), i32(ty), 0xff60ff)
 		}

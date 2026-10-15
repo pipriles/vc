@@ -67,7 +67,7 @@ fuzz_act :: proc(t: ^testing.T) -> bool {
 	switch fuzz_n(16) {
 	case 0, 1, 2, 3:
 		ev := Pointer_Event(fuzz_n(5))
-		x, y := fuzz_n(660) - 10, fuzz_n(500) - 10
+		x, y := fuzz_n(view_w + 20) - 10, fuzz_n(500) - 10
 		if fuzz_n(3) == 0 { 	// near the spider, where the tools do something
 			s := &game.spider
 			x, y = s.x - game.scroll_x + fuzz_n(40) - 20, s.y + fuzz_n(40) - 20
@@ -111,7 +111,8 @@ fuzz_act :: proc(t: ^testing.T) -> bool {
 }
 
 @(private = "file")
-fuzz_run :: proc(t: ^testing.T, variant: string, seed: u32, ticks: int) -> bool {
+fuzz_run :: proc(t: ^testing.T, variant: string, seed: u32, ticks: int, wide := false) -> bool {
+	defer tank_set_view_width(VIEW_W)
 	now_ms = 0
 	settings = {frame_rate = 0}
 	saved_json = ""
@@ -122,9 +123,11 @@ fuzz_run :: proc(t: ^testing.T, variant: string, seed: u32, ticks: int) -> bool 
 	rng.seed = seed
 	fuzz_state = seed * 2654435761 + 1
 	for i in 0 ..< ticks {
+		// a wide view, its width changing now and then (a phone turning)
+		if wide && i % 300 == 0 do tank_set_view_width(i32(VIEW_W + fuzz_n(MAX_VIEW_W - VIEW_W + 1)))
 		if fuzz_n(4) == 0 && !fuzz_act(t) do return false
 		tank_tick()
-		if i % 50 == 0 do tank_render() // the drawing code too, now and then
+		if i % (wide ? 10 : 50) == 0 do tank_render() // the drawing code too, now and then
 		if !fuzz_check(t, fmt.tprintf("%s seed %d tick %d", variant, seed, i)) do return false
 		free_all(context.temp_allocator)
 	}
@@ -149,5 +152,18 @@ fuzz_random_input_keeps_the_invariants :: proc(t: ^testing.T) {
 	// the next test gets the Chile Rose back, and no typed cheats left on
 	data_dir, data_variant = "data/cr", "cr"
 	assets.loaded = false
+	cmd = {}
+}
+
+// The same with a wide view of changing width, drawn every 10th tick: every
+// screen (tank, Options box, cricket box, close-up, whole tank) at every
+// width, and pointer input across the whole view.
+@(test)
+fuzz_wide_view_keeps_the_invariants :: proc(t: ^testing.T) {
+	data_dir, data_variant = "data/cr", "cr"
+	if file_size("spider.idx") < 0 do return
+	for seed in ([?]u32{5, 6, 7}) {
+		if !fuzz_run(t, "cr", seed, 4000, wide = true) do break
+	}
 	cmd = {}
 }

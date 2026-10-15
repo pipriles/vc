@@ -920,7 +920,7 @@ dither :: proc(x0, y0, w, h: int) {
 		if y < 0 || y >= dst.h do continue
 		for i := 0; i < w; i += 2 {
 			x := x0 + i
-			if x >= 0 && x < dst.w do dst.px[y * dst.w + x] = 6
+			if x >= 0 && x < dst.w do dst.px[y * dst.stride + x] = 6
 		}
 	}
 }
@@ -929,7 +929,7 @@ fill_rect :: proc(x0, y0, w, h: int, rgb: int) {
 	// solid colour: the nearest palette entry
 	p := nearest_palette(rgb)
 	for y in max(y0, 0) ..< min(y0 + h, dst.h) do for x in max(x0, 0) ..< min(x0 + w, dst.w) {
-		dst.px[y * dst.w + x] = p
+		dst.px[y * dst.stride + x] = p
 	}
 }
 
@@ -951,7 +951,7 @@ blit :: proc(b: ^Bitmap, x0, y0, sx, sy, w, h: int) {
 		for i in 0 ..< w {
 			x := x0 + i
 			if x < 0 || x >= dst.w || sx + i >= b.w do continue
-			dst.px[y * dst.w + x] = b.pixels[(sy + j) * b.w + sx + i]
+			dst.px[y * dst.stride + x] = b.pixels[(sy + j) * b.w + sx + i]
 		}
 	}
 }
@@ -966,7 +966,7 @@ draw_keyed_cols :: proc(b: ^Bitmap, x0, y0, sx, w: int) {
 		for i in 0 ..< w {
 			x := x0 + i
 			if x < 0 || x >= dst.w || sx + i >= b.w do continue
-			if p := b.pixels[j * b.w + sx + i]; p != key do dst.px[y * dst.w + x] = p
+			if p := b.pixels[j * b.w + sx + i]; p != key do dst.px[y * dst.stride + x] = p
 		}
 	}
 }
@@ -981,7 +981,7 @@ blit_clipped_keyed :: proc(b: ^Bitmap, x0, y0, sy, w, h, clip_top, clip_bottom: 
 		for i in 0 ..< w {
 			x := x0 + i
 			if x < 0 || x >= dst.w do continue
-			if p := b.pixels[(sy + j) * b.w + i]; p != key do dst.px[y * dst.w + x] = p
+			if p := b.pixels[(sy + j) * b.w + i]; p != key do dst.px[y * dst.stride + x] = p
 		}
 	}
 }
@@ -997,7 +997,7 @@ draw_stretched_keyed :: proc(b: ^Bitmap, x0, y0, w, h: int) {
 		for i in 0 ..< w {
 			x := x0 + i
 			if x < 0 || x >= dst.w do continue
-			if p := b.pixels[sy * b.w + i * b.w / w]; p != key do dst.px[y * dst.w + x] = p
+			if p := b.pixels[sy * b.w + i * b.w / w]; p != key do dst.px[y * dst.stride + x] = p
 		}
 	}
 }

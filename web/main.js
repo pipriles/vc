@@ -210,7 +210,7 @@ for (const type of ["pointerdown", "pointerup", "touchend", "click", "keydown"])
 	}, { capture: true });
 }
 const noop = () => {};
-// The text is drawn at 640 x 480 like the view (the original drew it with
+// The text is drawn at the view's size, 640 x 480 or wider (VW; the original drew it with
 // GDI into its 8-bit frame: blocky, unsmoothed). Shown at a size that isn't
 // a whole multiple, blocky scaling would make some pixels one screen pixel
 // wide and others two, so strokes would vary letter to letter. Instead it's
@@ -220,14 +220,15 @@ const noop = () => {};
 const textShown = $("ui-text");
 const textOut = textShown?.getContext("2d");
 const textSrc = document.createElement("canvas");
-textSrc.width = 640; textSrc.height = 480;
+let VW = 640; // the view's width: 640, or more for a wide view (vc-view-width)
+textSrc.width = VW; textSrc.height = 480;
 const tctx = textShown ? textSrc.getContext("2d") : null;
 const textMid = document.createElement("canvas");
 let uiOps = null, uiShown = "[]"; // UI text: this frame's calls, what's drawn (uiFlush)
 function fitText() {
 	if (!tctx) return;
 	const r = textShown.getBoundingClientRect();
-	const w = Math.max(640, Math.round(r.width * devicePixelRatio));
+	const w = Math.max(VW, Math.round(r.width * devicePixelRatio));
 	const h = Math.max(480, Math.round(r.height * devicePixelRatio));
 	if (textShown.width !== w || textShown.height !== h) { textShown.width = w; textShown.height = h; }
 	tctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -240,8 +241,8 @@ function presentText() {
 	const w = textShown.width, h = textShown.height;
 	// (to the next whole multiple above, then smoothly down: sharper than
 	// up from the one below, and every pixel still the same size)
-	const k = Math.max(1, Math.ceil(Math.min(w / 640, h / 480)));
-	if (textMid.width !== 640 * k || textMid.height !== 480 * k) { textMid.width = 640 * k; textMid.height = 480 * k; }
+	const k = Math.max(1, Math.ceil(Math.min(w / VW, h / 480)));
+	if (textMid.width !== VW * k || textMid.height !== 480 * k) { textMid.width = VW * k; textMid.height = 480 * k; }
 	const m = textMid.getContext("2d");
 	m.imageSmoothingEnabled = false;
 	m.clearRect(0, 0, textMid.width, textMid.height);
@@ -253,6 +254,18 @@ function presentText() {
 }
 fitText();
 addEventListener("resize", fitText);
+// the view's width changed (the layout script at the end of index.html):
+// the text and debug layers follow, and the game once it runs
+function setViewWidth(w) {
+	VW = w;
+	textSrc.width = VW; // (clears it and resets its settings: fitText sets them again)
+	if (overlay) overlay.width = VW;
+	uiShown = "";
+	fitText();
+	if (running) mem.exports.tank_set_view_width(VW);
+}
+let running = false;
+addEventListener("vc-view-width", (e) => setViewWidth(e.detail));
 document.addEventListener("fullscreenchange", fitText);
 document.addEventListener("webkitfullscreenchange", fitText);
 
@@ -380,7 +393,7 @@ function uiFlush() {
 	const key = JSON.stringify(ops);
 	if (key === uiShown) return;
 	uiShown = key;
-	tctx.clearRect(0, 0, 640, 480);
+	tctx.clearRect(0, 0, VW, 480);
 	for (const op of ops) {
 		if (op[0] === "ex") uiTextEx(...op.slice(1));
 		else if (op[0] === "tip") uiTip(...op.slice(1));
@@ -550,7 +563,7 @@ function uiTip(x, y, text) {
 	tctx.font = SMALL_FONT;
 	tctx.textBaseline = "top";
 	const w = Math.ceil(textWidth(text)), h = 12;
-	if (x + w >= 640 - 20) x -= x + w - (640 - 20);
+	if (x + w >= VW - 20) x -= x + w - (VW - 20);
 	tctx.fillStyle = "#008000";
 	tctx.fillRect(x - 2, y - 2, w + 4, h + 4);
 	tctx.strokeStyle = "#fff";
@@ -1149,5 +1162,7 @@ if (loader) {
 	showLoading(1, "Starting...");
 }
 await odin.runWasm("vc.wasm", null, imports, mem);
+running = true;
+if (mode === 0) setViewWidth(window.vcViewWidth ?? 640);
 loader?.remove();
 if (mode === 1) setupViewer(); else setupTank();

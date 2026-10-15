@@ -181,7 +181,7 @@ cmd_tick :: proc() {
 cmd_draw :: proc() {
 	if game.ui.blink >= 5 do return
 	if cmd.show_fps do ui_text(10, 464, fmt_fps(cmd.fps))
-	if cmd.mark > 0 do ui_text(620, 464, "C")
+	if cmd.mark > 0 do ui_text(620 + ui_rx(), 464, "C")
 }
 
 fmt_fps :: proc(n: int) -> string {

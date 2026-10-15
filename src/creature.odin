@@ -7,8 +7,9 @@ import "core:fmt"
 
 QUEUE_LEN   :: 16
 TANK_W      :: 1200
-VIEW_W      :: 640
+VIEW_W      :: 640  // the original's view, and the layout its screens are drawn for
 VIEW_H      :: 480
+MAX_VIEW_W  :: TANK_W // port: a wide view shows up to the whole tank
 FLOOR_TOP   :: 170 // 0xaa: tank floor starts at this y, above is the back wall
 HIDE_Y      :: 114 // 0x72: lowest y while hiding behind the rock
 WALL_MARGIN :: 130 // 0x82: closest a creature's centre gets to the side walls

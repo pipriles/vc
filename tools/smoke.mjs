@@ -35,11 +35,11 @@ async function run(variant, mode, saveJson = null, start = startTime, runTicks =
 	const str = (p, n) => mem.loadString(p, n);
 	const log = [];
 	let saved = "";
-	let clock = start, sounds = 0;
+	let clock = start, sounds = 0, presentedW = 0;
 	const vc = {
 		file_size: (p, n) => files.get(str(p, n))?.length ?? -1,
 		file_read: (p, n, dst) => { const f = files.get(str(p, n)); mem.loadBytes(dst, f.length).set(f); },
-		present: noop, host_mode: () => mode, host_time: () => clock,
+		present: (ptr, w) => { presentedW = w; }, host_mode: () => mode, host_time: () => clock,
 		ui_add_anim: noop, ui_add_seq: noop, ui_status: noop, 
 		tank_status: noop, host_sound: () => { sounds++; }, host_loop: noop, host_save: (p, n) => { saved = str(p, n); },
 		host_message: noop,  host_cursor: noop, host_view: noop, host_tool: noop,
@@ -108,6 +108,13 @@ async function run(variant, mode, saveJson = null, start = startTime, runTicks =
 			ex.tank_char(13);
 			for (let t = 0; t < 10; t++) step(0.1);
 		}
+		// a wide view (a phone held sideways): every screen at 1040 and 1200
+		for (const w of [1040, 1200]) {
+			ex.tank_set_view_width(w);
+			for (const b of [100, 6, 6, 3, 100, 1, 1, 0, 0]) { ex.tank_button(b); for (let t = 0; t < 8; t++) step(0.1); }
+			if (presentedW !== w) throw new Error(`a ${w}-wide view presented ${presentedW} wide`);
+		}
+		ex.tank_set_view_width(640);
 		ex.tank_intro(); // the opening sequence, drawn
 		for (let t = 0; t < 200; t++) step(0.1);
 		ex.tank_skip_intro();

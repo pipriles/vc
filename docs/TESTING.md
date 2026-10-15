@@ -24,6 +24,10 @@ when `data/` is missing; the Node steps need `data/` and Node.
 - **Fuzz:** random pointer, tool, button, typed-command, object, box,
   save/reload, catch-up and new-spider input on fixed seeds (both
   variants), invariants checked after every tick (`fuzz_test.odin`).
+- **Wide view:** a fuzz run at changing widths, drawn every 10th tick;
+  the layout (centred buttons, indicators and logo at the right edge, the
+  Options box's clicks shifted); the smoke test presents every screen at
+  1040 and 1200.
 - **Time away and saves:** hidden-page time replays exactly like ticks on
   screen; over an hour the catch-up runs; save round trip; unusable saves
   are reported; `step` lets go of each frame's temp allocations.

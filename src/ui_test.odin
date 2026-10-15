@@ -86,3 +86,41 @@ name_edited_in_the_tank :: proc(t: ^testing.T) {
 	tank_key(27)
 	testing.expect_value(t, game.input.view, View.Tank)
 }
+
+// A wide view (port): more tank, the buttons centred, the indicators and the
+// logo at the right edge, the Options box in the middle and its clicks shifted.
+@(test)
+wide_view_layout :: proc(t: ^testing.T) {
+	if !sim_setup(t, 61) do return
+	defer tank_set_view_width(VIEW_W)
+	b0 := game.ui.buttons[0].x
+	tank_set_view_width(1041) // made even
+	testing.expect_value(t, view_w, 1040)
+	testing.expect_value(t, game.ui.buttons[0].x, b0 + 200)
+	testing.expect_value(t, logo_x(), VIEW_W - 96 - 10 + 400)
+	testing.expect_value(t, ind_x(), INDICATOR_X + 400)
+	game.follow = false
+	tank_scroll(10_000)
+	testing.expect_value(t, game.scroll_x, TANK_W - 1040)
+
+	// the Options button, where it now is, opens the box; a click in the
+	// box's middle (640 coordinates + 200) lands in it
+	b: ^UI_Button
+	for &bt in game.ui.buttons do if bt.cmd == 6 do b = &bt
+	if !testing.expect(t, b != nil, "an Options button") do return
+	press(.Down, b.x + 4, BUTTON_Y + 4)
+	press(.Up, b.x + 4, BUTTON_Y + 4)
+	for _ in 0 ..< 20 do tank_tick()
+	testing.expect_value(t, game.ui.box.state, Box_State.Open)
+	testing.expect(t, box_covers(VIEW_W / 2, VIEW_H / 2), "the box covers its middle in 640 coordinates")
+	testing.expect_value(t, tank_ui_at(i32(VIEW_W / 2 + 200), VIEW_H / 2), 0) // the box, not the tank UI
+
+	// every screen draws at the widest view
+	tank_set_view_width(MAX_VIEW_W)
+	tank_render()
+	for v in ([?]View{.Whole, .Close, .Box}) {
+		game.input.view = v
+		tank_render()
+	}
+	game.input.view = .Tank
+}

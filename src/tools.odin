@@ -127,17 +127,17 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 	}
 	switch in_.view {
 	case .Whole:
-		whole_pointer(ev, vx, vy)
+		whole_pointer(ev, vx - ui_cx(), vy) // (the original's screen, in the middle)
 		return
 	case .Close:
 		if ev == .Down do leave_view()
 		return
 	case .Tank:
 		if ev == .Right {
-			if !box_covers(vx, vy) do ui_right_click(vx, vy)
+			if !box_covers(vx - ui_cx(), vy) do ui_right_click(vx, vy)
 			return
 		}
-		if game.ui.box.state != .Closed && in_.carry == .None && box_pointer(ev, vx, vy) do return
+		if game.ui.box.state != .Closed && in_.carry == .None && box_pointer(ev, vx - ui_cx(), vy) do return
 		if ui_pointer(ev, vx, vy) do return
 	case .Box:
 	}
@@ -145,7 +145,7 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 	if in_.view == .Tank {
 		in_.x, in_.y = vx + game.scroll_x, vy
 	} else {
-		in_.x, in_.y = vx, vy
+		in_.x, in_.y = vx - ui_cx(), vy // the cricket box: the original's screen, in the middle
 	}
 	s := &game.spider
 
@@ -195,7 +195,7 @@ pointer_event :: proc(ev: Pointer_Event, vx, vy: int) {
 		// while carrying something (the original always did; the port pans
 		// with a right-drag or two fingers instead)
 		if in_.view == .Tank && in_.carry != .None {
-			if vx > VIEW_W - 20 {
+			if vx > view_w - 20 {
 				game.scroll_right, game.scroll_left = 8, 0
 			} else if vx < 20 {
 				game.scroll_left, game.scroll_right = 8, 0

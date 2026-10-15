@@ -206,7 +206,7 @@ apply_save :: proc(sv: ^Save) {
 	game.yucca_age = sv.yucca_age
 	spider_stats_tick(st)
 	creature_update_position(s)
-	game.scroll_x = clamp(s.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
+	game.scroll_x = clamp(s.x - view_w / 2, 0, TANK_W - view_w)
 	rng.seed = sv.seed // last: the position updates above may draw random numbers
 }
 
@@ -487,7 +487,7 @@ spider_resurrect :: proc() {
 	game.life.died_at = 0
 	game.life.resurrections += 1
 	plants_wilt(false)
-	game.scroll_x = clamp(s.x - VIEW_W / 2, 0, TANK_W - VIEW_W)
+	game.scroll_x = clamp(s.x - view_w / 2, 0, TANK_W - view_w)
 	st := &game.stats
 	st.water, st.food, st.mood = 30, 30, 0
 	spider_stats_tick(st)

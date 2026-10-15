@@ -230,7 +230,7 @@ tank_drop_cricket :: proc "contextless" () {
 
 handle_pending_drops :: proc() {
 	for ; game.pending_drops > 0; game.pending_drops -= 1 {
-		x := game.scroll_x + 120 + rand_n(VIEW_W - 240)
+		x := game.scroll_x + 120 + rand_n(view_w - 240)
 		y := 200 + rand_n(200)
 		if !cricket_drop(x, y) do debug_logf("no cricket to drop (box empty or %d in tank)", MAX_IN_TANK)
 	}
