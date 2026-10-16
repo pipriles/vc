@@ -100,7 +100,7 @@ const sound = {
 	ch: [null, null, null, null], // modern: {id, src, end, loop}
 	loops: new Map(), // id -> wanted on
 	on: true,
-	volume: 1,
+	volume: 0.25, // until the page's setting is read (25 %)
 	gain: null,
 	// early: made at start-up, before any click or tap. iPhones don't
 	// reliably let such a context play once a tap comes (it may report
@@ -850,10 +850,11 @@ function setupTank() {
 		if (min > 0 && !document.hidden && Date.now() - lastInput >= min * 60_000) startSaver(false);
 	}, 5000);
 
-	// volume, 0-100 %
-	let volume = 100;
-	try { volume = +(localStorage.getItem("vc-volume") ?? 100); } catch {}
-	if (!Number.isFinite(volume)) volume = 100;
+	// volume, 0-100 %: a quarter by default (full is loud, and an embed has
+	// no slider to turn it down)
+	let volume = 25;
+	try { volume = +(localStorage.getItem("vc-volume") ?? 25); } catch {}
+	if (!Number.isFinite(volume)) volume = 25;
 	$("volume").value = volume;
 	sound.setVolume(volume / 100);
 	$("volume").oninput = () => {
@@ -932,6 +933,15 @@ function setupTank() {
 		clearInterval(nameWatch);
 		mem.exports.tank_name_edit(0, 0);
 	});
+	// The tap that starts editing: its touchend is cancelled, or iOS goes on
+	// to handle the tap itself, moves the focus off the text box to the
+	// canvas (which can't hold it) and the keyboard closes again.
+	let nameTap = false;
+	canvas.addEventListener("touchend", (e) => {
+		if (!nameTap) return;
+		nameTap = false;
+		if (e.cancelable) e.preventDefault();
+	}, { passive: false });
 	const editName = () => {
 		nameBox.value = petName;
 		nameBox.focus({ preventScroll: true });
@@ -1105,7 +1115,7 @@ function setupTank() {
 				const t = uiTouch;
 				uiTouch = null;
 				clearTimeout(t.timer);
-				if (!t.long && e.type === "pointerup" && t.kind === 3) editName();
+				if (!t.long && e.type === "pointerup" && t.kind === 3) { editName(); nameTap = true; }
 				else if (!t.long && e.type === "pointerup") {
 					mem.exports.tank_pointer(1, t.x, t.y);
 					mem.exports.tank_pointer(2, t.x, t.y);
